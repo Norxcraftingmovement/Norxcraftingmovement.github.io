@@ -134,7 +134,19 @@ export default {
     if (url.pathname !== route) return env.ASSETS.fetch(request);
     const isLocal = ["localhost", "127.0.0.1", "[::1]"].includes(url.hostname);
     const test = isLocal && env.EVENTS_TEST_MODE === "1";
-    const production = url.origin === "https://norxcraftingmovement.com" && env.EVENTS_REGISTRATION_OPEN === "1";
+    const isProduction = url.origin === "https://norxcraftingmovement.com";
+    const production = isProduction && env.EVENTS_REGISTRATION_OPEN === "1";
+    // While registration is disabled, the production GET can confirm readiness
+    // without revealing row counts, personal data, or accepting any writes.
+    if (isProduction && !production && request.method === "GET") {
+      try {
+        if (!env.EVENTS_DB || !env.REGISTRATION_LIMITER) return reply({open:false,ready:false},503);
+        await env.EVENTS_DB.prepare("SELECT 1 FROM move_kids_registrations LIMIT 1").first();
+        return reply({open:false,ready:true});
+      } catch {
+        return reply({open:false,ready:false},503);
+      }
+    }
     if ((!test && !production) || !env.EVENTS_DB || (!test && !env.REGISTRATION_LIMITER)) {
       return reply({ open: false }, request.method === "GET" ? 200 : 403);
     }

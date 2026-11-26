@@ -119,3 +119,16 @@ test("authorized dashboard roster view projects required columns and media opt-o
   assert.equal(row.media_consent,0);
   assert.equal(Object.hasOwn(row,"payload"),false);
 });
+
+test("closed production GET reads schema without exposing data; no writes",async()=>{
+  const {env,sqlite}=setup();
+  assert.deepEqual(await (await get(env,production)).json(),{open:false,ready:true});
+  assert.equal(count(sqlite),0);
+  for(const altered of [{EVENTS_DB:undefined},{REGISTRATION_LIMITER:undefined},{EVENTS_DB:{prepare(){throw Error("private detail")}}}]){
+    const resp=await get({...env,...altered},production);
+    assert.equal(resp.status,503);
+    assert.deepEqual(await resp.json(),{open:false,ready:false});
+  }
+  assert.equal((await post(env,payload(),production)).status,403);
+  assert.equal(count(sqlite),0);
+});
