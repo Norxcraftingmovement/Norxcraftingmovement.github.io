@@ -24,7 +24,7 @@ Provide a reusable events hub and a reliable registration flow on the NORX websi
 ## Guardrails and launch dependencies
 - Determine whether a live Google Form already accepts event registrations. If so, keep it authoritative until explicit migration/capacity reconciliation; do not enable two independent public booking systems.
 - Owner must confirm: event name/slug, dates and registration deadline, venue, distance/safety information, eligible participants/minors and guardian requirements, free/paid, total capacity, required form fields, data retention, partner approval and public use of identity/marks.
-- During launch pressure, use an approved existing registration form as a temporary link on the event page if native API QA cannot finish in time. Clearly indicate which system is authoritative. Never advertise registration as open until owner approval.
+- Owner confirmed native website registration only. Do not link, embed or submit to Google Forms as a fallback. If native API QA cannot finish in time, keep signup closed and report the blocker; never advertise registration as open until approval. See `docs/MOVE_KIDS_REGISTRATION_REQUIREMENTS.md`.
 - Defer payments, account creation, general CMS, waitlist, QR scanning, messaging, advanced dashboard and unrelated redesign until required for a later phase.
 
 ## QA gates
@@ -38,4 +38,4 @@ Provide a reusable events hub and a reliable registration flow on the NORX websi
 ## Parallel work and order
 - Today: hub + event template and test-only registration contract/schema; prepare isolated preview.
 - 27 Nov 10:00 Thailand: separately finish live cart QA on custom domain (no real submission).
-- Review event preview and confirm real event requirements before enabling registration. If deadline precedes completion, use the already-approved form fallback.
+- Review event preview and confirm real event requirements before enabling registration. If the deadline precedes completion, report the blocker and keep native registration closed.
