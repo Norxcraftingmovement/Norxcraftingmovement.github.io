@@ -20,5 +20,8 @@
   ],
   "vars": {
     "EVENTS_REGISTRATION_OPEN": "0"
+  },
+  "previews": {
+    "vars": { "EVENTS_REGISTRATION_OPEN": "0" }
   }
 }
