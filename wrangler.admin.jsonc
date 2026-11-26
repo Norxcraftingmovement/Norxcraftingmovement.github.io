@@ -1,0 +1,42 @@
+{
+  "compatibility_date": "2026-11-26",
+  "d1_databases": [
+    {
+      "binding": "EVENTS_DB",
+      "database_name": "norx-events",
+      "database_id": "7c78c89c-533e-43f1-9267-f0521a7068d5",
+      "migrations_dir": "migrations/events"
+    }
+  ],
+  "ratelimits": [
+    {
+      "name": "REGISTRATION_LIMITER",
+      "namespace_id": "20261213",
+      "simple": {
+        "limit": 10,
+        "period": 60
+      }
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "MEDIA_BUCKET",
+      "bucket_name": "norx-event-media"
+    }
+  ],
+  "name": "norx-admin-access",
+  "main": "src/admin-access-worker.mjs",
+  "workers_dev": true,
+  "vars": {
+    "EVENTS_REGISTRATION_OPEN": "admin",
+    "MEDIA_ADMIN_ENABLED": "1",
+    "MEDIA_ACCESS_AUD": "574e2920d7fdfbad9ab142e8d47e4710e7e0e5cf1c2628f01bd83c6808df1bde",
+    "MEDIA_ADMIN_EMAIL_HASH": "5af7d1f744181a898460799911f1498cfdddd23409c24fcc11c4e4c2525e2153"
+  },
+  "previews": {
+    "vars": {
+      "MEDIA_ADMIN_ENABLED": "0",
+      "EVENTS_REGISTRATION_OPEN": "0"
+    }
+  }
+}
