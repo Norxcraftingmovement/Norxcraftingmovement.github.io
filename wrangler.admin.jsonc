@@ -26,7 +26,7 @@
   ],
   "name": "norx-admin-access",
   "main": "src/admin-access-worker.mjs",
-  "workers_dev": true,
+  "workers_dev": false,
   "vars": {
     "EVENTS_REGISTRATION_OPEN": "admin",
     "MEDIA_ADMIN_ENABLED": "1",
