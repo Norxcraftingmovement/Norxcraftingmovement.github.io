@@ -72,20 +72,32 @@ function wireForm(){
  }catch(err){showError(err.message);}});
  $('copyAccount').addEventListener('click',async()=>{try{await navigator.clipboard.writeText($('bankAccount').textContent.replace(/\D/g,''));$('copyStatus').textContent='คัดลอกเลขบัญชีแล้ว';}catch(e){$('copyStatus').textContent='แตะค้างที่เลขบัญชีด้านบนเพื่อคัดลอก';}});
 }
+/* นับถอยหลัง: ก่อนเปิด = เวลาที่เหลือก่อนเปิดรับ · ระหว่างเปิด = เวลาที่เหลือก่อนปิดรับ */
+let cdTimer=null,skew=0;
+function countdown(target,label){
+ if(cdTimer)clearInterval(cdTimer);
+ const boxes=[];for(const b of document.querySelectorAll('[data-open-badge]')){let c=b.nextElementSibling;if(!c||!c.classList.contains('countdown')){c=el('div','countdown');c.setAttribute('role','timer');b.after(c);}c.hidden=!target;boxes.push(c);}
+ if(!target)return;
+ const t=Date.parse(target),pad=n=>String(n).padStart(2,'0');
+ const tick=()=>{let ms=Math.max(0,t-(Date.now()+skew));const d=Math.floor(ms/864e5),h=Math.floor(ms/36e5)%24,m=Math.floor(ms/6e4)%60,sec=Math.floor(ms/1e3)%60;
+  for(const c of boxes){c.replaceChildren(el('span','cd-label',label));const row=el('span','cd-row');for(const [v,u] of [[d,'วัน'],[pad(h),'ชม.'],[pad(m),'นาที'],[pad(sec),'วินาที']]){const u2=el('span','cd-unit');u2.append(el('b','',String(v)),el('small','',u));row.append(u2);}c.append(row);}
+  if(ms<=0)clearInterval(cdTimer);};
+ tick();cdTimer=setInterval(tick,1000);
+}
 function start(data){
  if(!data||data.ok!==true)throw new Error(data&&data.error||'ระบบสั่งซื้อยังไม่พร้อม');
- CONFIG=data;const round=data.round,canTest=!data.testOnly||!!testKey,show=round||data.nextRound;
+ CONFIG=data;skew=data.serverNow-Date.now();const round=data.round,canTest=!data.testOnly||!!testKey,show=round||data.nextRound;
  for(const n of document.querySelectorAll('[data-price]')){const p=product(n.dataset.price);n.textContent=p?['short','long'].filter(s=>p.prices[s]).map(s=>sleeveName(s)+' '+money(p.prices[s])).join(' · '):'';}
  if(show){for(const [id,k] of [['tOpen','opensAt'],['tClose','closesAt'],['tDue','paymentDue']])if($(id))$(id).textContent=thDate(show[k]);}
- if(!round||!canTest){const nx=data.nextRound&&canTest?data.nextRound:null;if(nx){closed('ยังไม่ถึงเวลาเปิดรับ · '+nx.name+' เปิดรับ '+thDate(nx.opensAt)+' หน้านี้จะเปิดให้สั่งเองเมื่อถึงเวลา','เปิดรับ '+thDate(nx.opensAt));const w=Date.parse(nx.opensAt)-data.serverNow+1500;if(w>0&&w<2147483647)setTimeout(()=>fetch(API).then(r=>r.json()).then(start).catch(()=>location.reload()),w);}else closed('ขณะนี้ยังไม่เปิดรับพรีออเดอร์ ติดตามรอบถัดไปได้ที่เพจ NORX');return;}
- ROUND=round;for(const b of document.querySelectorAll('[data-open-badge]'))b.textContent=round.name+' · เปิดรับถึง '+thDate(round.closesAt);
+ if(!round||!canTest){const nx=data.nextRound&&canTest?data.nextRound:null;if(nx){countdown(nx.opensAt,'เปิดรับในอีก');closed('ยังไม่ถึงเวลาเปิดรับ · '+nx.name+' เปิดรับ '+thDate(nx.opensAt)+' หน้านี้จะเปิดให้สั่งเองเมื่อถึงเวลา','เปิดรับ '+thDate(nx.opensAt));const w=Date.parse(nx.opensAt)-data.serverNow+1500;if(w>0&&w<2147483647)setTimeout(()=>fetch(API).then(r=>r.json()).then(start).catch(()=>location.reload()),w);}else{countdown(null);closed('ขณะนี้ยังไม่เปิดรับพรีออเดอร์ ติดตามรอบถัดไปได้ที่เพจ NORX');}return;}
+ ROUND=round;for(const b of document.querySelectorAll('[data-open-badge]'))b.textContent=round.name+' · เปิดรับถึง '+thDate(round.closesAt);countdown(round.closesAt,'ปิดรับในอีก');
  if($('testNote'))$('testNote').hidden=!data.testOnly;
  loadCart();
  if(PAGE.product&&product(PAGE.product))buildMatrix(product(PAGE.product));
  if($('orderForm')){$('dueText').textContent=thDate(round.paymentDue);$('readyText').textContent=round.readyText?' '+round.readyText:'';$('bankName').textContent=data.bank.name;$('bankAccount').textContent=data.bank.account;$('bankHolder').textContent=data.bank.holder;buildDelivery();$('orderFields').disabled=false;}
  if($('availability'))$('availability').hidden=true;if($('mobileBar'))$('mobileBar').hidden=false;
  render();
- const left=Date.parse(round.closesAt)-data.serverNow;if(left>0&&left<2147483647)setTimeout(()=>{if(!saved){ROUND=null;closed('ปิดรับรอบนี้แล้ว ติดตามรอบถัดไปที่เพจ NORX');}},left);
+ const left=Date.parse(round.closesAt)-data.serverNow;if(left>0&&left<2147483647)setTimeout(()=>{if(!saved){ROUND=null;countdown(null);closed('ปิดรับรอบนี้แล้ว ติดตามรอบถัดไปที่เพจ NORX');}},left);
 }
 for(const link of document.querySelectorAll('a[href^="#"]'))link.addEventListener('click',ev=>{const t=document.getElementById(link.getAttribute('href').slice(1));if(t){ev.preventDefault();t.scrollIntoView({behavior:'smooth',block:'start'});}});
 const lookbook=$('lookbook');
