@@ -12,6 +12,9 @@
     ]
   },
   "main": "src/events-worker.mjs",
+  "d1_databases": [
+    { "binding": "EVENTS_DB", "database_name": "norx-events", "database_id": "7c78c89c-533e-43f1-9267-f0521a7068d5", "migrations_dir": "migrations/events" }
+  ],
   "ratelimits": [
     { "name": "REGISTRATION_LIMITER", "namespace_id": "20261213", "simple": { "limit": 10, "period": 60 } }
   ],
