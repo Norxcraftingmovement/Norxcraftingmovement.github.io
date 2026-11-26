@@ -1,0 +1,10 @@
+{
+  "name": "norx-crafting-movement",
+  "compatibility_date": "2026-11-26",
+  "workers_dev": true,
+  "assets": {
+    "directory": "./dist",
+    "html_handling": "auto-trailing-slash",
+    "not_found_handling": "none"
+  }
+}
