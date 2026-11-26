@@ -26,7 +26,7 @@
       <p class="meta">NORX × SUPERSPORTS</p>
       <h1>MOVE KIDS.</h1>
       <p>14K · Every Kid Deserves to Play.</p>
-      <a class="button" href="#register">สมัครเข้าร่วมวิ่ง</a>
+      <a class="button" id="event-register-cta" href="#register">ดูการรับสมัคร</a>
     </section>
     <figure id="event-poster" hidden style="margin:0 auto;max-width:1000px;padding:24px 20px 0">
       <img id="event-poster-image" alt="โปสเตอร์กิจกรรม MOVE KIDS" style="display:block;max-width:100%;height:auto;margin:auto">
@@ -59,48 +59,74 @@
     </div>
 
     <section class="section registration" id="register" aria-labelledby="register-title">
-      <h2 id="register-title">สมัครเข้าร่วม</h2>
-      <p class="registration-status" aria-live="polite">ยังไม่เปิดรับสมัครบนเว็บ</p>
-      <p>ทีมงาน NORX ใช้ข้อมูลผู้สมัครเพื่อจัดการรายชื่อ ติดต่อและดูแลความปลอดภัยในกิจกรรม ส่วนข้อมูลผู้ติดต่อฉุกเฉินใช้เมื่อจำเป็น กรุณาแจ้งผู้ติดต่อฉุกเฉินก่อนกรอกข้อมูล สอบถามหรือขอแก้ไขข้อมูลได้ทางเพจ NORX</p>
-      <form class="registration-form">
-        <fieldset disabled>
-          <legend>ข้อมูลผู้สมัคร</legend>
-          <div class="field-grid">
-            <label>ชื่อ–นามสกุล <input name="fullName" maxlength="120" autocomplete="name" required></label>
-            <label>ชื่อเล่น <input name="nickname" maxlength="60" autocomplete="nickname" required></label>
-            <label>อายุ <input name="age" type="number" inputmode="numeric" min="0" max="120" step="1" required></label>
-            <label>เบอร์โทรศัพท์ที่ติดต่อได้ <input name="phone" maxlength="25" type="tel" autocomplete="tel" required></label>
-          </div>
-        </fieldset>
-        <fieldset disabled>
-          <legend>ผู้ติดต่อฉุกเฉิน</legend>
-          <div class="field-grid">
-            <label>ชื่อผู้ติดต่อ <input name="emergencyName" maxlength="120" autocomplete="off" required></label>
-            <label>เบอร์ผู้ติดต่อ <input name="emergencyPhone" maxlength="25" type="tel" autocomplete="off" required></label>
-            <label>ความสัมพันธ์กับผู้สมัคร <input name="emergencyRelationship" maxlength="60" required></label>
-          </div>
-          <label class="trail-experience">ประสบการณ์เดิน–วิ่ง / เทรล
-            <select name="experience" required>
-              <option value="">เลือกประสบการณ์</option>
-              <option value="regular">เคยวิ่งเทรลเป็นประจำ</option>
-              <option value="some">เคยวิ่งเทรลบ้าง</option>
-              <option value="new">มือใหม่ ยังไม่เคยวิ่งเทรล</option>
-            </select>
-          </label>
-        </fieldset>
-        <fieldset disabled>
-          <legend>เตรียมตัวก่อนเข้าร่วม</legend>
-          <label class="check"><input name="termsAccepted" type="checkbox" required> รับทราบเงื่อนไข เส้นทางมีทางขึ้นเขา กรุณามาเช็กชื่อก่อนเริ่ม และเคารพชุมชน โรงเรียน และสิ่งแวดล้อม</label>
-          <label class="check"><input name="safetyAccepted" type="checkbox" required> รับทราบว่าต้องดูแลตนเองเป็นหลัก รถซัพพอร์ตจอดประจำจุด ไม่มีบริการรับส่ง และต้องเช็กชื่อเมื่อกลับถึงจุดสิ้นสุด</label>
-          <label class="check"><input name="equipmentAccepted" type="checkbox" required> จะเตรียมน้ำดื่ม อาหาร พลังงานสำรอง และยาประจำตัว (ถ้ามี)</label>
-        </fieldset>
-        <fieldset disabled>
-          <legend>การถ่ายภาพและวิดีโอ</legend>
-          <label class="check"><input name="mediaConsent" type="checkbox"> ยินยอมให้ถ่ายภาพและวิดีโอเพื่อใช้ประชาสัมพันธ์โครงการ MOVE KIDS (ไม่บังคับ)</label>
-          <p>ไม่ยินยอมก็สมัครได้</p>
-        </fieldset>
-        <button class="button" type="button" disabled>ยังไม่เปิดรับสมัคร</button>
-      </form>
+      <div class="registration-shell">
+        <p class="registration-eyebrow">MOVE KIDS / 14K</p>
+        <h2 id="register-title">สมัครเข้าร่วม</h2>
+        <p class="registration-summary">13 ธ.ค. 2569 · เชียงราย · เข้าร่วมฟรี</p>
+        <div class="registration-status" role="status" aria-live="polite" tabindex="-1">กำลังตรวจสอบสถานะการรับสมัคร…</div>
+        <div id="registration-closed" class="registration-message" hidden>
+          <p>ติดตามประกาศเปิดรับสมัครได้ทางเพจ NORX</p>
+          <a href="https://www.facebook.com/profile.php?id=61587303667289">ไปที่เพจ NORX ↗</a>
+        </div>
+        <form class="registration-form" hidden>
+          <p class="form-intro">ช่องทั้งหมดจำเป็น ยกเว้นการยินยอมถ่ายภาพ<br>ข้อมูลใช้สำหรับจัดกิจกรรม ติดต่อ และดูแลความปลอดภัยเท่านั้น</p>
+          <fieldset disabled>
+            <legend><span class="form-number">01</span> ข้อมูลผู้สมัคร</legend>
+            <div class="field-grid">
+              <label class="field-wide">ชื่อ–นามสกุล <input name="fullName" maxlength="120" autocomplete="name" required></label>
+              <label>ชื่อเล่น <input name="nickname" maxlength="60" autocomplete="nickname" required></label>
+              <label>อายุ (ปี) <input name="age" type="number" inputmode="numeric" min="0" max="120" step="1" required></label>
+              <label class="field-wide">เบอร์โทรศัพท์ <input name="phone" maxlength="25" type="tel" inputmode="tel" autocomplete="tel" required aria-describedby="phone-hint"><small id="phone-hint">เบอร์ที่ทีมงานติดต่อได้</small></label>
+            </div>
+            <div class="experience-options" role="group" aria-labelledby="experience-title">
+              <p id="experience-title" class="field-title">ประสบการณ์เดิน–วิ่ง / เทรล</p>
+              <label class="choice"><input name="experience" type="radio" value="regular" required><span>เคยวิ่งเทรลเป็นประจำ</span></label>
+              <label class="choice"><input name="experience" type="radio" value="some"><span>เคยวิ่งเทรลบ้าง</span></label>
+              <label class="choice"><input name="experience" type="radio" value="new"><span>มือใหม่ ยังไม่เคยวิ่งเทรล</span></label>
+            </div>
+          </fieldset>
+          <fieldset disabled>
+            <legend><span class="form-number">02</span> ผู้ติดต่อฉุกเฉิน</legend>
+            <p class="form-hint">กรุณาแจ้งผู้ติดต่อก่อนกรอกข้อมูล ทีมงานจะใช้ข้อมูลนี้เมื่อจำเป็น</p>
+            <div class="field-grid">
+              <label class="field-wide">ชื่อผู้ติดต่อ <input name="emergencyName" maxlength="120" autocomplete="off" required></label>
+              <label>เบอร์โทรศัพท์ <input name="emergencyPhone" maxlength="25" type="tel" inputmode="tel" autocomplete="off" required></label>
+              <label>ความสัมพันธ์ <input name="emergencyRelationship" maxlength="60" placeholder="เช่น เพื่อน, พี่น้อง" required></label>
+            </div>
+          </fieldset>
+          <fieldset disabled>
+            <legend><span class="form-number">03</span> เตรียมตัวก่อนเข้าร่วม</legend>
+            <p class="form-hint">อ่านและทำเครื่องหมายรับทราบทั้ง 3 ข้อ</p>
+            <label class="choice check"><input name="termsAccepted" type="checkbox" required><span>เส้นทางมีทางขึ้นเขา จะมาเช็กชื่อก่อนเริ่ม และเคารพชุมชน โรงเรียน และสิ่งแวดล้อม</span></label>
+            <label class="choice check"><input name="safetyAccepted" type="checkbox" required><span>ดูแลตนเองเป็นหลัก รถซัพพอร์ตจอดประจำจุด ไม่มีบริการรับส่ง และต้องเช็กชื่อเมื่อกลับถึงจุดสิ้นสุด</span></label>
+            <label class="choice check"><input name="equipmentAccepted" type="checkbox" required><span>จะเตรียมน้ำดื่ม อาหาร พลังงานสำรอง และยาประจำตัว (ถ้ามี)</span></label>
+          </fieldset>
+          <fieldset disabled>
+            <legend><span class="form-number">04</span> การถ่ายภาพและวิดีโอ <span class="optional">ไม่บังคับ</span></legend>
+            <label class="choice check"><input name="mediaConsent" type="checkbox"><span>ยินยอมให้ถ่ายภาพและวิดีโอเพื่อใช้ประชาสัมพันธ์โครงการ MOVE KIDS</span></label>
+            <p class="form-hint">ไม่ยินยอมก็สมัครได้</p>
+          </fieldset>
+          <details class="privacy-note">
+            <summary>การใช้ข้อมูลส่วนบุคคล</summary>
+            <p>ทีมงาน NORX ใช้ข้อมูลผู้สมัครเพื่อจัดการรายชื่อ ติดต่อและดูแลความปลอดภัยในกิจกรรม ส่วนข้อมูลผู้ติดต่อฉุกเฉินใช้เมื่อจำเป็น กรุณาแจ้งผู้ติดต่อฉุกเฉินก่อนกรอกข้อมูล สอบถามหรือขอแก้ไขข้อมูลได้ทางเพจ NORX</p>
+          </details>
+          <p id="form-feedback" class="form-feedback" role="alert" tabindex="-1" hidden></p>
+          <button class="button registration-submit" type="button" disabled>ยังไม่เปิดรับสมัคร</button>
+          <p class="submit-note">ไม่ต้องสร้างบัญชีหรือใช้รหัสยืนยันวันงาน</p>
+        </form>
+        <section id="registration-success" class="registration-message success" aria-labelledby="success-title" hidden>
+          <div class="success-mark" aria-hidden="true">✓</div>
+          <h3 id="success-title" tabindex="-1">ลงทะเบียนสำเร็จ!</h3>
+          <p id="success-note">วันงานแจ้งชื่อกับทีมงาน NORX เพื่อเช็กอินได้เลย</p>
+          <dl class="success-facts">
+            <div><dt>วันจัด</dt><dd>อาทิตย์ 13 ธันวาคม 2569</dd></div>
+            <div><dt>รวมตัว</dt><dd>06:00 น. · เริ่มเดิน–วิ่ง 06:30 น.</dd></div>
+            <div><dt>จุดนัดพบ</dt><dd>จุดจอดรถใกล้ปางช้างกะเหรี่ยงรวมมิตร จ.เชียงราย</dd></div>
+          </dl>
+          <a class="button" href="https://maps.app.goo.gl/3nNr9nwVGJoPyDb89">เปิดแผนที่จุดนัดพบ ↗</a>
+          <a class="success-back" href="https://www.facebook.com/profile.php?id=61587303667289">ติดตามข่าวสารจาก NORX ↗</a>
+        </section>
+      </div>
     </section>
   </main>
   <footer class="footer">
