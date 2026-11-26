@@ -74,3 +74,6 @@ h3 { font-size: clamp(27px, 4.5vw, 55px); letter-spacing: -.04em; }
 @media (max-width: 660px) {
   .field-grid { grid-template-columns: 1fr; }
 }
+
+/* shared menu: readable on phones */
+@media (max-width: 660px) { .header nav a { font-size: 12px; } .header nav { gap: 4px 14px; } }

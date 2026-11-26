@@ -50,7 +50,12 @@ th,td{border-bottom-color:#3a3a3a}th{background:#2f2f2f}
 .mobile-summary{background:#111111;border-top:1px solid #2e2e2e}
 button:focus-visible,a:focus-visible,input:focus,select:focus,textarea:focus,.delivery-choice:focus-within,.lookbook summary:focus-visible{outline-color:#e08a62}
 .payment .bank .btn.alt{color:#191715;border-color:#191715;background:transparent}.payment .bank{color:#191715}.cart .empty,.empty{color:#a8a8a8}
-  </style>
+  .topnav{display:flex;gap:4px 24px;margin-left:auto;margin-right:18px}
+.topnav a{font-size:.8125rem;font-weight:700;letter-spacing:.06em;text-decoration:none;min-height:44px;display:inline-flex;align-items:center}
+.topnav a[aria-current]{box-shadow:inset 0 -2px 0 #b04922}
+.foot-links{display:flex;flex-wrap:wrap;gap:4px 18px}.foot-links a{display:inline-flex;min-height:44px;align-items:center}
+@media(max-width:660px){.topline{flex-wrap:wrap}.topnav{order:3;width:100%;margin:0;justify-content:space-between;gap:0}.topnav a{font-size:.75rem}}
+</style>
 <style>
 /* ===== ตะกร้า (เพิ่มจาก Drop 03 v15) ===== */
 .pick{border:1px solid #3a3a3a;border-radius:6px;padding:18px;margin-bottom:18px}
@@ -145,7 +150,7 @@ body.theme-paper .foot{background:#fff}
 </style>
 </head>
 <body class="theme-mono">
-<header class="topbar"><div class="wrap topline"><a class="wordmark" href="../" data-internal><img class="logo-mark" src="../assets/logo.png" alt="NORX Crafting Movement" width="66" height="60"></a><a class="cart-btn" href="../cart/" data-internal>ตะกร้า (<span data-cart-count>0</span>)</a></div></header>
+<header class="topbar"><div class="wrap topline"><a class="wordmark" href="../" data-internal><img class="logo-mark" src="../assets/logo.png" alt="NORX Crafting Movement" width="66" height="60"></a><nav class="topnav" aria-label="เมนูหลัก"><a href="../#collections">SHOP</a><a href="../events/">EVENTS</a><a href="../#community">COMMUNITY</a><a href="../#roots">ABOUT</a></nav><a class="cart-btn" href="../cart/" data-internal>ตะกร้า (<span data-cart-count>0</span>)</a></div></header>
 <main class="wrap" id="top">
 <a class="back" href="../" data-internal>← กลับหน้ารวมทุกรุ่น</a>
 <section class="hub-hero"><h1>ชำระเงิน.</h1><p class="pill" data-open-badge style="display:inline-block;margin-top:6px">PREORDER</p></section>
@@ -153,7 +158,7 @@ body.theme-paper .foot{background:#fff}
   <section class="payment" id="payment" tabindex="-1" hidden><p class="eyebrow">ORDER SAVED / รอยืนยันยอดจากทีม NORX</p><h2>บันทึกคำสั่งซื้อแล้ว</h2><p id="savedCustomer"></p><p id="savedOrder" class="small"></p><p>ขั้นตอนต่อไป: โอนเงิน แล้วส่ง <b>ชื่อที่ใช้สั่งซื้อพร้อมสลิป</b> ทางแชทเพจ NORX : Crafting Movement เท่านั้น</p><div class="bank"><p>ยอดที่ต้องโอน</p><p class="account" id="payTotal"></p><p class="pay-due">โอนและส่งสลิปภายใน <span id="payDue"></span><br><span class="small">เลยเวลานี้ออเดอร์ถูกยกเลิก</span></p><hr style="border:0;border-top:1px solid var(--line);margin:16px 0"><p id="bankName">กสิกรไทย (KBANK)</p><p class="account" id="bankAccount">147-3-27057-5</p><p>ชื่อบัญชี: <span id="bankHolder">คุณานนท์ ธนะวดี</span></p><button type="button" class="btn alt" id="copyAccount" style="margin-top:12px">คัดลอกเลขบัญชี</button><p class="small" id="copyStatus" role="status"></p><hr style="border:0;border-top:1px solid var(--line);margin:16px 0"><p class="qr-label">หรือสแกน QR</p><img class="qr" src="../assets/qr.jpg" alt="QR เดิมสำหรับโอนเข้าบัญชี คุณานนท์ ธนะวดี ธนาคารกสิกรไทย" width="282" height="382"><p class="small qr-hint">กดค้างที่รูปเพื่อบันทึก แล้วเปิดในแอปธนาคาร<br>บันทึก QR ไม่ได้ ใช้เลขบัญชีด้านบนแทน</p></div><p class="small" style="margin:16px 0">โปรดตรวจสอบชื่อผู้รับก่อนยืนยันโอน<br>ออเดอร์ยืนยันเมื่อทีมตรวจพบยอดเงินเข้าบัญชี</p><a class="btn light" id="chatLink" href="https://m.me/61587303667289" target="_blank" rel="noopener noreferrer">ส่งสลิปทางแชทเพจ NORX</a><p class="small" style="margin-top:14px">หากปุ่มแชทเปิดไม่ได้ <a href="https://www.facebook.com/profile.php?id=61587303667289" target="_blank" rel="noopener noreferrer">เปิดเพจ NORX แล้วกดส่งข้อความ</a></p></section>
 
 </main>
-<footer class="foot"><div class="wrap footline"><p><b>NORX / CRAFTING MOVEMENT</b><br><span class="small muted">Rooted in Chiang Rai.</span></p><p class="small"><a href="https://www.facebook.com/profile.php?id=61587303667289" target="_blank" rel="noopener noreferrer">ติดต่อเพจ NORX : Crafting Movement</a><br>ยืนยันโอนผ่านชื่อและสลิปทางแชทเพจเท่านั้น</p></div></footer>
+<footer class="foot"><div class="wrap footline"><p><b>NORX / CRAFTING MOVEMENT</b><br><span class="small muted">Rooted in Chiang Rai.</span></p><span class="foot-links"><p class="small"><a href="https://www.facebook.com/profile.php?id=61587303667289" target="_blank" rel="noopener noreferrer">ติดต่อเพจ NORX : Crafting Movement</a><a href="https://www.instagram.com/norx.craftingmovement/" target="_blank" rel="noopener noreferrer">Instagram @norx.craftingmovement</a></span><br>ยืนยันโอนผ่านชื่อและสลิปทางแชทเพจเท่านั้น</p></div></footer>
 <div class="mobile-summary" id="mobileBar"><div><small id="mobileCount">ตะกร้าว่าง</small><br><b id="mobileTotal">0 บาท</b></div><a href="#summary">ดูยอด / ยืนยัน</a></div>
 <script>window.NORX_API="https://script.google.com/macros/s/AKfycbz49Ej8QbkVwYSyVrsx_jMUPjRWc18wd1t83gyuo21Rsb8kn4_JOJ9KUxFo3xkS5Efyfw/exec";window.NORX_PAGE={"root":"../","checkout":true};</script>
 <script src="../shop.js?v=5"></script>

@@ -241,23 +241,43 @@ body{font-family:"NORX Thai",Arial,Helvetica,"Noto Sans Thai","Sukhumvit Set","T
  .run-gallery.n1 figure{aspect-ratio:auto}
  .raced{grid-template-columns:minmax(0,1fr);gap:28px}
 }
+
+/* UX quick wins: shared menu, second hero action, clickable tiles, footer links, readable sizes */
+.hero-actions{display:flex;flex-wrap:wrap;gap:12px}
+.cta-alt{background:transparent;border:1px solid #f2efe7;color:#f2efe7}.cta-alt:hover{background:#f2efe7;color:#1a1a18}
+a.tile{display:block;color:#fff;text-decoration:none}
+.tile-more{display:inline-block;margin-top:10px;font-size:14px;font-weight:700;border-bottom:1px solid currentColor}
+a.tile:focus-visible{outline:3px solid #b04922;outline-offset:3px}
+.foot-links{display:flex;flex-wrap:wrap;gap:4px 22px;align-self:center}
+.foot-links a{font-size:13px;font-weight:700;letter-spacing:.06em;text-decoration:none!important;display:inline-flex;align-items:center;gap:5px;min-height:44px}
+.foot-links a:hover{color:#fff}
+.mono{font-size:12px}
+@media(max-width:660px){
+ .hero-actions{flex-direction:column;gap:10px}.hero-actions .cta{max-width:none;width:100%}
+ .mono,.tile .caption .mono,.footer .mono{font-size:12px}
+ .round,.cd-label,.cd-note,.timeline{font-size:13px}
+ .card-image .tag{font-size:12px}
+ .run-facts li{font-size:13px}
+ .footer{flex-direction:column;align-items:flex-start}
+ .footer p{font-size:13px;text-align:left}
+}
 </style>
 <style>.hero h1.brandmark{font-size:clamp(88px,30vw,170px)!important;letter-spacing:-.04em!important;line-height:.85!important}.hero h1.brandmark span{display:block;font-size:.185em;letter-spacing:.2em;white-space:nowrap;font-weight:700;margin-top:.55em;line-height:1}</style></head>
 <body>
 <a class="skip" href="#collections">ข้ามไปที่คอลเลกชัน</a>
 <header class="header">
  <a class="logo" href="./" data-internal aria-label="NORX หน้าแรก"><img src="assets/logo.png" alt="NORX Crafting Movement" width="66" height="60"></a>
- <nav class="nav" aria-label="เมนูหลัก"><a href="#collections">COLLECTIONS</a><a href="#movement">MOVEMENT</a><a href="#community">COMMUNITY</a><a href="#roots">OUR ROOTS</a></nav>
+ <nav class="nav" aria-label="เมนูหลัก"><a href="#collections">SHOP</a><a href="events/" data-internal>EVENTS</a><a href="#community">COMMUNITY</a><a href="#roots">ABOUT</a></nav>
  <a class="cart" href="cart/" data-internal aria-label="ตะกร้า">CART (<span data-cart-count>0</span>) <svg class="arrow-icon" viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 13 13 3M5 3h8v8"/></svg></a>
 </header>
-<nav class="subnav" aria-label="เมนูหลัก (มือถือ)"><a href="#collections">COLLECTIONS</a><a href="#movement">MOVEMENT</a><a href="#community">COMMUNITY</a><a href="#roots">OUR ROOTS</a></nav>
+<nav class="subnav" aria-label="เมนูหลัก (มือถือ)"><a href="#collections">SHOP</a><a href="events/" data-internal>EVENTS</a><a href="#community">COMMUNITY</a><a href="#roots">ABOUT</a></nav>
 <main id="top">
 <section class="hero" aria-label="NORX Crafting Movement">
  <div class="hero-copy">
   <div class="eyebrow">ROOTED IN CHIANG RAI.</div>
   <h1 class="brandmark">NORX<span>CRAFTING MOVEMENT</span></h1>
   <p>ROAD · TRAIL · COMMUNITY</p>
-  <a href="#collections" class="cta">เลือกเสื้อ <span aria-hidden="true"><svg class="arrow-icon" viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 13 13 3M5 3h8v8"/></svg></span></a>
+  <div class="hero-actions"><a href="#collections" class="cta">เลือกเสื้อ <span aria-hidden="true"><svg class="arrow-icon" viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 13 13 3M5 3h8v8"/></svg></span></a><a href="events/" class="cta cta-alt" data-internal>นัดวิ่งครั้งถัดไป <span aria-hidden="true"><svg class="arrow-icon" viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 13 13 3M5 3h8v8"/></svg></span></a></div>
   <span class="hero-index mono" aria-hidden="true">01 — NORX / CHIANG RAI</span>
  </div>
  <div class="hero-media">
@@ -288,8 +308,8 @@ body{font-family:"NORX Thai",Arial,Helvetica,"Noto Sans Thai","Sukhumvit Set","T
 <section class="movement" id="movement">
  <div class="section-head"><div><span class="mono">02 / MOVEMENT</span><h2>THE WAY<br>WE MOVE.</h2></div><p>FROM THE ROAD TO THE TRAIL.<br>Find your pace, find your people.</p></div>
  <div class="cards">
-  <figure class="tile"><img src="assets/run.jpg" width="800" height="1001" alt="นักวิ่ง NORX บนถนน" loading="lazy" decoding="async"><figcaption class="caption"><span class="mono">01 / MOVEMENT</span><h3>ROAD.</h3></figcaption></figure>
-  <figure class="tile"><img src="assets/homepage/trail-anc-9518-640.jpg" srcset="assets/homepage/trail-anc-9518-640.jpg 640w, assets/homepage/trail-anc-9518-1012.jpg 1012w" sizes="(max-width:660px) 50vw, 45vw" width="1012" height="1800" alt="นักวิ่ง NORX กระโดดบนเส้นทางเทรลในป่า" loading="lazy" decoding="async"><figcaption class="caption"><span class="mono">02 / MOVEMENT</span><h3>TRAIL.</h3></figcaption></figure>
+  <a class="tile" href="#community" aria-label="ดูงานวิ่งถนนและงานวิ่งในเมือง"><img src="assets/run.jpg" width="800" height="1001" alt="นักวิ่ง NORX บนถนน" loading="lazy" decoding="async"><div class="caption"><span class="mono">01 / MOVEMENT</span><h3>ROAD.</h3><span class="tile-more">ดูงานวิ่ง →</span></div></a>
+  <a class="tile" href="#community" aria-label="ดูงานวิ่งเทรล"><img src="assets/homepage/trail-anc-9518-640.jpg" srcset="assets/homepage/trail-anc-9518-640.jpg 640w, assets/homepage/trail-anc-9518-1012.jpg 1012w" sizes="(max-width:660px) 50vw, 45vw" width="1012" height="1800" alt="นักวิ่ง NORX กระโดดบนเส้นทางเทรลในป่า" loading="lazy" decoding="async"><div class="caption"><span class="mono">02 / MOVEMENT</span><h3>TRAIL.</h3><span class="tile-more">ดูงานวิ่ง →</span></div></a>
  </div>
 </section>
 
@@ -337,8 +357,9 @@ d.addEventListener('touchend',e=>{if(x0===null)return;const dx=e.changedTouches[
 </section>
 </main>
 <footer class="footer">
- <div><img src="assets/logo.png" width="66" height="60" alt="NORX" loading="lazy"><div class="mono" style="margin-top:12px">CHIANG RAI, THAILAND</div></div>
- <p><a href="https://www.facebook.com/profile.php?id=61587303667289" target="_blank" rel="noopener noreferrer">NORX : CRAFTING MOVEMENT <svg class="arrow-icon" viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 13 13 3M5 3h8v8"/></svg></a><br>ยืนยันโอนผ่านชื่อและสลิปทางแชทเพจเท่านั้น<br><br>ROAD · TRAIL · COMMUNITY</p>
+ <div><img src="assets/logo.png" width="66" height="60" alt="NORX" loading="lazy"><div class="mono" style="margin-top:12px">ROOTED IN CHIANG RAI, THAILAND</div></div>
+ <nav class="foot-links" aria-label="ลิงก์ท้ายเว็บ"><a href="#collections">SHOP</a><a href="events/" data-internal>EVENTS</a><a href="#community">COMMUNITY</a><a href="https://www.instagram.com/norx.craftingmovement/" target="_blank" rel="noopener noreferrer">INSTAGRAM <svg class="arrow-icon" viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 13 13 3M5 3h8v8"/></svg></a><a href="https://www.facebook.com/profile.php?id=61587303667289" target="_blank" rel="noopener noreferrer">FACEBOOK <svg class="arrow-icon" viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 13 13 3M5 3h8v8"/></svg></a></nav>
+ <p>สั่งเสื้อ: ยืนยันโอนผ่านชื่อและสลิปทางแชทเพจเท่านั้น<br>ROAD · TRAIL · COMMUNITY</p>
 </footer>
 <script>window.NORX_API="https://script.google.com/macros/s/AKfycbz49Ej8QbkVwYSyVrsx_jMUPjRWc18wd1t83gyuo21Rsb8kn4_JOJ9KUxFo3xkS5Efyfw/exec";window.NORX_PAGE={"root":"./"};</script>
 <script src="shop.js?v=5"></script>

@@ -50,7 +50,12 @@ th,td{border-bottom-color:#3a3a3a}th{background:#2f2f2f}
 .mobile-summary{background:#111111;border-top:1px solid #2e2e2e}
 button:focus-visible,a:focus-visible,input:focus,select:focus,textarea:focus,.delivery-choice:focus-within,.lookbook summary:focus-visible{outline-color:#e08a62}
 .payment .bank .btn.alt{color:#191715;border-color:#191715;background:transparent}.payment .bank{color:#191715}.cart .empty,.empty{color:#a8a8a8}
-  </style>
+  .topnav{display:flex;gap:4px 24px;margin-left:auto;margin-right:18px}
+.topnav a{font-size:.8125rem;font-weight:700;letter-spacing:.06em;text-decoration:none;min-height:44px;display:inline-flex;align-items:center}
+.topnav a[aria-current]{box-shadow:inset 0 -2px 0 #b04922}
+.foot-links{display:flex;flex-wrap:wrap;gap:4px 18px}.foot-links a{display:inline-flex;min-height:44px;align-items:center}
+@media(max-width:660px){.topline{flex-wrap:wrap}.topnav{order:3;width:100%;margin:0;justify-content:space-between;gap:0}.topnav a{font-size:.75rem}}
+</style>
 <style>
 /* ===== ตะกร้า (เพิ่มจาก Drop 03 v15) ===== */
 .pick{border:1px solid #3a3a3a;border-radius:6px;padding:18px;margin-bottom:18px}
@@ -145,7 +150,7 @@ body.theme-paper .foot{background:#fff}
 </style>
 </head>
 <body class="">
-<header class="topbar"><div class="wrap topline"><a class="wordmark" href="../" data-internal><img class="logo-mark" src="../assets/logo.png" alt="NORX Crafting Movement" width="66" height="60"></a><a class="cart-btn" href="../cart/" data-internal>ตะกร้า (<span data-cart-count>0</span>)</a></div></header>
+<header class="topbar"><div class="wrap topline"><a class="wordmark" href="../" data-internal><img class="logo-mark" src="../assets/logo.png" alt="NORX Crafting Movement" width="66" height="60"></a><nav class="topnav" aria-label="เมนูหลัก"><a href="../#collections" aria-current="page">SHOP</a><a href="../events/">EVENTS</a><a href="../#community">COMMUNITY</a><a href="../#roots">ABOUT</a></nav><a class="cart-btn" href="../cart/" data-internal>ตะกร้า (<span data-cart-count>0</span>)</a></div></header>
 <main class="wrap" id="top">
 <a class="back" href="../" data-internal>← กลับหน้ารวมทุกรุ่น</a>
 <section class="hero"><div><p class="eyebrow">DROP 03 / ROOTED IN CHIANG RAI</p><h1>HOME<br>TERRAIN.</h1><p class="lead">เสื้อ NORX ทรง Boxy<br><span data-price="drop03">—</span></p><p class="pill" data-open-badge style="display:inline-block;margin:14px 0 0">PREORDER</p><div class="hero-actions"><a class="btn" href="#order">เลือกไซส์และจำนวน</a><a class="btn alt" href="#sizes">ดูตารางไซส์</a></div><p class="notice">ซื้อรวมกับ Drop 02 ในตะกร้าเดียวได้ ค่าส่งครั้งเดียว</p></div>
@@ -159,7 +164,7 @@ body.theme-paper .foot{background:#fff}
   
 <section class="section" id="order"><div class="section-head"><h2>สั่งจอง Home Terrain</h2><p class="muted steps">① เลือกจำนวนแต่ละไซส์ → ② เลือกรุ่นอื่นเพิ่มได้ → ③ ไปชำระเงิน (กรอกชื่อ ที่อยู่ วิธีรับ)</p></div><div id="availability" class="status" role="status">กำลังโหลดรอบสั่งซื้อ…</div><div class="order-layout" id="orderFields"><div class="panel"><div id="testNote" class="test-note small" hidden>โหมดทดสอบ · ออเดอร์นี้ไม่ใช่ออเดอร์จริง</div><div id="products"></div></div><aside class="panel cart" id="summary"><h3>ตะกร้ารวมทุกรุ่น</h3><div id="cartItems" aria-live="polite"></div><div class="totals"><div class="total"><span>ค่าเสื้อ</span><span id="subtotal">0 บาท</span></div></div><p class="small muted" style="margin:6px 0 14px">ค่าส่งและวิธีรับ เลือกในหน้าชำระเงิน</p><a class="btn" id="checkoutBtn" href="../cart/" data-internal>ไปชำระเงิน →</a><a class="btn alt" style="margin-top:10px;width:100%" href="../" data-internal>+ เลือกรุ่นอื่นเพิ่ม</a></aside></div></section>
 </main>
-<footer class="foot"><div class="wrap footline"><p><b>NORX / CRAFTING MOVEMENT</b><br><span class="small muted">Rooted in Chiang Rai.</span></p><p class="small"><a href="https://www.facebook.com/profile.php?id=61587303667289" target="_blank" rel="noopener noreferrer">ติดต่อเพจ NORX : Crafting Movement</a><br>ยืนยันโอนผ่านชื่อและสลิปทางแชทเพจเท่านั้น</p></div></footer>
+<footer class="foot"><div class="wrap footline"><p><b>NORX / CRAFTING MOVEMENT</b><br><span class="small muted">Rooted in Chiang Rai.</span></p><span class="foot-links"><p class="small"><a href="https://www.facebook.com/profile.php?id=61587303667289" target="_blank" rel="noopener noreferrer">ติดต่อเพจ NORX : Crafting Movement</a><a href="https://www.instagram.com/norx.craftingmovement/" target="_blank" rel="noopener noreferrer">Instagram @norx.craftingmovement</a></span><br>ยืนยันโอนผ่านชื่อและสลิปทางแชทเพจเท่านั้น</p></div></footer>
 <div class="mobile-summary" id="mobileBar"><div><small id="mobileCount">ตะกร้าว่าง</small><br><b id="mobileTotal">0 บาท</b></div><a href="../cart/" data-internal>ไปชำระเงิน →</a></div>
 <script>window.NORX_API="https://script.google.com/macros/s/AKfycbz49Ej8QbkVwYSyVrsx_jMUPjRWc18wd1t83gyuo21Rsb8kn4_JOJ9KUxFo3xkS5Efyfw/exec";window.NORX_PAGE={"product":"drop03","root":"../","lookbook":"lookbook.html"};</script>
 <script src="../shop.js?v=5"></script>
