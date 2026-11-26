@@ -1,3 +1,4 @@
+import { registrationState, slug } from "./event-registration-control.mjs";
 import { eventAdminFetch } from "./event-admin-worker.mjs";
 import { mediaFetch } from "./media-worker.mjs";
 const route = "/api/events/move-kids-2026/registration";
@@ -41,7 +42,7 @@ function validate(body) {
   return { ...data, age: body.age, experience: body.experience, mediaConsent: body.mediaConsent, ...Object.fromEntries(acknowledgements.map(name => [name, true])) };
 }
 
-async function register(request, db, test) {
+async function register(request, db, test, controlled=false) {
   if (request.headers.get("Content-Type")?.split(";")[0].trim().toLowerCase() !== "application/json") {
     return reply({ error: "INVALID" }, 415);
   }
@@ -67,14 +68,26 @@ async function register(request, db, test) {
 
   const reference = "MK-" + crypto.randomUUID().slice(0, 13).replace("-", "").toUpperCase();
   const payload = JSON.stringify(data);
-  await db.prepare(`
-    INSERT INTO move_kids_registrations (request_key, reference, payload)
-    VALUES (?1, ?2, ?3)
-    ON CONFLICT (request_key) DO NOTHING
-  `).bind(body.key.toLowerCase(), reference, payload).run();
+  if(controlled){
+    // Recheck the switch inside the atomic INSERT so a concurrent close
+    // cannot accept a new registration after the switch has closed.
+    await db.prepare(`
+      INSERT INTO move_kids_registrations (request_key, reference, payload)
+      SELECT ?1, ?2, ?3 WHERE EXISTS (
+        SELECT 1 FROM event_registration_control WHERE slug=?4 AND registration_open=1
+      ) ON CONFLICT (request_key) DO NOTHING
+    `).bind(body.key.toLowerCase(),reference,payload,slug).run();
+  }else{
+    await db.prepare(`
+      INSERT INTO move_kids_registrations (request_key, reference, payload)
+      VALUES (?1, ?2, ?3)
+      ON CONFLICT (request_key) DO NOTHING
+    `).bind(body.key.toLowerCase(), reference, payload).run();
+  }
   const saved = await db.prepare(`
     SELECT reference, payload FROM move_kids_registrations WHERE request_key = ?1
   `).bind(body.key.toLowerCase()).first();
+  if (!saved && controlled) return reply({ error: "CLOSED" },403);
   if (!saved || saved.payload !== payload) return reply({ error: "RETRY_CONFLICT" }, 409);
   return reply({ reference: saved.reference, test });
 }
@@ -141,7 +154,11 @@ export default {
     const isLocal = ["localhost", "127.0.0.1", "[::1]"].includes(url.hostname);
     const test = isLocal && env.EVENTS_TEST_MODE === "1";
     const isProduction = url.origin === "https://norxcraftingmovement.com";
-    const production = isProduction && env.EVENTS_REGISTRATION_OPEN === "1";
+    let production=false;
+    if(isProduction){
+      try{production=(await registrationState(env)).open;}
+      catch{return reply({open:false,ready:false},request.method==="GET"?503:403);}
+    }
     // While registration is disabled, the production GET can confirm readiness
     // without revealing row counts, personal data, or accepting any writes.
     if (isProduction && !production && request.method === "GET") {
@@ -173,7 +190,7 @@ export default {
         const { success } = await env.REGISTRATION_LIMITER.limit({ key: "move-kids:" + ip });
         if (!success) return reply({ error: "RATE_LIMIT" }, 429);
       }
-      return await register(request, env.EVENTS_DB, test);
+      return await register(request, env.EVENTS_DB, test, production && env.EVENTS_REGISTRATION_OPEN==="admin");
     } catch {
       return reply({ error: "UNAVAILABLE" }, 503);
     }

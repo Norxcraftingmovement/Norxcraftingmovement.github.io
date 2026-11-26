@@ -132,3 +132,31 @@ test("closed production GET reads schema without exposing data; no writes",async
   assert.equal((await post(env,payload(),production)).status,403);
   assert.equal(count(sqlite),0);
 });
+
+test("admin-controlled signup is closed by default, opens only by database, hard kill remains effective",async()=>{
+ const {env,sqlite}=setup();
+ sqlite.exec(readFileSync(new URL("../migrations/events/0004_move_kids_registration_control.sql",import.meta.url),"utf8"));
+ env.EVENTS_REGISTRATION_OPEN="admin";
+ assert.deepEqual(await (await get(env,production)).json(),{open:false,ready:true});
+ assert.equal((await post(env,payload(),production)).status,403);
+ sqlite.exec("UPDATE event_registration_control SET registration_open=1");
+ assert.deepEqual(await (await get(env,production)).json(),{open:true,test:false});
+ const p=payload();const first=await (await post(env,p,production)).json();assert.match(first.reference,/^MK-/);
+ assert.equal((await (await post(env,p,production)).json()).reference,first.reference);
+ env.EVENTS_REGISTRATION_OPEN="0";assert.equal((await post(env,payload(),production)).status,403);
+ env.EVENTS_REGISTRATION_OPEN="admin";sqlite.exec("UPDATE event_registration_control SET registration_open=0");
+ assert.equal((await post(env,payload(),production)).status,403);assert.equal(count(sqlite),1);
+});
+test("concurrent close prevents writes at atomic insert boundary",async()=>{
+ const {env,sqlite}=setup();
+ sqlite.exec(readFileSync(new URL("../migrations/events/0004_move_kids_registration_control.sql",import.meta.url),"utf8"));
+ sqlite.exec("UPDATE event_registration_control SET registration_open=1");
+ env.EVENTS_REGISTRATION_OPEN="admin";
+ env.REGISTRATION_LIMITER={limit:async()=>{sqlite.exec("UPDATE event_registration_control SET registration_open=0");return {success:true}}};
+ assert.equal((await post(env,payload(),production)).status,403);assert.equal(count(sqlite),0);
+});
+test("missing control table fails closed",async()=>{
+ const {env,sqlite}=setup();env.EVENTS_REGISTRATION_OPEN="admin";
+ assert.equal((await get(env,production)).status,503);
+ assert.equal((await post(env,payload(),production)).status,403);assert.equal(count(sqlite),0);
+});

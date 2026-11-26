@@ -9,7 +9,7 @@ const allow=async()=>true,deny=async()=>false;
 const ref="MK-123456789ABC";
 function setup(){
  const sqlite=new DatabaseSync(":memory:");
- for(const file of ["0001_move_kids.sql","0002_move_kids_roster.sql","0003_move_kids_checkins.sql"])sqlite.exec(readFileSync(new URL("../migrations/events/"+file,import.meta.url),"utf8"));
+ for(const file of ["0001_move_kids.sql","0002_move_kids_roster.sql","0003_move_kids_checkins.sql","0004_move_kids_registration_control.sql"])sqlite.exec(readFileSync(new URL("../migrations/events/"+file,import.meta.url),"utf8"));
  const db={prepare(sql){const positions=[];const query=sql.replace(/\?(\d+)/g,(_,pos)=>{positions.push(Number(pos)-1);return "?"});const st=sqlite.prepare(query);const bind=(values)=>{const args=positions.map(i=>values[i]);return {first:async()=>st.get(...args),all:async()=>({results:st.all(...args)}),run:async()=>st.run(...args)}};return {...bind([]),bind:(...values)=>bind(values)}}};
  const fixture={fullName:"=FORMULA",nickname:"QA 100%",phone:"0000000000",emergencyName:"TEST CONTACT",emergencyPhone:"0000000001",emergencyRelationship:"test",age:30,experience:"new",mediaConsent:false};
  sqlite.prepare("INSERT INTO move_kids_registrations(request_key,reference,payload) VALUES(?,?,?)").run("test",ref,JSON.stringify(fixture));
@@ -63,4 +63,28 @@ test("CSV privacy headers and spreadsheet formula protection; missing storage fa
  assert.equal(r.status,200);assert.match(r.headers.get("Content-Disposition"),/attachment/);assert.equal(r.headers.get("Cache-Control"),"no-store");
  assert.match(await r.text(),/"'=FORMULA"/);
  assert.equal((await eventAdminFetch(roster(),{},allow)).status,503);
+});
+
+test("owner control defaults closed, requires correct host, origin and explicit state, keeps signup records",async()=>{
+ const {env,sqlite}=setup();
+ const control=(open,expectedOpen,source=origin)=>req("registration",{method:"POST",headers:{Origin:source,"Content-Type":"application/json"},body:JSON.stringify({open,expectedOpen})});
+ assert.equal((await eventAdminFetch(control(true,false),env,allow)).status,403);
+ env.EVENTS_REGISTRATION_OPEN="admin";env.REGISTRATION_LIMITER={limit:async()=>({success:true})};
+ const state=()=>sqlite.prepare("SELECT registration_open FROM event_registration_control").get().registration_open;
+ assert.equal(state(),0);
+ assert.equal((await eventAdminFetch(control(true,false),env,deny)).status,403);
+ assert.equal((await eventAdminFetch(control(true,false,"https://evil.example"),env,allow)).status,403);
+ assert.equal(state(),0);
+ assert.equal((await eventAdminFetch(control(true,false),env,allow)).status,200);assert.equal(state(),1);
+ assert.equal((await (await eventAdminFetch(roster(),env,allow)).json()).open,true);
+ assert.equal((await eventAdminFetch(control(false,false),env,allow)).status,409);assert.equal(state(),1);
+ assert.equal((await eventAdminFetch(control(false,true),env,allow)).status,200);assert.equal(state(),0);
+ assert.equal(sqlite.prepare("SELECT COUNT(*) n FROM move_kids_registrations").get().n,1);
+});
+test("QR is a PNG download and points to the public event, preview cannot mutate",async()=>{
+ const {env}=setup();
+ const r=await eventAdminFetch(req("qr?download=1"),env,allow);assert.equal(r.status,200);assert.equal(r.headers.get("Content-Type"),"image/png");assert.match(r.headers.get("Content-Disposition"),/attachment/);
+ const bytes=new Uint8Array(await r.arrayBuffer());assert.deepEqual([...bytes.slice(0,8)],[137,80,78,71,13,10,26,10]);assert.equal(new DataView(bytes.buffer).getUint32(16),984);
+ const page=await eventAdminFetch(req(),env,allow);assert.match(await page.text(),/https:\/\/norxcraftingmovement.com\/events\/move-kids-2026\//);
+ assert.equal((await eventAdminFetch(req("registration",{method:"POST",headers:{Origin:preview,"Content-Type":"application/json"},body:'{"open":true,"expectedOpen":false}'},preview),{...env,EVENT_ADMIN_DEMO:"1"},allow)).status,404);
 });
