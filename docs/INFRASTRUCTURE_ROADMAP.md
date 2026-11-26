@@ -37,6 +37,11 @@ Move the existing public website to Cloudflare without disrupting apparel preord
 - Cloudflare Git integration may require owner authentication and permission to the specific repository. Use least-privilege repository selection; no account credentials or tokens in Git.
 - Test on the assigned workers.dev URL, not custom domain. Record deployment ID, final URL and test evidence in this document before progressing.
 
+## Phase 1 log
+- 2026-11-26 16:01 — Build #425dc3e4 FAILED: production branch was `main`, which does not contain `scripts/build-cloudflare.mjs` (`Cannot find module`). Not a script defect.
+- 2026-11-26 ~16:10 — Owner set Production branch to `feature/cloudflare-migration`. This commit triggers the first build from that branch.
+- Known gap to verify on workers.dev: Home Terrain lookbook fetches `/drop03/lookbook.html`, which lives in the separate `drop03` Pages repo and is not in this build.
+
 ## Official references
 - https://developers.cloudflare.com/workers/static-assets/
 - https://developers.cloudflare.com/workers/static-assets/routing/advanced/html-handling/
