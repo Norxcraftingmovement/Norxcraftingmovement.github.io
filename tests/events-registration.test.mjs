@@ -88,3 +88,21 @@ test("unrelated route uses existing static assets; no roster endpoint",async()=>
   assert.equal(await response.text(),"static");
   assert.deepEqual(await (await get(env)).json(),{open:true,test:true});
 });
+
+test("preview synthetic QA writes only fixed staging fixture; rejects cross-origin and arbitrary submissions",async()=>{
+  const {env,sqlite}=setup();
+  const host="https://feature-move-kids-qa-norx-crafting-movement.norx-craftingmovement.workers.dev";
+  const qa="/api/events/move-kids-2026/qa";
+  const staging={...env,EVENTS_QA_DB:env.EVENTS_DB,EVENTS_DB:undefined,EVENTS_QA_MODE:"1",QA_LIMITER:{limit:async()=>({success:true})}};
+  const req=(h=host,o=host,body)=>new Request(h+qa,{method:"POST",headers:{Origin:o,"CF-Connecting-IP":"192.0.2.1"},...(body?{body}: {})});
+  assert.equal((await worker.fetch(req(production,production),staging)).status,404);
+  assert.equal((await worker.fetch(req(host,"https://evil.example"),staging)).status,400);
+  assert.equal((await worker.fetch(req(host,host,"untrusted"),staging)).status,400);
+  assert.equal((await worker.fetch(req(),{...staging,EVENTS_DB:env.EVENTS_DB})).status,404);
+  assert.equal((await worker.fetch(req(),{...staging,EVENTS_QA_MODE:"0"})).status,404);
+  assert.equal((await post(staging,payload(),host)).status,403);
+  const a=await (await worker.fetch(req(),staging)).json();
+  assert.equal(a.pass,true);assert.equal(a.fixtureRows,1);assert.equal(a.totalRows,1);
+  assert.equal((await (await worker.fetch(req(),staging)).json()).reference,a.reference);
+  assert.equal(count(sqlite),1);
+});
