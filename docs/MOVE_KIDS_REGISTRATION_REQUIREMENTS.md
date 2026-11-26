@@ -22,7 +22,7 @@ Keep the registration endpoint disabled in production until final approval and t
 |---|---|---|
 | ชื่อ–นามสกุล | Yes | Text, trim + length validation |
 | ชื่อเล่น | Yes | Text |
-| อายุ | Yes | Numeric whole age; guardian path per approved rules |
+| อายุ | Yes | Numeric whole age; no guardian fields or guardian flow in the online registration form (owner decision 2026-11-27). |
 | เบอร์โทรศัพท์ที่ติดต่อได้ | Yes | Phone, normalization and validation; allow relevant phone formats |
 | ผู้ติดต่อฉุกเฉิน | Yes | Source combined name/phone/relationship; proposed individual fields for safety and usability |
 | ประสบการณ์เดิน–วิ่ง / เทรล | Yes | Regular trail / some experience / new to trail (preserve Thai option labels) |
@@ -33,7 +33,7 @@ Keep the registration endpoint disabled in production until final approval and t
 | การถ่ายภาพและวิดีโอ | Yes in source | Source makes promotional media consent a participation condition. FLAG — do not silently port it; propose truly optional separate consent or obtain legal review on necessity and alternative participation. Needs owner approval. |
 
 ## Required privacy/safety decisions before open
-- Source permits all ages. Implement age-dependent guardian flow and review age/consent rules plus participation safety, and children's photo consent with appropriate permissions; keep drafts closed until approved.
+- Owner decision (2026-11-27): do not add guardian fields or a guardian-specific flow to the online form. This does not establish that parental consent or accompaniment can be waived where applicable; confirm minor eligibility, event-day safety and applicable consent arrangements separately before opening registration. Do not add sensitive guardian data to the form.
 - Publish a specific privacy notice (purpose, access, retention, contact, rights; emergency contact handling), clear optional/required distinctions. Store consent version and timestamps as applicable.
 - Health data is sensitive. Minimize collection, use role-limited access for safety personnel, never send to analytics or expose in public endpoints, logs, generic exports, or GitHub. Consider not collecting health online unless approved and necessary.
 - Media permission is separate from safety acknowledgements; consent design needs owner/legal review, not an automatic condition on the signup. See Thai PDPA sections 19,20,23,26, official ministry hosted translation: https://www.mdes.go.th/law/detail/3577-Personal-Data-Protection-Act-B-E--2562--2019
@@ -44,5 +44,5 @@ Keep the registration endpoint disabled in production until final approval and t
 - QR should link directly to the final HTTPS event URL, not the Google Form; avoid generating/promoting QR until route verified and signup is ready.
 - On confirmation show only registration reference/status + date, meeting point/brief, preparation; no personal/health details in URL. Prevent double-submit and issue one record per successful idempotent request. Never show success before D1 commit.
 - Staff dashboard protected; check-in and finish accountability; owner-only export of minimal necessary data. No public roster or names.
-- Verify synthetic open/closed submissions, invalid fields, minors, optional consent, retry, API failure, rate limit, restricted data access, stable QR URL, mobile 360/390 and shop regression.
+- Verify synthetic open/closed submissions, invalid fields, age validation and approved minor eligibility arrangements, optional consent, retry, API failure, rate limit, restricted data access, stable QR URL, mobile 360/390 and shop regression.
 - Release only after distance and consent/safety rules are signed off and owner approves publication/opening.
