@@ -34,13 +34,24 @@
     }
   ],
   "vars": {
-    "EVENTS_REGISTRATION_OPEN": "0"
+    "EVENTS_REGISTRATION_OPEN": "0",
+    "MEDIA_ADMIN_ENABLED": "1",
+    "MEDIA_ACCESS_ISSUER": "https://little-salad-1873.cloudflareaccess.com",
+    "MEDIA_ACCESS_AUD": "574e2920d7fdfbad9ab142e8d47e4710e7e0e5cf1c2628f01bd83c6808df1bde",
+    "MEDIA_ADMIN_EMAIL_HASH": "5af7d1f744181a898460799911f1498cfdddd23409c24fcc11c4e4c2525e2153"
   },
   "previews": {
     "vars": {
       "EVENTS_REGISTRATION_OPEN": "0",
       "EVENTS_QA_MODE": "0",
-      "MEDIA_DEMO": "1"
+      "MEDIA_DEMO": "1",
+      "MEDIA_ADMIN_ENABLED": "0"
     }
-  }
+  },
+  "r2_buckets": [
+    {
+      "binding": "MEDIA_BUCKET",
+      "bucket_name": "norx-event-media"
+    }
+  ]
 }

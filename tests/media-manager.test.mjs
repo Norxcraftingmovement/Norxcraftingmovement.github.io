@@ -14,7 +14,7 @@ function send(body=png,type='image/png',origin=domain){return req(upload,{method
 test('JWT requires valid signature, issuer, audience, time, email, and enabled flag',async()=>{
  const keys=await crypto.subtle.generateKey({name:'RSASSA-PKCS1-v1_5',modulusLength:2048,publicExponent:new Uint8Array([1,0,1]),hash:'SHA-256'},true,['sign','verify']);
  const jwk=await crypto.subtle.exportKey('jwk',keys.publicKey);jwk.kid='test-key';
- const env={MEDIA_ADMIN_ENABLED:'1',MEDIA_ACCESS_ISSUER:'https://test-team.cloudflareaccess.com',MEDIA_ACCESS_AUD:'test-aud',MEDIA_ADMIN_EMAIL:'owner@example.com'};
+ const env={MEDIA_ADMIN_ENABLED:'1',MEDIA_ACCESS_ISSUER:'https://test-team.cloudflareaccess.com',MEDIA_ACCESS_AUD:'test-aud',MEDIA_ADMIN_EMAIL_HASH:'c8cd3c6427301eaf6665bccacd65ddb614527acc843a15463e3faba57124c351'};
  const fetchKeys=async url=>{assert.equal(url,env.MEDIA_ACCESS_ISSUER+'/cdn-cgi/access/certs');return Response.json({keys:[jwk]})};
  const claims={iss:env.MEDIA_ACCESS_ISSUER,aud:['test-aud'],email:'owner@example.com',exp:Math.floor(Date.now()/1000)+60};
  const enc=o=>Buffer.from(JSON.stringify(o)).toString('base64url');

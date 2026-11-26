@@ -18,7 +18,7 @@ let jwksCache;
 export async function authorized(request,env,fetchKeys=fetch) {
   try {
     const issuer = env.MEDIA_ACCESS_ISSUER;
-    if (env.MEDIA_ADMIN_ENABLED !== "1" || !env.MEDIA_ACCESS_AUD || !env.MEDIA_ADMIN_EMAIL ||
+    if (env.MEDIA_ADMIN_ENABLED !== "1" || !env.MEDIA_ACCESS_AUD || !/^([a-f0-9]{64})$/.test(env.MEDIA_ADMIN_EMAIL_HASH??"") ||
         !/^https:\/\/[a-z0-9-]+\.cloudflareaccess\.com$/.test(issuer??"")) return false;
     const token = request.headers.get("CF-Access-Jwt-Assertion");
     if (!token || token.length>8192) return false;
@@ -28,7 +28,10 @@ export async function authorized(request,env,fetchKeys=fetch) {
        !(Array.isArray(claims.aud)?claims.aud:[claims.aud]).includes(env.MEDIA_ACCESS_AUD) ||
        !Number.isFinite(claims.exp) || claims.exp<=now ||
        (claims.nbf!==undefined && (!Number.isFinite(claims.nbf)||claims.nbf>now)) ||
-       typeof claims.email!=="string" || claims.email.toLowerCase()!==env.MEDIA_ADMIN_EMAIL.toLowerCase()) return false;
+       typeof claims.email!=="string") return false;
+    const emailDigest=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(claims.email.toLowerCase()));
+    const emailHash=Array.from(new Uint8Array(emailDigest),b=>b.toString(16).padStart(2,"0")).join("");
+    if(emailHash!==env.MEDIA_ADMIN_EMAIL_HASH)return false;
     if(!jwksCache || jwksCache.issuer!==issuer || jwksCache.until<Date.now() || !jwksCache.keys.some(k=>k.kid===header.kid)){
       const response=await fetchKeys(issuer+"/cdn-cgi/access/certs",{redirect:"error"});
       if(!response.ok)return false;
