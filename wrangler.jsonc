@@ -5,6 +5,14 @@
   "assets": {
     "directory": "./dist",
     "html_handling": "auto-trailing-slash",
-    "not_found_handling": "none"
+    "not_found_handling": "none",
+    "binding": "ASSETS",
+    "run_worker_first": [
+      "/api/events/*"
+    ]
+  },
+  "main": "src/events-worker.mjs",
+  "vars": {
+    "EVENTS_REGISTRATION_OPEN": "0"
   }
 }
