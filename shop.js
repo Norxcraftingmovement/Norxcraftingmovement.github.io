@@ -43,15 +43,17 @@ function render(){
  const list=$('cartItems');if(!list)return;list.replaceChildren();
  if(!cart.length)list.append(el('p','empty','ยังไม่มีเสื้อในตะกร้า'));
  const order=i=>[CONFIG.products.findIndex(p=>p.id===i.product),i.sleeve==='short'?0:1,product(i.product).sizes.indexOf(i.size)];
- for(const i of cart.slice().sort((a,b)=>{const x=order(a),y=order(b);return x[0]-y[0]||x[1]-y[1]||x[2]-y[2];})){const p=product(i.product),row=el('div','cart-item'),label=el('span','',(p.short||p.name)+' · '+sleeveName(i.sleeve)+' · '+i.size+' × '+i.qty),right=el('span','cart-right'),del=el('button','link-btn','ลบ');del.type='button';del.setAttribute('aria-label','ลบ '+label.textContent);del.onclick=()=>setQty(i.product,i.sleeve,i.size,0);right.append(el('b','',money(p.prices[i.sleeve]*i.qty)),del);row.append(label,right);list.append(row);}
- $('subtotal').textContent=money(bill.subtotal);$('shipping').textContent=deliveryMethod()?money(bill.shipping):'เลือกวิธีรับ';$('total').textContent=money(bill.total);
- if($('mobileTotal'))$('mobileTotal').textContent=money(bill.total);if($('mobileCount'))$('mobileCount').textContent=bill.pieces?'ตะกร้า '+bill.pieces+' ตัว':'ตะกร้าว่าง';
+ for(const i of cart.slice().sort((a,b)=>{const x=order(a),y=order(b);return x[0]-y[0]||x[1]-y[1]||x[2]-y[2];})){const p=product(i.product),row=el('div','cart-item'),label=el('span','',(p.short||p.name)+' · '+sleeveName(i.sleeve)+' · '+i.size+' × '+i.qty),right=el('span','cart-right'),del=el('button','link-btn','ลบ');del.type='button';del.setAttribute('aria-label','ลบ '+label.textContent);del.onclick=()=>setQty(i.product,i.sleeve,i.size,0);if(PAGE.checkout){const st=el('span','qty-stepper'),m=el('button','qty-btn','−'),q=el('b','',String(i.qty)),a=el('button','qty-btn','+');m.type=a.type='button';m.setAttribute('aria-label','ลด '+label.textContent);a.setAttribute('aria-label','เพิ่ม '+label.textContent);m.onclick=()=>setQty(i.product,i.sleeve,i.size,i.qty-1);a.onclick=()=>setQty(i.product,i.sleeve,i.size,i.qty+1);st.append(m,q,a);right.append(st);}right.append(el('b','',money(p.prices[i.sleeve]*i.qty)),del);row.append(label,right);list.append(row);}
+ $('subtotal').textContent=money(bill.subtotal);const cb=$('checkoutBtn');if(cb){cb.setAttribute('aria-disabled',String(!bill.pieces));cb.style.opacity=bill.pieces?'':'.45';}
+ if($('mobileTotal'))$('mobileTotal').textContent=money(PAGE.checkout?bill.total:bill.subtotal);if($('mobileCount'))$('mobileCount').textContent=bill.pieces?'ตะกร้า '+bill.pieces+' ตัว':'ตะกร้าว่าง';
+ if(!$('shipping'))return;$('shipping').textContent=deliveryMethod()?money(bill.shipping):'เลือกวิธีรับ';$('total').textContent=money(bill.total);
+
  const ship=deliveryMethod()==='ship';$('addressField').hidden=!ship;$('address').required=ship;$('pickupNote').hidden=!['city','event'].includes(deliveryMethod());
 }
 function showError(m){$('formError').hidden=false;$('formError').textContent=m;}
 function fail(e){busy=false;$('orderFields').disabled=false;$('submitButton').textContent='ลองบันทึกอีกครั้ง';showError((e&&e.message)||'ยังยืนยันการบันทึกไม่ได้ กรุณาลองบันทึกอีกครั้งก่อนโอนเงิน');}
 function success(r){saved=true;busy=false;$('orderFields').disabled=true;$('submitButton').textContent='บันทึกแล้ว';$('savedCustomer').textContent='ชื่อผู้สั่งซื้อ: '+r.name;$('savedOrder').textContent='เลขออเดอร์ '+r.id+' · '+r.items.map(i=>{const p=product(i.product);return (p?p.short:i.product)+' '+sleeveName(i.sleeve)+' '+i.size+' × '+i.qty;}).join(', ');$('payTotal').textContent=money(r.total);$('payDue').textContent=thDate(r.paymentDue);cart=[];saveCart();render();$('payment').hidden=false;if($('mobileBar'))$('mobileBar').hidden=true;$('payment').scrollIntoView({behavior:'smooth',block:'start'});}
-function closed(msg){for(const b of document.querySelectorAll('[data-open-badge]'))b.textContent='ปิดรับสั่งจอง';const a=$('availability');if(a){a.hidden=false;a.textContent=msg;}if($('orderFields'))$('orderFields').disabled=true;if($('mobileBar'))$('mobileBar').hidden=true;}
+function closed(msg,badge){for(const b of document.querySelectorAll('[data-open-badge]'))b.textContent=badge||'ปิดรับสั่งจอง';const a=$('availability');if(a){a.hidden=false;a.textContent=msg;}if($('orderFields'))$('orderFields').disabled=true;if($('mobileBar'))$('mobileBar').hidden=true;}
 function wireForm(){
  const form=$('orderForm');if(!form)return;
  $('delivery').addEventListener('change',render);
@@ -75,13 +77,13 @@ function start(data){
  CONFIG=data;const round=data.round,canTest=!data.testOnly||!!testKey,show=round||data.nextRound;
  for(const n of document.querySelectorAll('[data-price]')){const p=product(n.dataset.price);n.textContent=p?['short','long'].filter(s=>p.prices[s]).map(s=>sleeveName(s)+' '+money(p.prices[s])).join(' · '):'';}
  if(show){for(const [id,k] of [['tOpen','opensAt'],['tClose','closesAt'],['tDue','paymentDue']])if($(id))$(id).textContent=thDate(show[k]);}
- if(!round||!canTest){closed(data.nextRound&&canTest?'รอบถัดไปเปิดรับ '+thDate(data.nextRound.opensAt):'ขณะนี้ยังไม่เปิดรับพรีออเดอร์ ติดตามรอบถัดไปได้ที่เพจ NORX');return;}
+ if(!round||!canTest){const nx=data.nextRound&&canTest?data.nextRound:null;if(nx){closed('ยังไม่ถึงเวลาเปิดรับ · '+nx.name+' เปิดรับ '+thDate(nx.opensAt)+' หน้านี้จะเปิดให้สั่งเองเมื่อถึงเวลา','เปิดรับ '+thDate(nx.opensAt));const w=Date.parse(nx.opensAt)-data.serverNow+1500;if(w>0&&w<2147483647)setTimeout(()=>fetch(API).then(r=>r.json()).then(start).catch(()=>location.reload()),w);}else closed('ขณะนี้ยังไม่เปิดรับพรีออเดอร์ ติดตามรอบถัดไปได้ที่เพจ NORX');return;}
  ROUND=round;for(const b of document.querySelectorAll('[data-open-badge]'))b.textContent=round.name+' · เปิดรับถึง '+thDate(round.closesAt);
  if($('testNote'))$('testNote').hidden=!data.testOnly;
  loadCart();
  if(PAGE.product&&product(PAGE.product))buildMatrix(product(PAGE.product));
  if($('orderForm')){$('dueText').textContent=thDate(round.paymentDue);$('readyText').textContent=round.readyText?' '+round.readyText:'';$('bankName').textContent=data.bank.name;$('bankAccount').textContent=data.bank.account;$('bankHolder').textContent=data.bank.holder;buildDelivery();$('orderFields').disabled=false;}
- if($('availability'))$('availability').hidden=true;
+ if($('availability'))$('availability').hidden=true;if($('mobileBar'))$('mobileBar').hidden=false;
  render();
  const left=Date.parse(round.closesAt)-data.serverNow;if(left>0&&left<2147483647)setTimeout(()=>{if(!saved){ROUND=null;closed('ปิดรับรอบนี้แล้ว ติดตามรอบถัดไปที่เพจ NORX');}},left);
 }
@@ -89,5 +91,6 @@ for(const link of document.querySelectorAll('a[href^="#"]'))link.addEventListene
 const lookbook=$('lookbook');
 if(lookbook)lookbook.addEventListener('toggle',()=>{const c=$('lookbookContent'),s=$('lookbookStatus');if(!lookbook.open||c.firstElementChild)return;s.hidden=false;s.textContent='กำลังโหลดภาพ…';fetch(PAGE.lookbook).then(r=>{if(!r.ok)throw 0;return r.text();}).then(h=>{c.innerHTML=h;s.hidden=true;}).catch(()=>{s.textContent='โหลดภาพไม่สำเร็จ ลองพับแล้วเปิดอีกครั้ง';});});
 keepTest();wireForm();
+const cbtn=$('checkoutBtn');if(cbtn)cbtn.addEventListener('click',e=>{if(!cart.length){e.preventDefault();const a=$('availability');if(a&&ROUND){a.hidden=false;a.textContent='ยังไม่มีเสื้อในตะกร้า กด + เลือกไซส์ก่อน';}}});
 fetch(API).then(r=>r.json()).then(start).catch(err=>{closed('โหลดข้อมูลรอบสั่งซื้อไม่ได้ ลองรีเฟรชหน้า หรือทักเพจ NORX');console.error(err);});
 })();
