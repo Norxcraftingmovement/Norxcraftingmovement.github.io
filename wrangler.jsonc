@@ -38,7 +38,8 @@
     "MEDIA_ADMIN_ENABLED": "1",
     "MEDIA_ACCESS_ISSUER": "https://little-salad-1873.cloudflareaccess.com",
     "MEDIA_ACCESS_AUD": "574e2920d7fdfbad9ab142e8d47e4710e7e0e5cf1c2628f01bd83c6808df1bde",
-    "MEDIA_ADMIN_EMAIL_HASH": "5af7d1f744181a898460799911f1498cfdddd23409c24fcc11c4e4c2525e2153"
+    "MEDIA_ADMIN_EMAIL_HASH": "5af7d1f744181a898460799911f1498cfdddd23409c24fcc11c4e4c2525e2153",
+    "MEDIA_ACCESS_KEY_FALLBACK": "{\"issuer\":\"https://little-salad-1873.cloudflareaccess.com\",\"expires\":\"2026-11-28T18:30:00Z\",\"keys\":[{\"alg\":\"RS256\",\"e\":\"AQAB\",\"kid\":\"bf1c944c75f4dd066edd064f03fadcf17ed7517a65cb87a2e88a3cf3126786db\",\"kty\":\"RSA\",\"n\":\"53DVWTeZayb0FLLoSVB_m-rtpx8LOUWJTBfC7F2xz7ixarSb_YLPzhmbMsr4Pq8v3npQGGh3xzB5LZY4-_SZUfmVjG035rAZ4C1DVnKgb1lZ4sLcMWdSuJe6orNXlFWpzvd_yPK8b1LPUU0lUyVP1kjrXJsU-Bf8roAhSKmBLlqeQaYNjvYG6bfT0geNdzKSxiqPRQiKQ2YOrUEEF_TwExJJUMoWQQM2_Ft1ZMi0dj9vEZ5OvV3FRfy-gh9IIXOU7y6LZRSp1Xtv0Mb8uYSj1uXvtt22HFG50gr70lmLTf0rhL8UCz6pyyJz5h2EK5_CS2lJNH-ktpr1j_e-xPjw4w\",\"use\":\"sig\"},{\"alg\":\"RS256\",\"e\":\"AQAB\",\"kid\":\"868af233330a96fac55310a2d27a62d5ec5af9f87d0a98993a39426e0854b677\",\"kty\":\"RSA\",\"n\":\"s2AUybZCocQyU6pOjnEzITc6bu0iFmhZbCBBTtrqSygCGXoEqHfzmi9hAn01Re_98BOPV1ka-ME1inpcNGYT_jo9XQyd20EEFBlexkvC1Sfr93Ws2hO0TAUBdG8_y2eOno69cRSKwnf1DPHOhqUDBQSlUWsYPPxOQ70uyAX6Q6O_clWyYZTjZOGie7m3gwZcF_Fj8SGYILIJbtQ56MaCHa32vjvgUMsvl5RTPdvBFcC4mZ5zbYfmOlMF1uMULbdmpZK32VNhSQVZi2Z-b8l6pt8XRtp6EzFZffAFm3OhCOOkYpO2Mx2YUvIAPwsqcs6s7V5Yv-fHpoDVzCXIvZIKmw\",\"use\":\"sig\"}]}"
   },
   "previews": {
     "vars": {

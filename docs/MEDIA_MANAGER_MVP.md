@@ -7,3 +7,6 @@ Status: R2 Standard subscription and Zero Trust Free activated after owner appro
 - Production config binds MEDIA_BUCKET; preview intentionally has no R2 binding and cannot upload. Existing shop and registration flags unchanged.
 ## Verification
 Unit tests simulate R2 and signed JWTs. Production must verify public homepage, registration stays closed, no-poster path, Access login, and authorized upload with owner-approved image. Do not claim a successful real upload until it has occurred.
+
+## Live Access troubleshooting
+Cloudflare login reached Worker but public JWKS network fetch failed. Header JWT and signed application-cookie fallback both require signature verification. Added temporary public JWKS from the exact issuer, only for a transport failure, expires 2026-11-28T18:30:00Z; remote HTTP errors do not use fallback. The live endpoint is always preferred and must be rechecked before expiry. If the fetch remains unavailable after expiry, admin fails closed. No token or private key is stored.

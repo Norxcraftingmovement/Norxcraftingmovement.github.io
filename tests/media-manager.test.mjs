@@ -32,6 +32,17 @@ test('JWT requires valid signature, issuer, audience, time, email, and enabled f
  assert.equal(await check(await token({},true)),false);
  assert.equal(await check(await token(),{...env,MEDIA_ADMIN_ENABLED:'0'}),false);
  assert.equal(await authorized(req(admin),env,fetchKeys),false);
+ const fallbackIssuer='https://fallback-team.cloudflareaccess.com';
+ const fallbackToken=await token({iss:fallbackIssuer});
+ const fallbackRequest=req(admin,{headers:{'CF-Access-Jwt-Assertion':fallbackToken}});
+ const failedFetch=async()=>{throw Error('transport')};
+ const opts={...env,MEDIA_ACCESS_ISSUER:fallbackIssuer};
+ const makeFallback=expires=>JSON.stringify({issuer:fallbackIssuer,expires,keys:[jwk]});
+ assert.equal(await authorized(fallbackRequest,{...opts,MEDIA_ACCESS_KEY_FALLBACK:makeFallback(new Date(Date.now()-1000).toISOString())},failedFetch),false);
+ const validFallback={...opts,MEDIA_ACCESS_KEY_FALLBACK:makeFallback(new Date(Date.now()+60000).toISOString())};
+ assert.equal(await authorized(fallbackRequest,validFallback,async()=>new Response(null,{status:503})),false);
+ assert.equal(await authorized(fallbackRequest,validFallback,failedFetch),true);
+ assert.equal(await authorized(req(admin,{headers:{'CF-Access-Jwt-Assertion':await token({iss:fallbackIssuer},true)}}),validFallback,failedFetch),false);
 });
 test('admin inaccessible without verified login; unrelated routes untouched',async()=>{
  assert.equal((await mediaFetch(req(admin),{},deny)).status,403);

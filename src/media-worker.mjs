@@ -15,7 +15,7 @@ const base = s => {
 const parse = s => JSON.parse(new TextDecoder().decode(base(s)));
 let jwksCache;
 // Validate the signed Access token; static-asset routing does not propagate ctx.access.
-export async function authorized(request,env,fetchKeys=fetch,report=()=>{}) {
+export async function authorized(request,env,fetchKeys=(...args)=>globalThis.fetch(...args),report=()=>{}) {
   const reject=reason=>{report(reason);return false;};
   try {
     const issuer = env.MEDIA_ACCESS_ISSUER;
@@ -38,10 +38,19 @@ export async function authorized(request,env,fetchKeys=fetch,report=()=>{}) {
     const emailHash=Array.from(new Uint8Array(emailDigest),b=>b.toString(16).padStart(2,"0")).join("");
     if(emailHash!==env.MEDIA_ADMIN_EMAIL_HASH)return reject("IDENTITY");
     if(!jwksCache || jwksCache.issuer!==issuer || jwksCache.until<Date.now() || !jwksCache.keys.some(k=>k.kid===header.kid)){
-      let response;try{response=await fetchKeys(issuer+"/cdn-cgi/access/certs",{redirect:"error"});}catch{return reject("KEYS_FETCH");}
-      if(!response.ok)return reject("KEYS_HTTP");
-      const data=await response.json(); if(!Array.isArray(data.keys))return reject("KEYS_FORMAT");
-      jwksCache={issuer,keys:data.keys,until:Date.now()+300000};
+      let response, transportFailure=false;
+      try{response=await fetchKeys(issuer+"/cdn-cgi/access/certs",{redirect:"error"});}catch{transportFailure=true;}
+      if(transportFailure){
+        // Time-bounded trust in keys retrieved from this exact official issuer.
+        // Live HTTP errors and key mismatches never activate this fallback.
+        const fallback=JSON.parse(env.MEDIA_ACCESS_KEY_FALLBACK??"null");
+        if(!fallback||fallback.issuer!==issuer||!(Date.parse(fallback.expires)>Date.now())||!Array.isArray(fallback.keys))return reject("KEYS_FETCH");
+        jwksCache={issuer,keys:fallback.keys,until:Math.min(Date.now()+60000,Date.parse(fallback.expires))};
+      }else{
+        if(!response.ok)return reject("KEYS_HTTP");
+        const data=await response.json(); if(!Array.isArray(data.keys))return reject("KEYS_FORMAT");
+        jwksCache={issuer,keys:data.keys,until:Date.now()+300000};
+      }
     }
     const jwk=jwksCache.keys.find(k=>k.kid===header.kid&&k.kty==="RSA");
     if(!jwk)return reject("KEY_NOT_FOUND");
