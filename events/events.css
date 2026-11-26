@@ -131,3 +131,13 @@ h3 { font-size: clamp(27px, 4.5vw, 55px); letter-spacing: -.04em; }
 
 /* shared menu: readable on phones */
 @media (max-width: 660px) { .header nav a { font-size: 12px; } .header nav { gap: 4px 14px; } }
+
+/* past events list */
+.archive-sub { margin: 28px 0 0; font-size: clamp(20px, 2.4vw, 26px); letter-spacing: -.02em; }
+.event.past { margin-top: 0; border-top: 0; }
+.event.past h3 { font-size: clamp(22px, 3vw, 34px); }
+.event.past p:last-child { margin: 6px 0 0; color: #4d4a42; }
+.button.ghost { background: transparent; color: var(--ink); border: 1px solid var(--ink); }
+.button.ghost:hover { background: var(--ink); color: var(--paper); }
+.archive-list { list-style: none; padding: 0; margin: 10px 0 26px; display: flex; flex-wrap: wrap; gap: 0 22px; }
+.archive-list a { display: inline-flex; min-height: 44px; align-items: center; font-weight: 700; text-underline-offset: .25em; }
