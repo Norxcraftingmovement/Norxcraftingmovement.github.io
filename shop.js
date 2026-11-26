@@ -17,7 +17,7 @@ const deliveryMethod=()=>{const c=document.querySelector('input[name="delivery"]
 /* ลิงก์ภายในให้พา ?test ติดไปด้วย */
 function keepTest(){if(!testKey)return;for(const a of document.querySelectorAll('a[data-internal]')){const u=new URL(a.getAttribute('href'),location.href);u.searchParams.set('test',testKey);a.href=u.pathname+u.search+u.hash;}}
 function saveCart(){try{localStorage.setItem(CART_KEY,JSON.stringify({roundId:ROUND&&ROUND.id,items:cart}));}catch(e){}}
-function loadCart(){try{const v=JSON.parse(localStorage.getItem(CART_KEY)||'null');if(v&&ROUND&&v.roundId===ROUND.id&&Array.isArray(v.items))cart=v.items.filter(i=>{const p=product(i.product);return p&&p.fit===i.fit&&p.sizes.includes(i.size)&&p.prices[i.sleeve]&&Number.isSafeInteger(i.qty)&&i.qty>0&&i.qty<100;});}catch(e){cart=[];}}
+function loadCart(){try{const v=JSON.parse(localStorage.getItem(CART_KEY)||'null');if(v&&ROUND&&(v.roundId===ROUND.id||(CONFIG&&CONFIG.rolling))&&Array.isArray(v.items))cart=v.items.filter(i=>{const p=product(i.product);return p&&p.fit===i.fit&&p.sizes.includes(i.size)&&p.prices[i.sleeve]&&Number.isSafeInteger(i.qty)&&i.qty>0&&i.qty<100;});}catch(e){cart=[];}}
 function qtyOf(p,sleeve,size){const i=cart.find(i=>i.product===p&&i.sleeve===sleeve&&i.size===size);return i?i.qty:0;}
 function setQty(p,sleeve,size,qty){qty=Math.max(0,Math.min(99,qty));const pr=product(p);const i=cart.find(i=>i.product===p&&i.sleeve===sleeve&&i.size===size);if(i){if(qty)i.qty=qty;else cart.splice(cart.indexOf(i),1);}else if(qty)cart.push({product:p,fit:pr.fit,sleeve,size,qty});saveCart();render();}
 function calculate(delivery){const subtotal=cart.reduce((n,i)=>n+i.qty*product(i.product).prices[i.sleeve],0);const shipping=delivery==='ship'?ROUND.shipping:0;return{subtotal,shipping,total:subtotal+shipping,pieces:cart.reduce((n,i)=>n+i.qty,0)};}
@@ -74,13 +74,13 @@ function wireForm(){
 }
 /* นับถอยหลัง: ก่อนเปิด = เวลาที่เหลือก่อนเปิดรับ · ระหว่างเปิด = เวลาที่เหลือก่อนปิดรับ */
 let cdTimer=null,skew=0;
-function countdown(target,label){
+function countdown(target,label,note){
  if(cdTimer)clearInterval(cdTimer);
  const boxes=[];for(const b of document.querySelectorAll('[data-open-badge]')){let c=b.nextElementSibling;if(!c||!c.classList.contains('countdown')){c=el('div','countdown');c.setAttribute('role','timer');b.after(c);}c.hidden=!target;boxes.push(c);}
  if(!target)return;
  const t=Date.parse(target),pad=n=>String(n).padStart(2,'0');
  const tick=()=>{let ms=Math.max(0,t-(Date.now()+skew));const d=Math.floor(ms/864e5),h=Math.floor(ms/36e5)%24,m=Math.floor(ms/6e4)%60,sec=Math.floor(ms/1e3)%60;
-  for(const c of boxes){c.replaceChildren(el('span','cd-label',label));const row=el('span','cd-row');for(const [v,u] of [[d,'วัน'],[pad(h),'ชม.'],[pad(m),'นาที'],[pad(sec),'วินาที']]){const u2=el('span','cd-unit');u2.append(el('b','',String(v)),el('small','',u));row.append(u2);}c.append(row);}
+  for(const c of boxes){c.replaceChildren(el('span','cd-label',label));const row=el('span','cd-row');for(const [v,u] of [[d,'วัน'],[pad(h),'ชม.'],[pad(m),'นาที'],[pad(sec),'วินาที']]){const u2=el('span','cd-unit');u2.append(el('b','',String(v)),el('small','',u));row.append(u2);}c.append(row);if(note)c.append(el('span','cd-note',note));}
   if(ms<=0)clearInterval(cdTimer);};
  tick();cdTimer=setInterval(tick,1000);
 }
@@ -90,14 +90,14 @@ function start(data){
  for(const n of document.querySelectorAll('[data-price]')){const p=product(n.dataset.price);n.textContent=p?['short','long'].filter(s=>p.prices[s]).map(s=>sleeveName(s)+' '+money(p.prices[s])).join(' · '):'';}
  if(show){for(const [id,k] of [['tOpen','opensAt'],['tClose','closesAt'],['tDue','paymentDue']])if($(id))$(id).textContent=thDate(show[k]);}
  if(!round||!canTest){const nx=data.nextRound&&canTest?data.nextRound:null;if(nx){countdown(nx.opensAt,'เปิดรับในอีก');closed('ยังไม่ถึงเวลาเปิดรับ · '+nx.name+' เปิดรับ '+thDate(nx.opensAt)+' หน้านี้จะเปิดให้สั่งเองเมื่อถึงเวลา','เปิดรับ '+thDate(nx.opensAt));const w=Date.parse(nx.opensAt)-data.serverNow+1500;if(w>0&&w<2147483647)setTimeout(()=>fetch(API).then(r=>r.json()).then(start).catch(()=>location.reload()),w);}else{countdown(null);closed('ขณะนี้ยังไม่เปิดรับพรีออเดอร์ ติดตามรอบถัดไปได้ที่เพจ NORX');}return;}
- ROUND=round;for(const b of document.querySelectorAll('[data-open-badge]'))b.textContent=round.name+' · เปิดรับถึง '+thDate(round.closesAt);countdown(round.closesAt,'ปิดรับในอีก');
+ ROUND=round;for(const b of document.querySelectorAll('[data-open-badge]'))b.textContent=data.rolling?round.name+' · สั่งได้ทุกวัน · ตัดยอด '+thDate(round.closesAt):round.name+' · เปิดรับถึง '+thDate(round.closesAt);countdown(round.closesAt,data.rolling?'ตัดยอดรอบนี้ในอีก':'ปิดรับในอีก',data.rolling?[round.readyText,'สั่งหลังตัดยอด เข้ารอบถัดไปอัตโนมัติ'].filter(Boolean).join(' · '):'');
  if($('testNote'))$('testNote').hidden=!data.testOnly;
  loadCart();
  if(PAGE.product&&product(PAGE.product))buildMatrix(product(PAGE.product));
  if($('orderForm')){$('dueText').textContent=thDate(round.paymentDue);$('readyText').textContent=round.readyText?' '+round.readyText:'';$('bankName').textContent=data.bank.name;$('bankAccount').textContent=data.bank.account;$('bankHolder').textContent=data.bank.holder;buildDelivery();$('orderFields').disabled=false;}
  if($('availability'))$('availability').hidden=true;if($('mobileBar'))$('mobileBar').hidden=false;
  render();
- const left=Date.parse(round.closesAt)-data.serverNow;if(left>0&&left<2147483647)setTimeout(()=>{if(!saved){ROUND=null;countdown(null);closed('ปิดรับรอบนี้แล้ว ติดตามรอบถัดไปที่เพจ NORX');}},left);
+ const left=Date.parse(round.closesAt)-data.serverNow;if(left>0&&left<2147483647)setTimeout(()=>{if(saved)return;if(data.rolling){setTimeout(()=>fetch(API).then(r=>r.json()).then(start).catch(()=>location.reload()),2500);return;}ROUND=null;countdown(null);closed('ปิดรับรอบนี้แล้ว ติดตามรอบถัดไปที่เพจ NORX');},left);
 }
 for(const link of document.querySelectorAll('a[href^="#"]'))link.addEventListener('click',ev=>{const t=document.getElementById(link.getAttribute('href').slice(1));if(t){ev.preventDefault();t.scrollIntoView({behavior:'smooth',block:'start'});}});
 const lookbook=$('lookbook');
