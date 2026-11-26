@@ -12,7 +12,7 @@
 <meta property="og:type" content="website">
 <link rel="preload" as="image" href="assets/homepage/hero-anc-9381-960.jpg" imagesrcset="assets/homepage/hero-anc-9381-720.jpg 720w, assets/homepage/hero-anc-9381-960.jpg 960w, assets/homepage/hero-anc-9381-1440.jpg 1440w" imagesizes="(max-width:660px) 100vw, 54vw">
 <style>
-:root{--ink:#1a1a18;--paper:#f2efe7;--stone:#ddd9ce;--muted:#a7a59d;--accent:#b85e38}
+:root{--ink:#1a1a18;--paper:#f2efe7;--stone:#e8e4d9;--muted:#a7a59d;--accent:#b85e38;--action:#b04922;--action-hover:#9e3f1c}
 *{box-sizing:border-box}
 html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
 body{margin:0;font-family:Arial,"Noto Sans Thai","Sukhumvit Set","Thonburi",Tahoma,sans-serif;background:var(--paper);color:var(--ink);overflow-x:hidden}
@@ -35,19 +35,19 @@ img{display:block;width:100%;object-fit:cover}
 .eyebrow{color:#b7b4a7;letter-spacing:.16em;font:700 12px "Courier New",monospace}
 .hero h1{font-size:clamp(54px,5.45vw,100px);line-height:.88;letter-spacing:-.075em;margin:26px 0 24px;font-weight:900}
 .hero p{font-size:15px;line-height:1.7;margin:0 0 30px;color:#c8c6bd;max-width:360px}
-.cta{background:var(--paper);color:var(--ink);padding:15px 20px;font-size:14px;font-weight:700;display:inline-flex;align-items:center;justify-content:space-between;gap:30px;max-width:250px;min-height:48px}
-.cta:hover{background:#fff}
+.cta{background:var(--action);color:var(--paper);padding:15px 20px;font-size:14px;font-weight:700;display:inline-flex;align-items:center;justify-content:space-between;gap:30px;max-width:250px;min-height:48px}
+.cta:hover{background:var(--action-hover);color:var(--paper)}
 .hero-media{position:relative;overflow:hidden;min-height:630px}
 .hero-media>img{position:absolute;inset:0;width:100%;height:100%;object-position:50% 53%}
 .hero-meta{position:absolute;bottom:25px;right:28px;padding:8px 10px;background:#151513cc;color:#f4f1e8;font-size:10px;letter-spacing:.12em}
 .hero-index{position:absolute;bottom:28px;left:6vw;color:#a4a198}
 /* sale state strip (dynamic, from shop.js) */
-.round{border-bottom:1px solid #c3bfb2;padding:16px 5.6vw;background:#e4dfd2;font-size:12px;line-height:1.5}
+.round{border-bottom:1px solid #cec8ba;padding:16px 5.6vw;background:var(--stone);font-size:12px;line-height:1.5}
 .round-main{display:flex;align-items:center;justify-content:space-between;gap:12px 24px;flex-wrap:wrap}
 .round-left{display:flex;align-items:center;gap:10px 20px;flex-wrap:wrap}
 .round strong{letter-spacing:.04em}
 .badge{font-weight:700;letter-spacing:.04em}
-.round-link{font-weight:700;white-space:nowrap;text-decoration:underline;text-underline-offset:3px;display:inline-flex;align-items:center;min-height:44px}
+.round-link{color:#423f38;font-weight:700;white-space:nowrap;text-decoration:underline;text-underline-offset:3px;display:inline-flex;align-items:center;min-height:44px}
 .countdown{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.countdown[hidden]{display:none}
 .cd-label{font-size:11px;font-weight:700;letter-spacing:.06em;color:#5f5c53}
 .cd-row{display:inline-flex;gap:6px}
@@ -67,16 +67,16 @@ img{display:block;width:100%;object-fit:cover}
 .card-image{aspect-ratio:1.23;position:relative;overflow:hidden;background:#ccc}
 .card-image img{width:100%;height:100%;object-position:50% 43%;transition:transform .4s}
 .card-image .tag{position:absolute;top:16px;left:16px;background:var(--paper);padding:8px 10px}
-.card-body{padding:22px 0 16px;border-bottom:1px solid var(--ink);display:grid;grid-template-columns:1fr auto;gap:8px}
+.card-body{padding:22px 0 16px;border-bottom:1px solid var(--ink);display:grid;grid-template-columns:1fr;gap:8px}
 .card h3{margin:0;font-size:clamp(23px,3.3vw,46px);line-height:1;letter-spacing:-.05em}
 .card p{margin:7px 0 0;font-size:13px;line-height:1.45}
 .card .price{font-weight:700}.card .price:empty{display:none}
-.arrow{font-size:24px}
+.product-cta{display:inline-flex;align-items:center;margin-top:10px;padding:9px 11px;min-height:44px;font-size:12px;line-height:1.35;background:var(--action);color:var(--paper);font-weight:700}.card:hover .product-cta{background:var(--action-hover)}
 .card:hover img,.tile:hover img{transform:scale(1.025)}
 .notice{margin:28px 0 0;font-size:12px;line-height:1.7;color:#4d4a42;border-left:2px solid var(--ink);padding:2px 0 2px 14px;max-width:640px}
 .notice a{text-decoration:underline;text-underline-offset:3px}
-.movement{background:var(--ink);color:var(--paper);padding:58px 5.6vw 65px}
-.movement .section-head p{color:#bdb9ac}
+.movement{background:var(--paper);color:var(--ink);padding:58px 5.6vw 65px;border-top:1px solid #cfc9bc}
+.movement .section-head p{color:#58554c}
 .tile{position:relative;aspect-ratio:1.10;overflow:hidden;margin:0}
 .tile img{height:100%;object-position:50% 45%;transition:transform .4s}
 .tile:after{content:'';position:absolute;inset:0;background:linear-gradient(0deg,#0009,transparent 60%)}
@@ -114,7 +114,7 @@ img{display:block;width:100%;object-fit:cover}
  .section-head{display:block;margin-bottom:20px}.section-head h2{font-size:47px}.section-head p{margin:13px 0 0;max-width:100%}
  .cards{gap:12px}.card-image{aspect-ratio:.78}
  .card-image .tag{top:8px;left:8px;padding:6px;letter-spacing:.06em;font-size:9px}
- .card-body{padding:12px 0 14px}.card h3{font-size:23px;line-height:.98}.card p{font-size:11px;line-height:1.5}.arrow{font-size:16px}
+ .card-body{padding:12px 0 14px}.card h3{font-size:23px;line-height:.98}.card p{font-size:11px;line-height:1.5}.product-cta{padding:7px 8px;font-size:10px}
  .tile{aspect-ratio:.83}.tile .caption{left:12px;bottom:12px}.tile .caption .mono{font-size:8px}.tile h3{font-size:36px}
  .roots{display:flex;flex-direction:column}.roots-photo{min-height:0;height:380px}.roots-text{padding:42px 18px 46px}.roots h2{font-size:55px}.roots-text p{font-size:14px;margin-top:20px}
  .footer{padding:30px 18px;gap:10px}.footer img{width:60px}.footer .mono{font-size:9px}.footer p{font-size:10px}
@@ -136,7 +136,7 @@ img{display:block;width:100%;object-fit:cover}
   <div class="eyebrow">ROOTED IN CHIANG RAI.</div>
   <h1>CRAFTING<br>MOVEMENT.</h1>
   <p>ROAD · TRAIL · COMMUNITY</p>
-  <a href="#collections" class="cta">ดูคอลเลกชัน <span aria-hidden="true">↗</span></a>
+  <a href="#collections" class="cta">เลือกเสื้อ <span aria-hidden="true">↗</span></a>
   <span class="hero-index mono" aria-hidden="true">01 — NORX / CHIANG RAI</span>
  </div>
  <div class="hero-media">
@@ -158,8 +158,8 @@ img{display:block;width:100%;object-fit:cover}
 <section class="section" id="collections">
  <div class="section-head"><div><span class="mono">01 / APPAREL</span><h2>CURRENT<br>COLLECTIONS.</h2></div><p>เลือกเสื้อที่เหมาะกับการเคลื่อนไหวของคุณ<br>สั่งรวมหลายรุ่นในตะกร้าเดียว โอนครั้งเดียว</p></div>
  <div class="cards">
-  <a class="card" href="home-terrain/" data-internal><div class="card-image"><img src="assets/drop03-card.jpg" width="900" height="1125" alt="เสื้อ NORX Drop 03 Home Terrain" loading="lazy" decoding="async"><span class="tag mono">DROP 03</span></div><div class="card-body"><div><h3>HOME TERRAIN.</h3><p>Boxy fit · XS–2XL<br><span class="price" data-price="drop03"></span><br>ดูรายละเอียดและเลือกไซส์</p></div><span class="arrow" aria-hidden="true">↗</span></div></a>
-  <a class="card" href="woven-stride/" data-internal><div class="card-image"><img src="assets/drop02/ANC_9514.jpg" width="960" height="1200" alt="เสื้อ NORX Drop 02 Woven Stride สีขาว" loading="lazy" decoding="async"><span class="tag mono">DROP 02</span></div><div class="card-body"><div><h3>WOVEN STRIDE.</h3><p>Regular fit · XXS–6XL<br><span class="price" data-price="drop02"></span><br>ดูรายละเอียดและเลือกไซส์</p></div><span class="arrow" aria-hidden="true">↗</span></div></a>
+  <a class="card" href="home-terrain/" data-internal><div class="card-image"><img src="assets/drop03-card.jpg" width="900" height="1125" alt="เสื้อ NORX Drop 03 Home Terrain" loading="lazy" decoding="async"><span class="tag mono">DROP 03</span></div><div class="card-body"><div><h3>HOME TERRAIN.</h3><p>Boxy fit · XS–2XL<br><span class="price" data-price="drop03"></span><br><span class="product-cta">ดูรายละเอียดและเลือกไซส์ <span aria-hidden="true">&nbsp;↗</span></span></p></div></div></a>
+  <a class="card" href="woven-stride/" data-internal><div class="card-image"><img src="assets/drop02/ANC_9514.jpg" width="960" height="1200" alt="เสื้อ NORX Drop 02 Woven Stride สีขาว" loading="lazy" decoding="async"><span class="tag mono">DROP 02</span></div><div class="card-body"><div><h3>WOVEN STRIDE.</h3><p>Regular fit · XXS–6XL<br><span class="price" data-price="drop02"></span><br><span class="product-cta">ดูรายละเอียดและเลือกไซส์ <span aria-hidden="true">&nbsp;↗</span></span></p></div></div></a>
  </div>
  <p class="notice">รับเองไม่มีค่าส่ง · จัดส่งคิดค่าส่งครั้งเดียวต่อออเดอร์ แม้ซื้อหลายรุ่น<br>ส่งชื่อและสลิปยืนยันโอนทางแชทเพจ <a href="https://www.facebook.com/profile.php?id=61587303667289" target="_blank" rel="noopener noreferrer">NORX : Crafting Movement</a> เท่านั้น</p>
 </section>
