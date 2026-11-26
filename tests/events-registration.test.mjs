@@ -101,7 +101,8 @@ test("preview synthetic QA writes only fixed staging fixture; rejects cross-orig
   assert.equal((await worker.fetch(req(),{...staging,EVENTS_DB:env.EVENTS_DB})).status,404);
   assert.equal((await worker.fetch(req(),{...staging,EVENTS_QA_MODE:"0"})).status,404);
   assert.equal((await post(staging,payload(),host)).status,403);
-  const a=await (await worker.fetch(req(),staging)).json();
+  const empty=new Request(host+qa,{method:"POST",headers:{Origin:host,"CF-Connecting-IP":"192.0.2.1"},body:""});
+  const a=await (await worker.fetch(empty,staging)).json();
   assert.equal(a.pass,true);assert.equal(a.fixtureRows,1);assert.equal(a.totalRows,1);
   assert.equal((await (await worker.fetch(req(),staging)).json()).reference,a.reference);
   assert.equal(count(sqlite),1);

@@ -13,21 +13,30 @@
   },
   "main": "src/events-worker.mjs",
   "d1_databases": [
-    { "binding": "EVENTS_DB", "database_name": "norx-events", "database_id": "7c78c89c-533e-43f1-9267-f0521a7068d5", "migrations_dir": "migrations/events" }
+    {
+      "binding": "EVENTS_DB",
+      "database_name": "norx-events",
+      "database_id": "7c78c89c-533e-43f1-9267-f0521a7068d5",
+      "migrations_dir": "migrations/events"
+    }
   ],
   "ratelimits": [
-    { "name": "REGISTRATION_LIMITER", "namespace_id": "20261213", "simple": { "limit": 10, "period": 60 } }
+    {
+      "name": "REGISTRATION_LIMITER",
+      "namespace_id": "20261213",
+      "simple": {
+        "limit": 10,
+        "period": 60
+      }
+    }
   ],
   "vars": {
     "EVENTS_REGISTRATION_OPEN": "0"
   },
   "previews": {
-    "vars": { "EVENTS_REGISTRATION_OPEN": "0", "EVENTS_QA_MODE": "1" },
-    "d1_databases": [
-      { "binding": "EVENTS_QA_DB", "database_name": "norx-events-staging", "database_id": "cb4ef219-f29a-4807-a1bb-14a997f0f659" }
-    ],
-    "ratelimits": [
-      { "name": "QA_LIMITER", "namespace_id": "20261214", "simple": { "limit": 5, "period": 60 } }
-    ]
+    "vars": {
+      "EVENTS_REGISTRATION_OPEN": "0",
+      "EVENTS_QA_MODE": "0"
+    }
   }
 }
