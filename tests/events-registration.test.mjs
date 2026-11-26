@@ -96,7 +96,7 @@ test("preview synthetic QA writes only fixed staging fixture; rejects cross-orig
   const staging={...env,EVENTS_QA_DB:env.EVENTS_DB,EVENTS_DB:undefined,EVENTS_QA_MODE:"1",QA_LIMITER:{limit:async()=>({success:true})}};
   const req=(h=host,o=host,body)=>new Request(h+qa,{method:"POST",headers:{Origin:o,"CF-Connecting-IP":"192.0.2.1"},...(body?{body}: {})});
   assert.equal((await worker.fetch(req(production,production),staging)).status,404);
-  assert.equal((await worker.fetch(req(host,"https://evil.example"),staging)).status,400);
+  assert.equal((await worker.fetch(req(host,"https://evil.example"),staging)).status,403);
   assert.equal((await worker.fetch(req(host,host,"untrusted"),staging)).status,400);
   assert.equal((await worker.fetch(req(),{...staging,EVENTS_DB:env.EVENTS_DB})).status,404);
   assert.equal((await worker.fetch(req(),{...staging,EVENTS_QA_MODE:"0"})).status,404);
@@ -105,4 +105,16 @@ test("preview synthetic QA writes only fixed staging fixture; rejects cross-orig
   assert.equal(a.pass,true);assert.equal(a.fixtureRows,1);assert.equal(a.totalRows,1);
   assert.equal((await (await worker.fetch(req(),staging)).json()).reference,a.reference);
   assert.equal(count(sqlite),1);
+});
+
+test("authorized dashboard roster view projects required columns and media opt-out",async()=>{
+  const {env,sqlite}=setup();
+  sqlite.exec(readFileSync(new URL("../migrations/events/0002_move_kids_roster.sql",import.meta.url),"utf8"));
+  const r=await (await post(env,payload())).json();
+  const row=sqlite.prepare("SELECT * FROM move_kids_roster").get();
+  assert.equal(row.reference,r.reference);
+  assert.equal(row.full_name,"TEST PERSON");
+  assert.equal(row.emergency_phone,"0000000001");
+  assert.equal(row.media_consent,0);
+  assert.equal(Object.hasOwn(row,"payload"),false);
 });

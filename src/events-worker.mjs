@@ -93,7 +93,19 @@ async function runQA(request, env, url) {
     {headers:{"Content-Type":"text/html; charset=utf-8","Cache-Control":"no-store","X-Robots-Tag":"noindex, nofollow"}});
   }
   if (request.method !== "POST") return reply({error:"METHOD"},405);
-  if (request.headers.get("Origin") !== url.origin || request.body) return reply({error:"INVALID"},400);
+  if (request.headers.get("Origin") !== url.origin) return reply({error:"ORIGIN"},403);
+  // Some runtimes represent a zero-byte POST as a non-null stream.
+  if (request.body) {
+    const reader = request.body.getReader();
+    while (true) {
+      const {done, value} = await reader.read();
+      if (done) break;
+      if (value.byteLength > 0) {
+        await reader.cancel();
+        return reply({error:"INVALID"},400);
+      }
+    }
+  }
   if (!env.QA_LIMITER) return reply({error:"UNAVAILABLE"},503);
   try {
     const ip = request.headers.get("CF-Connecting-IP");
