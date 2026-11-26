@@ -1,0 +1,22 @@
+{
+  "name": "norx-events-local-test",
+  "main": "src/events-worker.mjs",
+  "compatibility_date": "2026-11-26",
+  "workers_dev": false,
+  "vars": { "EVENTS_TEST_MODE": "1" },
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS",
+    "html_handling": "auto-trailing-slash",
+    "not_found_handling": "none",
+    "run_worker_first": ["/api/events/*"]
+  },
+  "d1_databases": [
+    {
+      "binding": "EVENTS_DB",
+      "database_name": "norx-events-local-test",
+      "database_id": "00000000-0000-0000-0000-000000000000",
+      "migrations_dir": "migrations/events-test"
+    }
+  ]
+}
