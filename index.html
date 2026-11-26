@@ -178,16 +178,49 @@ body{font-family:"NORX Thai",Arial,Helvetica,"Noto Sans Thai","Sukhumvit Set","T
  .footer p{text-align:left}
 }
 @media(max-width:350px){.subnav a{font-size:11px}.cd-unit{padding:4px 5px}.cd-row{gap:4px}.hero h1{letter-spacing:-.055em}.tile .caption{left:8px;bottom:10px}}
+/* community: past runs */
+.community{background:var(--ink);color:var(--paper);padding:62px 5.6vw 70px}
+.community .section-head p{color:#c8c6bd}
+.community .mono{color:#b7b4a7}
+.run-info .mono{font-family:inherit;font-size:13px;letter-spacing:.02em;text-transform:none}
+.run{display:grid;grid-template-columns:minmax(0,.72fr) minmax(0,2fr);gap:28px;padding:30px 0;border-top:1px solid #3a3935}
+.run h3{font-size:clamp(30px,3.4vw,48px);line-height:1.02;letter-spacing:-.05em;margin:10px 0 12px;font-weight:900}
+.run-info p{margin:0;font-size:15px;line-height:1.7;color:#d6d3c9;max-width:320px}
+.run-info .run-credit{margin-top:14px;font-size:13px;color:var(--muted)}
+.run-gallery{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.run-gallery figure,.race-photos figure{margin:0;overflow:hidden;background:#2a2926}
+.run-gallery figure{aspect-ratio:3/2}
+.run-gallery img,.race-photos img{height:100%}
+.run-gallery .lead{grid-column:span 2;grid-row:span 2;aspect-ratio:auto}
+.run-gallery.single{grid-template-columns:minmax(0,1fr);max-width:340px}
+.run-gallery.single figure{aspect-ratio:auto}.run-gallery.single img{height:auto;object-fit:contain}
+.run-gallery:focus-visible{outline:2px solid var(--accent);outline-offset:4px}
+.raced-head{margin-top:14px;padding-top:30px;border-top:1px solid #3a3935}
+.raced-head h3{font-size:clamp(24px,2.6vw,34px);line-height:1.2;margin:8px 0 18px;letter-spacing:-.03em}
+.raced{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:24px}
+.race-photos{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.race-photos figure{aspect-ratio:4/5}
+.race h4{margin:14px 0 4px;font-size:clamp(20px,2vw,26px);letter-spacing:-.03em;font-weight:900}
+.race p{margin:0;font-size:14px;line-height:1.6;color:#c8c6bd}
+@media(max-width:660px){
+ .community{padding:38px 18px 44px}
+ .run{grid-template-columns:minmax(0,1fr);gap:16px;padding:24px 0}
+ .run-gallery{grid-template-columns:none;grid-auto-flow:column;grid-auto-columns:78%;overflow-x:auto;scroll-snap-type:x mandatory;margin:0 -18px;padding:0 18px 4px;scroll-padding:0 18px}
+ .run-gallery figure,.run-gallery .lead{grid-column:auto;grid-row:auto;aspect-ratio:3/2;scroll-snap-align:start}
+ .run-gallery.single{margin:0;padding:0;overflow:visible;grid-auto-columns:100%}
+ .run-gallery.single figure{aspect-ratio:auto}
+ .raced{grid-template-columns:minmax(0,1fr);gap:28px}
+}
 </style>
 <style>.hero h1.brandmark{font-size:clamp(88px,30vw,170px)!important;letter-spacing:-.04em!important;line-height:.85!important}.hero h1.brandmark span{display:block;font-size:.185em;letter-spacing:.2em;white-space:nowrap;font-weight:700;margin-top:.55em;line-height:1}</style></head>
 <body>
 <a class="skip" href="#collections">ข้ามไปที่คอลเลกชัน</a>
 <header class="header">
  <a class="logo" href="./" data-internal aria-label="NORX หน้าแรก"><img src="assets/logo.png" alt="NORX Crafting Movement" width="66" height="60"></a>
- <nav class="nav" aria-label="เมนูหลัก"><a href="#collections">COLLECTIONS</a><a href="#movement">MOVEMENT</a><a href="#roots">OUR ROOTS</a></nav>
+ <nav class="nav" aria-label="เมนูหลัก"><a href="#collections">COLLECTIONS</a><a href="#movement">MOVEMENT</a><a href="#community">COMMUNITY</a><a href="#roots">OUR ROOTS</a></nav>
  <a class="cart" href="cart/" data-internal aria-label="ตะกร้า">CART (<span data-cart-count>0</span>) <svg class="arrow-icon" viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 13 13 3M5 3h8v8"/></svg></a>
 </header>
-<nav class="subnav" aria-label="เมนูหลัก (มือถือ)"><a href="#collections">COLLECTIONS</a><a href="#movement">MOVEMENT</a><a href="#roots">OUR ROOTS</a></nav>
+<nav class="subnav" aria-label="เมนูหลัก (มือถือ)"><a href="#collections">COLLECTIONS</a><a href="#movement">MOVEMENT</a><a href="#community">COMMUNITY</a><a href="#roots">OUR ROOTS</a></nav>
 <main id="top">
 <section class="hero" aria-label="NORX Crafting Movement">
  <div class="hero-copy">
@@ -230,9 +263,21 @@ body{font-family:"NORX Thai",Arial,Helvetica,"Noto Sans Thai","Sukhumvit Set","T
  </div>
 </section>
 
+<section class="community" id="community">
+ <div class="section-head"><div><span class="mono">03 / COMMUNITY</span><h2>RUNS WE<br>HOSTED.</h2></div><p>งานวิ่งที่ NORX ชวนทุกคนออกมาวิ่งด้วยกันในเชียงราย<br>Find your pace, find your people.</p></div>
+ <article class="run"><div class="run-info"><span class="mono">1 พ.ย. 2026 · แม่มอญ, เชียงราย</span><h3>แม่มอญ 17K.</h3><p>NORX × Lactasoy Original · 17 กิโลเมตร ผ่านดอย หมู่บ้าน และผู้คนระหว่างทาง</p><p class="run-credit">ภาพ: Story Craft</p></div><div class="run-gallery" tabindex="0" role="group" aria-label="ภาพจากงาน แม่มอญ 17K"><figure class="lead"><img src="assets/community/maemon-02-640.jpg" srcset="assets/community/maemon-02-640.jpg 640w, assets/community/maemon-02.jpg 1200w" sizes="(max-width:660px) 78vw, 46vw" width="1200" height="800" alt="นักวิ่งรวมตัวถ่ายรูปก่อนออกตัวตอนพระอาทิตย์ขึ้นที่แม่มอญ" loading="lazy" decoding="async"></figure><figure><img src="assets/community/maemon-34-640.jpg" srcset="assets/community/maemon-34-640.jpg 640w, assets/community/maemon-34.jpg 1200w" sizes="(max-width:660px) 78vw, 30vw" width="1200" height="800" alt="รูปหมู่นักวิ่งงานแม่มอญ 17K กับธง NORX และป้าย Lactasoy" loading="lazy" decoding="async"></figure><figure><img src="assets/community/maemon-44-640.jpg" srcset="assets/community/maemon-44-640.jpg 640w, assets/community/maemon-44.jpg 1200w" sizes="(max-width:660px) 78vw, 30vw" width="1200" height="800" alt="นักวิ่งถือแบนเนอร์วิ่งผ่านไร่ข้าวโพด" loading="lazy" decoding="async"></figure><figure><img src="assets/community/maemon-14-640.jpg" srcset="assets/community/maemon-14-640.jpg 640w, assets/community/maemon-14.jpg 1200w" sizes="(max-width:660px) 78vw, 30vw" width="1200" height="800" alt="แถวนักวิ่งบนเส้นทางดินท่ามกลางป่า" loading="lazy" decoding="async"></figure><figure><img src="assets/community/maemon-46-640.jpg" srcset="assets/community/maemon-46-640.jpg 640w, assets/community/maemon-46.jpg 1200w" sizes="(max-width:660px) 78vw, 30vw" width="1200" height="800" alt="กลุ่มนักวิ่งวิ่งขึ้นเนินบนถนนในหมู่บ้าน" loading="lazy" decoding="async"></figure><figure><img src="assets/community/maemon-04-640.jpg" srcset="assets/community/maemon-04-640.jpg 640w, assets/community/maemon-04.jpg 1200w" sizes="(max-width:660px) 78vw, 30vw" width="1200" height="900" alt="วิวดอยแม่มอญยามเช้า" loading="lazy" decoding="async"></figure></div></article>
+ <article class="run"><div class="run-info"><span class="mono">27 ก.ย. 2026 · อำเภอเทิง</span><h3>เตว แวด เทิง EP.4</h3><p>Sunday Morning Coffee Run · NORX w/ JONGDEE · เช้าวันอาทิตย์ในเมืองเทิง</p></div><div class="run-gallery" tabindex="0" role="group" aria-label="ภาพจากงาน เตว แวด เทิง EP.4"><figure class="lead"><img src="assets/community/ep4-02-640.jpg" srcset="assets/community/ep4-02-640.jpg 640w, assets/community/ep4-02.jpg 1200w" sizes="(max-width:660px) 78vw, 46vw" width="1200" height="800" alt="นักวิ่งรวมตัวหน้าคาเฟ่ก่อนออกวิ่งในเมืองเทิง" loading="lazy" decoding="async"></figure><figure><img src="assets/community/ep4-25-640.jpg" srcset="assets/community/ep4-25-640.jpg 640w, assets/community/ep4-25.jpg 1200w" sizes="(max-width:660px) 78vw, 30vw" width="1200" height="800" alt="กลุ่มนักวิ่งวิ่งด้วยกันบนถนนในเทิง" loading="lazy" decoding="async"></figure><figure><img src="assets/community/ep4-22-640.jpg" srcset="assets/community/ep4-22-640.jpg 640w, assets/community/ep4-22.jpg 1200w" sizes="(max-width:660px) 78vw, 30vw" width="1200" height="800" alt="นักวิ่งหลายวัยวิ่งบนถนนในเมืองเทิง" loading="lazy" decoding="async"></figure><figure><img src="assets/community/ep4-33-640.jpg" srcset="assets/community/ep4-33-640.jpg 640w, assets/community/ep4-33.jpg 767w" sizes="(max-width:660px) 78vw, 30vw" width="767" height="767" alt="นักวิ่งเดินขึ้นบันไดวัดสู่เจดีย์สีทอง" loading="lazy" decoding="async"></figure><figure><img src="assets/community/ep4-40-640.jpg" srcset="assets/community/ep4-40-640.jpg 640w, assets/community/ep4-40.jpg 1200w" sizes="(max-width:660px) 78vw, 30vw" width="1200" height="800" alt="นักวิ่งยืนพิงกำแพงที่จุดชมวิว" loading="lazy" decoding="async"></figure><figure><img src="assets/community/ep4-44-640.jpg" srcset="assets/community/ep4-44-640.jpg 640w, assets/community/ep4-44.jpg 1200w" sizes="(max-width:660px) 78vw, 30vw" width="1200" height="800" alt="นักวิ่งสามคนในชุดกล้วยบนทางในป่า" loading="lazy" decoding="async"></figure></div></article>
+ <article class="run"><div class="run-info"><span class="mono">9 ส.ค. 2026 · หมู่บ้านลิไข่</span><h3>LI KHAI TRAIL RUN EP.2</h3><p>Community Trail · 14K (+900m) · เส้นทางชื้นและลื่น ผ่านนาขั้นบันได</p></div><div class="run-gallery single" tabindex="0" role="group" aria-label="ภาพจากงาน LI KHAI TRAIL RUN EP.2"><figure><img src="assets/community/likhai-ep2-01-640.jpg" srcset="assets/community/likhai-ep2-01-640.jpg 512w, assets/community/likhai-ep2-01.jpg 961w" sizes="(max-width:660px) 78vw, 46vw" width="961" height="1200" alt="โปสเตอร์ LI KHAI TRAIL RUN EP.2 ระยะ 14K พร้อมรูปหมู่นักวิ่ง" loading="lazy" decoding="async"></figure></div></article>
+ <div class="raced-head"><span class="mono">ON THE TRAIL</span><h3>สนามที่ทีม NORX ไปลงวิ่ง</h3></div>
+ <div class="raced">
+  <article class="race"><div class="race-photos"><figure><img src="assets/community/maesalong-01-640.jpg" srcset="assets/community/maesalong-01-640.jpg 480w, assets/community/maesalong-01.jpg 900w" sizes="(max-width:660px) 30vw, 15vw" width="900" height="1200" alt="ทีม NORX ถ่ายรูปก่อนออกตัวที่แม่สลอง" loading="lazy" decoding="async"></figure><figure><img src="assets/community/maesalong-05-640.jpg" srcset="assets/community/maesalong-05-640.jpg 512w, assets/community/maesalong-05.jpg 960w" sizes="(max-width:660px) 30vw, 15vw" width="960" height="1200" alt="ทีม NORX หน้าวัดบนดอยแม่สลอง" loading="lazy" decoding="async"></figure><figure><img src="assets/community/maesalong-16-640.jpg" srcset="assets/community/maesalong-16-640.jpg 512w, assets/community/maesalong-16.jpg 960w" sizes="(max-width:660px) 30vw, 15vw" width="960" height="1200" alt="นักวิ่งยืนมองไร่ชาแม่สลอง" loading="lazy" decoding="async"></figure></div><h4>MAE SALONG 38K.</h4><p>38K ผ่านภูเขา หมู่บ้าน และไร่ชา</p></article>
+  <article class="race"><div class="race-photos"><figure><img src="assets/community/likhai-05-640.jpg" srcset="assets/community/likhai-05-640.jpg 512w, assets/community/likhai-05.jpg 960w" sizes="(max-width:660px) 30vw, 15vw" width="960" height="1200" alt="ทีม NORX ถือธงที่ซุ้ม LIKHAI TRAIL 2026" loading="lazy" decoding="async"></figure><figure><img src="assets/community/likhai-11-640.jpg" srcset="assets/community/likhai-11-640.jpg 640w, assets/community/likhai-11.jpg 1200w" sizes="(max-width:660px) 30vw, 15vw" width="1200" height="800" alt="นักวิ่ง NORX ถือธงเข้าเส้นชัย" loading="lazy" decoding="async"></figure><figure><img src="assets/community/likhai-08-640.jpg" srcset="assets/community/likhai-08-640.jpg 512w, assets/community/likhai-08.jpg 960w" sizes="(max-width:660px) 30vw, 15vw" width="960" height="1200" alt="เส้นทางเทรลในหมอกที่ลิไข่" loading="lazy" decoding="async"></figure></div><h4>LI KHAI TRAIL 2026.</h4><p>We came for the trail. We stayed for the feeling.</p></article>
+ </div>
+</section>
+
 <section class="roots" id="roots">
  <div class="roots-photo"><img src="assets/homepage/movement-anc-9439-760.jpg" srcset="assets/homepage/movement-anc-9439-760.jpg 760w, assets/homepage/movement-anc-9439-1201.jpg 1201w" sizes="(max-width:660px) 100vw, 50vw" width="1201" height="1800" alt="นักวิ่ง NORX ขณะเคลื่อนไหว" loading="lazy" decoding="async"></div>
- <div class="roots-text"><span class="mono">03 / OUR ROOTS</span><h2>ROOTED IN<br>CHIANG RAI.</h2><p>เราเริ่มต้นจากการออกไปวิ่งในเทิง และเติบโตผ่านเส้นทาง ผู้คน และประสบการณ์ในเชียงราย</p><p>Crafting Movement.</p></div>
+ <div class="roots-text"><span class="mono">04 / OUR ROOTS</span><h2>ROOTED IN<br>CHIANG RAI.</h2><p>เราเริ่มต้นจากการออกไปวิ่งในเทิง และเติบโตผ่านเส้นทาง ผู้คน และประสบการณ์ในเชียงราย</p><p>Crafting Movement.</p></div>
 </section>
 </main>
 <footer class="footer">
