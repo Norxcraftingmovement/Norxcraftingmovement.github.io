@@ -15,34 +15,39 @@ const base = s => {
 const parse = s => JSON.parse(new TextDecoder().decode(base(s)));
 let jwksCache;
 // Validate the signed Access token; static-asset routing does not propagate ctx.access.
-export async function authorized(request,env,fetchKeys=fetch) {
+export async function authorized(request,env,fetchKeys=fetch,report=()=>{}) {
+  const reject=reason=>{report(reason);return false;};
   try {
     const issuer = env.MEDIA_ACCESS_ISSUER;
-    if (env.MEDIA_ADMIN_ENABLED !== "1" || !env.MEDIA_ACCESS_AUD || !/^([a-f0-9]{64})$/.test(env.MEDIA_ADMIN_EMAIL_HASH??"") ||
-        !/^https:\/\/[a-z0-9-]+\.cloudflareaccess\.com$/.test(issuer??"")) return false;
-    const token = request.headers.get("CF-Access-Jwt-Assertion");
-    if (!token || token.length>8192) return false;
-    const parts=token.split("."); if(parts.length!==3)return false;
+    if (env.MEDIA_ADMIN_ENABLED !== "1" || !env.MEDIA_ACCESS_AUD || !/^[a-f0-9]{64}$/.test(env.MEDIA_ADMIN_EMAIL_HASH??"") ||
+        !/^https:\/\/[a-z0-9-]+\.cloudflareaccess\.com$/.test(issuer??"")) return reject("CONFIG");
+    // Prefer the assertion injected by Access. The application cookie is an
+    // equivalent signed JWT, accepted only when the header is absent.
+    const cookie=(request.headers.get("Cookie")??"").split(";").map(x=>x.trim()).find(x=>x.startsWith("CF_Authorization="));
+    const token = request.headers.get("CF-Access-Jwt-Assertion") || cookie?.slice("CF_Authorization=".length);
+    if (!token || token.length>8192) return reject("TOKEN_MISSING");
+    const parts=token.split("."); if(parts.length!==3)return reject("TOKEN_FORMAT");
     const [h,p,s]=parts, header=parse(h), claims=parse(p), now=Math.floor(Date.now()/1000);
-    if(header.alg!=="RS256" || typeof header.kid!=="string" || claims.iss!==issuer ||
-       !(Array.isArray(claims.aud)?claims.aud:[claims.aud]).includes(env.MEDIA_ACCESS_AUD) ||
-       !Number.isFinite(claims.exp) || claims.exp<=now ||
-       (claims.nbf!==undefined && (!Number.isFinite(claims.nbf)||claims.nbf>now)) ||
-       typeof claims.email!=="string") return false;
+    if(header.alg!=="RS256" || typeof header.kid!=="string")return reject("TOKEN_ALG");
+    if(claims.iss!==issuer)return reject("ISSUER");
+    if(!(Array.isArray(claims.aud)?claims.aud:[claims.aud]).includes(env.MEDIA_ACCESS_AUD))return reject("AUDIENCE");
+    if(!Number.isFinite(claims.exp) || claims.exp<=now ||
+       (claims.nbf!==undefined && (!Number.isFinite(claims.nbf)||claims.nbf>now)))return reject("TOKEN_TIME");
+    if(typeof claims.email!=="string")return reject("IDENTITY");
     const emailDigest=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(claims.email.toLowerCase()));
     const emailHash=Array.from(new Uint8Array(emailDigest),b=>b.toString(16).padStart(2,"0")).join("");
-    if(emailHash!==env.MEDIA_ADMIN_EMAIL_HASH)return false;
+    if(emailHash!==env.MEDIA_ADMIN_EMAIL_HASH)return reject("IDENTITY");
     if(!jwksCache || jwksCache.issuer!==issuer || jwksCache.until<Date.now() || !jwksCache.keys.some(k=>k.kid===header.kid)){
-      const response=await fetchKeys(issuer+"/cdn-cgi/access/certs",{redirect:"error"});
-      if(!response.ok)return false;
-      const data=await response.json(); if(!Array.isArray(data.keys))return false;
+      let response;try{response=await fetchKeys(issuer+"/cdn-cgi/access/certs",{redirect:"error"});}catch{return reject("KEYS_FETCH");}
+      if(!response.ok)return reject("KEYS_HTTP");
+      const data=await response.json(); if(!Array.isArray(data.keys))return reject("KEYS_FORMAT");
       jwksCache={issuer,keys:data.keys,until:Date.now()+300000};
     }
     const jwk=jwksCache.keys.find(k=>k.kid===header.kid&&k.kty==="RSA");
-    if(!jwk)return false;
+    if(!jwk)return reject("KEY_NOT_FOUND");
     const publicKey=await crypto.subtle.importKey("jwk",jwk,{name:"RSASSA-PKCS1-v1_5",hash:"SHA-256"},false,["verify"]);
-    return await crypto.subtle.verify("RSASSA-PKCS1-v1_5",publicKey,base(s),new TextEncoder().encode(h+"."+p));
-  }catch{return false;}
+    return await crypto.subtle.verify("RSASSA-PKCS1-v1_5",publicKey,base(s),new TextEncoder().encode(h+"."+p)) || reject("SIGNATURE");
+  }catch{return reject("AUTH_ERROR");}
 }
 function signature(bytes,type) {
   const a=bytes;
@@ -92,7 +97,9 @@ export async function mediaFetch(request,env,verify=authorized) {
   }
   const demo=u.origin===demoOrigin&&env.MEDIA_DEMO==="1";
   if(demo){if(u.pathname===admin&&request.method==="GET")return page(true);return json({error:"NOT_FOUND"},404);}
-  if(u.origin!==origin || !(await verify(request,env)))return json({error:"ACCESS_REQUIRED"},403);
+  if(u.origin!==origin)return json({error:"ACCESS_REQUIRED"},403);
+  let authReason="DENIED";
+  if(!(await verify(request,env,undefined,reason=>{authReason=reason})))return json({error:"ACCESS_REQUIRED",check:authReason},403);
   if(u.pathname===admin.slice(0,-1)&&request.method==="GET")return Response.redirect(origin+admin,302);
   if(u.pathname===admin&&request.method==="GET")return page(false);
   if(u.pathname!==upload||request.method!=="PUT")return json({error:"METHOD"},405);

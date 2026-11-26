@@ -25,6 +25,9 @@ test('JWT requires valid signature, issuer, audience, time, email, and enabled f
  }
  const check=async(t,e=env)=>authorized(req(admin,{headers:{'CF-Access-Jwt-Assertion':t}}),e,fetchKeys);
  assert.equal(await check(await token()),true);
+ assert.equal(await authorized(req(admin,{headers:{Cookie:'other=1; CF_Authorization='+await token()}}),env,fetchKeys),true);
+ assert.equal(await authorized(req(admin,{headers:{Cookie:'CF_Authorization='+await token({},true)}}),env,fetchKeys),false);
+ assert.equal(await authorized(req(admin,{headers:{'CF-Access-Jwt-Assertion':'bad',Cookie:'CF_Authorization='+await token()}}),env,fetchKeys),false);
  for(const data of [{aud:['wrong']},{iss:'https://fake.cloudflareaccess.com'},{email:'other@example.com'},{exp:0},{nbf:Math.floor(Date.now()/1000)+100}])assert.equal(await check(await token(data)),false);
  assert.equal(await check(await token({},true)),false);
  assert.equal(await check(await token(),{...env,MEDIA_ADMIN_ENABLED:'0'}),false);
