@@ -5,7 +5,7 @@ import { join } from 'node:path';
 // Publish only the approved storefront files; never publish source config or admin data.
 const root = fileURLToPath(new URL('../', import.meta.url));
 const dist = join(root, 'dist');
-const publicPaths = ['index.html', 'shop.js', 'assets', 'cart', 'home-terrain', 'woven-stride'];
+const publicPaths = ['index.html', 'shop.js', 'assets', 'cart', 'home-terrain', 'woven-stride', 'admin'];
 for (const path of publicPaths) statSync(join(root, path));
 rmSync(dist, { recursive: true, force: true });
 mkdirSync(dist, { recursive: true });
