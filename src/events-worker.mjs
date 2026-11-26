@@ -1,3 +1,4 @@
+import { mediaFetch } from "./media-worker.mjs";
 const route = "/api/events/move-kids-2026/registration";
 const qaRoute = "/api/events/move-kids-2026/qa";
 const qaOrigin = "https://feature-move-kids-qa-norx-crafting-movement.norx-craftingmovement.workers.dev";
@@ -129,6 +130,8 @@ async function runQA(request, env, url) {
 
 export default {
   async fetch(request, env) {
+    const media = await mediaFetch(request, env);
+    if (media) return media;
     const url = new URL(request.url);
     if (url.pathname === qaRoute) return runQA(request, env, url);
     if (url.pathname !== route) return env.ASSETS.fetch(request);
