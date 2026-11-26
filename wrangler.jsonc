@@ -12,6 +12,9 @@
     ]
   },
   "main": "src/events-worker.mjs",
+  "ratelimits": [
+    { "name": "REGISTRATION_LIMITER", "namespace_id": "20261213", "simple": { "limit": 10, "period": 60 } }
+  ],
   "vars": {
     "EVENTS_REGISTRATION_OPEN": "0"
   }

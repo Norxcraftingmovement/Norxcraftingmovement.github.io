@@ -9,10 +9,11 @@ const fields = ["fullName", "nickname", "age", "phone", "emergencyName", "emerge
   "mediaConsent"];
 let registrationOpen = false;
 let identity;
+let completed = false;
 
 form.addEventListener("submit", async event => {
   event.preventDefault();
-  if (!registrationOpen || submit.disabled) return;
+  if (!registrationOpen || completed || submit.disabled) return;
   const values = {};
   for (const field of fields) {
     const control = form.elements.namedItem(field);
@@ -34,6 +35,15 @@ form.addEventListener("submit", async event => {
       status.textContent = (result.test ? "ทดสอบบันทึกสำเร็จ" : "สมัครสำเร็จ") + " · เลขอ้างอิง " + result.reference;
       form.reset();
       identity = undefined;
+      completed = true;
+      for (const section of form.querySelectorAll("fieldset")) section.disabled = true;
+      submit.textContent = "สมัครสำเร็จ";
+      status.tabIndex = -1;
+      status.focus();
+      return;
+    }
+    if (response.status === 429) {
+      status.textContent = "มีการส่งข้อมูลถี่เกินไป กรุณารอหนึ่งนาทีแล้วลองส่งอีกครั้ง";
       return;
     }
     status.textContent = result.error === "INVALID"
@@ -42,7 +52,7 @@ form.addEventListener("submit", async event => {
   } catch {
     status.textContent = "ติดต่อระบบไม่ได้ ข้อมูลที่กรอกยังอยู่ ลองส่งอีกครั้งได้";
   } finally {
-    submit.disabled = false;
+    submit.disabled = completed;
   }
 });
 
