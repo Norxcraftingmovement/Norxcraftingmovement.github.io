@@ -40,7 +40,8 @@ Move the existing public website to Cloudflare without disrupting apparel preord
 ## Phase 1 log
 - 2026-11-26 16:01 — Build #425dc3e4 FAILED: production branch was `main`, which does not contain `scripts/build-cloudflare.mjs` (`Cannot find module`). Not a script defect.
 - 2026-11-26 ~16:10 — Owner set Production branch to `feature/cloudflare-migration`. This commit triggers the first build from that branch.
-- Known gap to verify on workers.dev: Home Terrain lookbook fetches `/drop03/lookbook.html`, which lives in the separate `drop03` Pages repo and is not in this build.
+- 2026-11-26 16:13 — Build `4d0f301a` READY on workers.dev. QA: all pages byte-identical to GitHub Pages; Home Terrain lookbook FAILED (fetched `/drop03/lookbook.html` from the separate `drop03` repo, not in this build).
+- Fix (owner-approved: most reliable option): lookbook copied byte-for-byte into `home-terrain/lookbook.html` and the page now loads `lookbook.html` relative to `/home-terrain/`. Works on both GitHub Pages (after merge) and Cloudflare; no dependency on the `drop03` repo.
 
 ## Official references
 - https://developers.cloudflare.com/workers/static-assets/
