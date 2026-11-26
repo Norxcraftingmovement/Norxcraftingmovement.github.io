@@ -11,7 +11,9 @@
       "/api/events/*",
       "/admin/media",
       "/admin/media/*",
-      "/media/events/*"
+      "/media/events/*",
+      "/admin/events",
+      "/admin/events/*"
     ]
   },
   "main": "src/events-worker.mjs",
@@ -46,7 +48,8 @@
       "EVENTS_REGISTRATION_OPEN": "0",
       "EVENTS_QA_MODE": "0",
       "MEDIA_DEMO": "1",
-      "MEDIA_ADMIN_ENABLED": "0"
+      "MEDIA_ADMIN_ENABLED": "0",
+      "EVENT_ADMIN_DEMO": "1"
     }
   },
   "r2_buckets": [

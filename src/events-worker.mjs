@@ -1,3 +1,4 @@
+import { eventAdminFetch } from "./event-admin-worker.mjs";
 import { mediaFetch } from "./media-worker.mjs";
 const route = "/api/events/move-kids-2026/registration";
 const qaRoute = "/api/events/move-kids-2026/qa";
@@ -130,6 +131,8 @@ async function runQA(request, env, url) {
 
 export default {
   async fetch(request, env) {
+    const eventAdmin = await eventAdminFetch(request, env);
+    if (eventAdmin) return eventAdmin;
     const media = await mediaFetch(request, env);
     if (media) return media;
     const url = new URL(request.url);
