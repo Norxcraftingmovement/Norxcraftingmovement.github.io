@@ -4,7 +4,7 @@ import { publicConfig, submitOrder } from "./orders-service.mjs";
 import { UserError } from "./orders-core.mjs";
 import { environmentGuard } from "./orders-guard.mjs";
 import { verifiedOwner } from "./orders-access.mjs";
-import { dispatchDue, makeProvider } from "./orders-notify.mjs";
+import { dispatchDue, makeProvider, reportNotificationChannel } from "./orders-notify.mjs";
 import { getSetting } from "./orders-service.mjs";
 import { getPayView, getPaySvg } from "./payments.mjs";
 
@@ -66,6 +66,10 @@ export default {
     if (!(await environmentGuard(env))) return;
     const provider = makeProvider(env, async () => (await getSetting(env, "storefront"))?.notifyTo ?? null);
     // Drain a burst of orders within one run (bounded): up to 6 batches of 25, stop when nothing is due.
-    ctx.waitUntil((async () => { for (let i = 0; i < 6; i++) { const s = await dispatchDue(env, provider, { batch: 25 }); if (!s.claimed) break; } })());
+    ctx.waitUntil((async () => {
+      // Reporting failure must not prevent the existing delivery loop from running.
+      try { await reportNotificationChannel(env); } catch { console.error("notification channel report failed"); }
+      for (let i = 0; i < 6; i++) { const s = await dispatchDue(env, provider, { batch: 25 }); if (!s.claimed) break; }
+    })());
   },
 };

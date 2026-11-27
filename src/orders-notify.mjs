@@ -180,11 +180,41 @@ export function makeWebhookProvider(env, getRecipient) {
 }
 /** Preference: native email binding > webhook > none (queue holds the messages). */
 export const makeProvider = (env, getRecipient) => makeEmailProvider(env, getRecipient) ?? makeWebhookProvider(env, getRecipient);
-/** What the admin page shows: which channel is active and what is still missing. Nothing is sent from here. */
+const channelMode = env => env.EMAIL && typeof env.EMAIL.send === "function" ? "email" : env.NOTIFY_WEBHOOK_URL ? "webhook" : "none";
+/** Local configuration check for tools/tests. Admin uses the Public Worker's report below. Nothing is sent here. */
 export async function notificationReadiness(env, getRecipient) {
-  const mode = env.EMAIL && typeof env.EMAIL.send === "function" ? "email" : env.NOTIFY_WEBHOOK_URL ? "webhook" : "none", missing = [];
+  const mode = channelMode(env), missing = [];
   if (mode === "none") missing.push("ช่องทางส่ง (Email binding หรือ webhook)");
   if (mode === "email" && (!env.NOTIFY_FROM || !EMAIL_RE.test(env.NOTIFY_FROM))) missing.push("อีเมลผู้ส่ง (NOTIFY_FROM)");
   if (mode !== "none" && !EMAIL_RE.test((await getRecipient()) || "")) missing.push("อีเมลผู้รับแจ้งเตือน (ตั้งค่าที่ Storefront settings)");
   return { mode, ready: mode !== "none" && missing.length === 0, missing };
+}
+
+// The Public Worker owns sending. Admin reads its recent, non-sensitive configuration report,
+// not Admin's own bindings. This proves configuration only, never provider acceptance or inbox delivery.
+export const CHANNEL_REPORT_KEY = "notification_channel_report";
+export const CHANNEL_REPORT_MAX_AGE_MS = 5 * 60e3;
+export async function reportNotificationChannel(env, { now = Date.now() } = {}) {
+  const mode = channelMode(env);
+  const report = { version: 1, environment: env.ENVIRONMENT, mode,
+    senderConfigured: mode !== "email" || EMAIL_RE.test(env.NOTIFY_FROM || ""), checkedAt: iso(now) };
+  await env.ORDERS_DB.prepare("INSERT INTO settings(key,value) VALUES (?1,?2) ON CONFLICT(key) DO UPDATE SET value=excluded.value")
+    .bind(CHANNEL_REPORT_KEY, JSON.stringify(report)).run();
+}
+export async function reportedNotificationReadiness(env, getRecipient, { now = Date.now() } = {}) {
+  const unknown = (reason, checkedAt = null) => ({ mode: "unknown", ready: false, missing: [reason], source: "public_worker", checkedAt });
+  const row = await env.ORDERS_DB.prepare("SELECT value FROM settings WHERE key=?1").bind(CHANNEL_REPORT_KEY).first();
+  if (!row) return unknown("รอระบบส่งแจ้งเตือนรายงานสถานะ");
+  let report; try { report = JSON.parse(row.value); } catch { return unknown("สถานะจากระบบส่งแจ้งเตือนไม่ถูกต้อง"); }
+  const at = Date.parse(report?.checkedAt);
+  if (report?.version !== 1 || report.environment !== env.ENVIRONMENT || !["email", "webhook", "none"].includes(report.mode) || typeof report.senderConfigured !== "boolean" || !Number.isFinite(at)) {
+    return unknown("สถานะจากระบบส่งแจ้งเตือนไม่ถูกต้อง");
+  }
+  if (at > now + 60e3 || now - at > CHANNEL_REPORT_MAX_AGE_MS) return unknown("สถานะจากระบบส่งแจ้งเตือนไม่เป็นปัจจุบัน", iso(at));
+  const missing = [];
+  if (report.mode === "none") missing.push("ช่องทางส่ง (Email binding หรือ webhook)");
+  if (report.mode === "email" && !report.senderConfigured) missing.push("อีเมลผู้ส่ง (NOTIFY_FROM)");
+  // Read the current recipient: an owner edit must take effect without waiting for the next cron.
+  if (report.mode !== "none" && !EMAIL_RE.test((await getRecipient()) || "")) missing.push("อีเมลผู้รับแจ้งเตือน (ตั้งค่าที่ Storefront settings)");
+  return { mode: report.mode, ready: report.mode !== "none" && missing.length === 0, missing, source: "public_worker", checkedAt: iso(at) };
 }

@@ -4,6 +4,7 @@ import * as core from "./orders-core.mjs";
 import { toCsv } from "./csv.mjs";
 import { newPayToken, hashToken, paymentForReceipt } from "./payments.mjs";
 import { maskPromptPayId } from "./promptpay.mjs";
+import { reportedNotificationReadiness } from "./orders-notify.mjs";
 const { UserError, STATUS } = core;
 const iso = (ms) => new Date(ms).toISOString();
 const J = JSON.stringify;
@@ -187,13 +188,14 @@ export async function roundsWithSummary(env, now) {
 // Cheap change token for admin auto-refresh: changes whenever an order, round or notification changes.
 export async function pulse(env) {
   const one = (sql) => env.ORDERS_DB.prepare(sql).first();
-  const [o, r, n] = await Promise.all([
+  const [o, r, n, channel] = await Promise.all([
     one("SELECT COUNT(*) c, COALESCE(MAX(updated_at),'') m FROM orders"),
     one("SELECT COUNT(*) c, COALESCE(MAX(sent_at),'') m, COALESCE(GROUP_CONCAT(status),'') s FROM rounds"),
     one("SELECT SUM(status='queued') q, SUM(status='failed') f, SUM(status='dead') d, SUM(status='sending') s, COALESCE(MAX(sent_at),'') m FROM notification_queue"),
+    reportedNotificationReadiness(env, async () => (await getSetting(env, "storefront"))?.notifyTo ?? null),
   ]);
   const body = { orders: o.c, notifications: { queued: n.q ?? 0, failed: n.f ?? 0, dead: n.d ?? 0 } };
-  return { ...body, token: await sha(J([o, r, n])) };
+  return { ...body, token: await sha(J([o, r, n, channel])) };
 }
 
 // ---------- admin: status change (V1 setOrderStatus, atomic) ----------
