@@ -1,20 +1,20 @@
 <!doctype html><html lang="th"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>NORX | จัดส่งและใบจ่าหน้า</title><link rel="stylesheet" href="/admin/assets/style.css?v=batch-operations"></head>
-<body><a class="skip" href="#main">ข้ามไปเนื้อหา</a>
+<body class="shipping-surface"><a class="skip" href="#main">ข้ามไปเนื้อหา</a>
 <!--NAV-->
-<main id="main"><p class="eyebrow">SHIPPING</p><h1>ใบจ่าหน้าพัสดุ.</h1><p class="muted">การพิมพ์หรือส่งออกใบจ่าหน้า <b>ไม่เปลี่ยนสถานะ</b>ออเดอร์เป็นจัดส่งแล้ว</p>
+<main id="main" class="shipping-page"><h1>จัดส่งและใบจ่าหน้า</h1><p class="muted">การพิมพ์หรือส่งออกใบจ่าหน้า <b>ไม่เปลี่ยนสถานะ</b>ออเดอร์เป็นจัดส่งแล้ว</p>
 <div id="notice" class="notice" role="status" hidden></div>
-<div class="grid">
+<div class="grid shipping-workspace">
 <section class="panel" aria-labelledby="oh"><h2 id="oh">ออเดอร์ที่ต้องจัดส่ง</h2>
 <p id="readyQueue" hidden>เฉพาะพัสดุพร้อมจัดส่ง · <a href="/admin/shipping/">ดูรายการจัดส่งทั้งหมด</a></p>
 <div class="row"><input id="q" type="search" placeholder="ค้นหาเลขออเดอร์หรือชื่อผู้รับ" aria-label="ค้นหา"><select id="printed" aria-label="กรองสถานะการพิมพ์" class="auto"><option value="">ทั้งหมด</option><option value="0">ยังไม่พิมพ์</option><option value="1">พิมพ์แล้ว</option></select></div>
-<div class="row mt"><button type="button" class="secondary" id="all">เลือกทั้งหมด</button><button type="button" class="secondary" id="none">ล้างที่เลือก</button><span id="count" class="muted" role="status"></span></div>
+<div class="row mt"><button type="button" class="secondary" id="all">เลือกทั้งหมดในรายการ</button><button type="button" class="secondary" id="none">ล้างที่เลือก</button><span id="count" class="muted" role="status"></span></div>
 <ul class="list" id="list" aria-label="รายการออเดอร์"></ul></section>
-<section class="panel" aria-labelledby="ph"><h2 id="ph">ตัวอย่างและส่งออก</h2>
+<section class="panel" aria-labelledby="ph"><h2 id="ph">ตรวจและพิมพ์ใบจ่าหน้า</h2><p id="selectionHint" class="muted shipping-hint" role="status">เลือกออเดอร์เพื่อดูตัวอย่างใบจ่าหน้า</p>
 <fieldset><legend>ขนาดกระดาษ</legend><label><input type="radio" name="fmt" value="A6" checked> A6 (105×148 มม.) ใบเดียวต่อหน้า</label><label><input type="radio" name="fmt" value="A4"> A4 วาง A6 สูงสุด 4 ใบ</label></fieldset>
 <div id="slotRow" hidden><label class="f" for="slot">เริ่มวางที่ช่อง (ใช้กระดาษที่เคยพิมพ์ไปบางช่องแล้ว)</label><select id="slot"><option value="0">ช่อง 1 (บนซ้าย)</option><option value="1">ช่อง 2 (บนขวา)</option><option value="2">ช่อง 3 (ล่างซ้าย)</option><option value="3">ช่อง 4 (ล่างขวา)</option></select></div>
 <div id="warn" class="notice err" role="alert" hidden></div>
 <canvas id="preview" width="10" height="10" aria-label="ตัวอย่างใบจ่าหน้า"></canvas>
-<div class="row"><button type="button" id="png" disabled>ส่งออก PNG 300 PPI</button><button type="button" id="pdf" disabled>ส่งออก PDF</button><button type="button" id="print" disabled>พิมพ์</button><button type="button" class="secondary" id="edit" disabled>แก้ที่อยู่</button><button type="button" class="secondary" id="ship" disabled>บันทึกข้อมูลจัดส่ง</button><button type="button" class="secondary" id="shipBatch" disabled>บันทึกจัดส่งหลายรายการ</button></div>
+<div class="row shipping-print-actions"><button type="button" id="print" disabled>พิมพ์</button><button type="button" class="secondary" id="edit" disabled>แก้ที่อยู่</button></div><details class="section-details shipping-downloads"><summary>ดาวน์โหลดไฟล์ใบจ่าหน้า</summary><div class="row"><button type="button" class="secondary" id="pdf" disabled>ส่งออก PDF</button><button type="button" class="secondary" id="png" disabled>ส่งออก PNG 300 PPI</button></div></details><section class="shipping-record" aria-labelledby="shipmentHeading"><h3 id="shipmentHeading">เลขพัสดุและการส่งของ</h3><p class="muted shipping-hint">กรอกเลขพัสดุไว้ก่อนได้ เมื่อส่งของแล้วจึงบันทึกการจัดส่ง</p><div class="row"><button type="button" class="secondary" id="ship" disabled>กรอกเลขพัสดุ</button><button type="button" id="shipBatch" disabled>บันทึกจัดส่งหลายรายการ</button></div></section>
 <div id="afterPrint" class="notice" hidden>พิมพ์เรียบร้อยหรือไม่? <button type="button" class="secondary" id="markPrinted">บันทึกว่าพิมพ์แล้ว</button> <button type="button" class="secondary" id="dismissPrint">ไม่ต้องบันทึก</button></div>
 </section></div></main>
 <dialog id="addrDlg" aria-labelledby="addrH"><form method="dialog" id="addrForm" novalidate><h2 id="addrH">แก้ที่อยู่จัดส่ง</h2><p class="muted" id="addrOrder"></p>
