@@ -1,5 +1,5 @@
 # Staging Runbook — NORX Orders V2
-Status 2026-11-27 (final review applied): **prepared and rehearsed locally; nothing has been created, deployed or changed on Cloudflare.** Section 3 is for approval. Decisions applied: D17 Cloudflare Email Service, D18 `staging.norxcraftingmovement.com`, D19 synthetic data, D21 Access on the entire hostname, D22 Events untouched.
+Status 2026-11-27 (final review applied): **D1 and Admin/Public Workers deployed according to the cloud operator; storefront and integration gates remain pending.** See HANDOVER.md for deployment evidence and the latest local Windows check. Decisions applied: D17 Cloudflare Email Service, D18 `staging.norxcraftingmovement.com`, D19 synthetic data, D21 Access on the entire hostname, D22 Events untouched.
 Hard rules: staging only · synthetic data only · **no real transfer, e-mail to a real customer, or paid service** · Production, Events, Media, Orders V1 unchanged · no production DNS change (the single new `staging` record is the only DNS change, owner action) · **nothing in this runbook deletes anything**.
 
 ## 1. Resource configuration (exact)
@@ -32,11 +32,11 @@ Cloudflare Service Auth tokens have a different identity shape and are **not** g
  4  npx wrangler d1 execute norx-orders-staging --remote -c … --file .staging/seed.guarded.sql           # guard + synthetic seed, repeatable
  5  node scripts/build-staging-storefront.mjs; wrangler deploy --dry-run ×3; wrangler deploy ×3           # NO routes yet: Workers unreachable
  6  OWNER: re-check Access (one Allow-owner policy; AUD matches)
- 7  OWNER: add the DNS record "staging" ONLY, then the 3 routes
+ 7  OWNER: add the DNS record "staging" ONLY, then the 4 route patterns
  8  node scripts/staging-gate.mjs --base https://staging.norxcraftingmovement.com                         # MUST pass before anything else
  9  integration tests (§4) with the owner session
 ```
-Steps 2–4 are tested **exactly as listed** (SQL extracted from the generated script and executed twice on SQLite: second and third runs change nothing; a database marked `production` or unmarked refuses the seed and writes nothing; a failing file is rolled back whole; the marker command never overwrites an existing environment). Every remote D1 command has `--remote` and a config binding only the staging database. **Gate (step 8)** probes 16 paths with no credentials; each must end at Cloudflare Access (redirect to `*.cloudflareaccess.com` or content-free 401/403); any 200, application 404/body or foreign redirect fails. **If the gate fails: remove the three routes (and nothing else), fix the policy, run it again.**
+Steps 2–4 are tested **exactly as listed** (SQL extracted from the generated script and executed twice on SQLite: second and third runs change nothing; a database marked `production` or unmarked refuses the seed and writes nothing; a failing file is rolled back whole; the marker command never overwrites an existing environment). Every remote D1 command has `--remote` and a config binding only the staging database. **Gate (step 8)** probes 16 paths with no credentials; each must end at Cloudflare Access (redirect to `*.cloudflareaccess.com` or content-free 401/403); any 200, application 404/body or foreign redirect fails. **If the gate fails: remove the four route patterns (and nothing else), fix the policy, run it again.**
 
 > **Status 2026-11-27:** steps 0–4 done; step 5 done for the Admin and Public Workers; the storefront Worker failed with a 401 on asset upload and is deployed by the owner locally: `STAGING_STOREFRONT_DEPLOY_WINDOWS.md`. Do not repeat steps 2–4 or redeploy the two Workers.
 
@@ -62,7 +62,7 @@ A PromptPay QR already issued cannot be changed: customers may have saved it. Th
 5. Tell customers with open orders through the page before and after the change. Never test with real transfers: staging uses synthetic IDs and the scan-without-confirming step only.
 
 ## 6. Rollback (non-destructive)
-Remove (or disable) the three routes — all traffic stops. Keep the Workers, the D1 database, the Access application and the DNS record for diagnosis. Nothing is deleted. Production is not involved at any point.
+Remove (or disable) the four route patterns — all traffic stops. Keep the Workers, the D1 database, the Access application and the DNS record for diagnosis. Nothing is deleted. Production is not involved at any point.
 
 ## 7. Not approved / not done
 Production deployment, production DB migration, production DNS, Access changes beyond the staging application above (owner action), e-mail-domain onboarding / DNS, merging into the production branch, closing Orders V1, real customer data, any paid service, any real transfer.
