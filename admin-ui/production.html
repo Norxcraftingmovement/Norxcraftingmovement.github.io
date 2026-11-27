@@ -1,17 +1,18 @@
 <!doctype html><html lang="th"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>NORX | สรุปการผลิต</title><link rel="stylesheet" href="/admin/assets/style.css?v=batch-operations"></head>
-<body><a class="skip" href="#main">ข้ามไปเนื้อหา</a><!--NAV-->
-<main id="main"><p class="eyebrow">PRODUCTION</p><h1>สรุปการผลิต.</h1>
+<body class="production-surface"><a class="skip" href="#main">ข้ามไปเนื้อหา</a><!--NAV-->
+<main id="main" class="production-page"><h1>การผลิตและรับสินค้า</h1>
 <p class="muted"><span id="live" role="status" aria-live="polite">กำลังโหลด…</span></p>
 <div id="notice" class="notice" role="status" hidden></div><div id="fresh" class="notice" hidden>มีการเปลี่ยนแปลงใหม่ <button type="button" class="secondary small" id="showFresh">แสดงเลย</button></div>
 <section class="panel noprint" aria-labelledby="fh"><h2 id="fh">ตัวกรอง</h2>
 <div class="row"><label for="round" class="f lab">รอบ</label><select id="round" class="auto"></select><label class="inline"><input type="checkbox" id="test"> รวมออเดอร์ทดสอบ</label>
 <button type="button" id="csv" class="secondary">ส่งออก CSV</button><button type="button" id="print" class="secondary">พิมพ์</button></div></section>
+<section class="panel mt2 noprint" aria-labelledby="bh"><h2 id="bh">สถานะสินค้าและรับของ</h2><p class="muted" id="batchHint"></p><div class="stats production-progress" id="stats"></div><div class="acts" id="batch"></div></section>
 <section class="panel mt2" aria-labelledby="th2"><h2 id="th2">ยอดสั่งผลิต <span id="title" class="muted"></span></h2>
 <p class="muted small-note">ยอดผลิต = ชำระแล้ว + จ่ายหน้างาน · "รอโอน" แสดงไว้ดูเท่านั้น ไม่นับเป็นยอดผลิต</p>
-<div class="tablewrap"><table id="tbl"><caption class="sr">สรุปยอดผลิตตามรอบ Collection รุ่น แขน ไซส์ และสถานะการชำระเงิน</caption>
+<p class="table-help noprint">บนมือถือ เลื่อนตารางซ้าย–ขวาเพื่อดูรายละเอียดและปุ่มทำรายการ</p><div class="tablewrap" tabindex="0" role="region" aria-label="รายละเอียดสินค้าแยกรุ่นและไซส์"><table id="tbl"><caption class="sr">สรุปยอดผลิตตามรอบ Collection รุ่น แขน ไซส์ และสถานะการชำระเงิน</caption>
 <thead><tr><th scope="col">รอบ</th><th scope="col">Collection</th><th scope="col">รุ่น / ทรง</th><th scope="col">แขน</th><th scope="col">ไซส์</th><th scope="col" class="num">ผลิต</th><th scope="col" class="num">ชำระแล้ว</th><th scope="col" class="num">จ่ายหน้างาน</th><th scope="col" class="num">รอโอน</th><th scope="col" class="num noprint">สถานะการผลิต</th><th scope="col" class="noprint">ทำรายการ</th></tr></thead>
 <tbody id="rows"></tbody><tfoot id="foot"></tfoot></table></div></section>
-<section class="panel mt2 noprint" aria-labelledby="bh"><h2 id="bh">อัปเดตสถานะการผลิตทั้งล็อต</h2><p class="muted" id="batchHint"></p><div class="stats" id="stats"></div><div class="acts" id="batch"></div></section>
+
 </main>
 <dialog id="dlg" aria-labelledby="dlgT"><form method="dialog" id="dlgForm"><h2 id="dlgT"></h2><p id="dlgP"></p><div class="row"><button type="submit">ยืนยัน</button><button type="button" class="secondary" id="dlgNo">ยกเลิก</button></div></form></dialog>
 <dialog id="receiptDialog" aria-labelledby="receiptTitle"><form id="receiptForm">
