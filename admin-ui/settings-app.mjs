@@ -40,3 +40,25 @@ const confirmLive = () => confirm("เปิดรับออเดอร์จ
     $("saveStore").disabled = false;
   });
 })();
+
+// ---- PromptPay payment settings ----
+(async () => {
+  const draw = (p) => {
+    if (!p) { $("ppState").textContent = "ยังไม่ได้ตั้งค่า — ออเดอร์ใหม่จะแสดงเฉพาะการโอนผ่านเลขบัญชี"; $("ppPreview").hidden = true; return; }
+    $("ppType").value = p.idType; $("ppName").value = p.payeeName; $("ppId").value = ""; $("ppId").placeholder = p.idMasked + " (กรอกใหม่เฉพาะเมื่อต้องการเปลี่ยน)";
+    $("ppState").textContent = (p.verified ? "เปิดใช้งานแล้ว (ยืนยันเมื่อ " + new Date(p.verifiedAt).toLocaleString("th-TH") + ")" : "ยังไม่ยืนยัน — ยังไม่แสดง QR ให้ลูกค้า") + " · " + p.idTypeLabel + " " + p.idMasked;
+    $("ppPreview").src = "/api/admin/settings/payment/preview.svg?" + Date.now(); $("ppPreview").hidden = false;
+  };
+  try { draw((await api("/api/admin/settings/payment")).payment); } catch (e) { notice($("notice"), errText(e), true); }
+  const msg = (e) => e.userMessage || errText(e);
+  $("payForm").addEventListener("submit", async (ev) => {
+    ev.preventDefault(); $("ppSave").disabled = true;
+    try { const r = await api("/api/admin/settings/payment", { method: "PUT", body: { idType: $("ppType").value, id: $("ppId").value, payeeName: $("ppName").value } }); draw(r.payment); notice($("notice"), "บันทึกแล้ว — ต้องยืนยันชื่อผู้รับก่อนจึงจะแสดง QR"); } catch (e) { notice($("notice"), msg(e), true); }
+    $("ppSave").disabled = false;
+  });
+  $("verifyForm").addEventListener("submit", async (ev) => {
+    ev.preventDefault(); $("ppVerify").disabled = true;
+    try { const r = await api("/api/admin/settings/payment/verify", { method: "POST", body: { confirmName: $("ppConfirm").value } }); draw(r.payment); $("ppConfirm").value = ""; notice($("notice"), "ยืนยันแล้ว — ออเดอร์ใหม่จะแสดง QR"); } catch (e) { notice($("notice"), msg(e), true); }
+    $("ppVerify").disabled = false;
+  });
+})();

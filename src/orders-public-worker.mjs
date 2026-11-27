@@ -5,6 +5,7 @@ import { UserError } from "./orders-core.mjs";
 import { environmentGuard } from "./orders-guard.mjs";
 import { dispatchDue, makeProvider } from "./orders-notify.mjs";
 import { getSetting } from "./orders-service.mjs";
+import { getPayView, getPaySvg } from "./payments.mjs";
 
 const base = { "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff" };
 const allowed = (env, origin) => (env.ORDERS_PUBLIC_ORIGINS ?? "").split(",").map((s) => s.trim()).filter(Boolean).includes(origin);
@@ -13,9 +14,30 @@ function respond(env, request, body) {
   if (o && allowed(env, o)) { h["Access-Control-Allow-Origin"] = o; h["Vary"] = "Origin"; }
   return new Response(JSON.stringify(body), { status: 200, headers: h }); // V1 contract: always HTTP 200, errors in {ok:false,error}
 }
+// Customer payment page data / QR image. Capability URL: order number + random token (stored hashed). Unknown order and wrong token look identical.
+async function payRoute(request, env, u) {
+  const h = { ...base }, origin = request.headers.get("Origin");
+  if (origin && allowed(env, origin)) { h["Access-Control-Allow-Origin"] = origin; h["Vary"] = "Origin"; }
+  if (request.method !== "GET") return new Response("Method not allowed", { status: 405, headers: h });
+  if (!(await environmentGuard(env))) return new Response("Unavailable", { status: 503, headers: h });
+  if (env.ORDERS_LIMITER) { const { success } = await env.ORDERS_LIMITER.limit({ key: "pay:" + (request.headers.get("CF-Connecting-IP") ?? "unknown") }); if (!success) return new Response("Too many requests", { status: 429, headers: h }); }
+  const o = u.searchParams.get("o") ?? "", t = u.searchParams.get("t") ?? "";
+  if (!/^NORX-[A-Za-z0-9-]{1,60}$/.test(o) || !/^[A-Za-z0-9_-]{16,64}$/.test(t)) return new Response("Not found", { status: 404, headers: h });
+  try {
+    if (u.pathname === "/api/orders/pay.svg") {
+      const svg = await getPaySvg(env, o, t, Date.now());
+      if (!svg) return new Response("Not found", { status: 404, headers: h });
+      return new Response(svg, { headers: { ...h, "Content-Type": "image/svg+xml; charset=utf-8", ...(u.searchParams.get("download") === "1" ? { "Content-Disposition": `attachment; filename="NORX-${o}-QR.svg"` } : {}) } });
+    }
+    const v = await getPayView(env, o, t, Date.now());
+    if (!v) return new Response("Not found", { status: 404, headers: h });
+    return new Response(JSON.stringify(v), { headers: { ...h, "Content-Type": "application/json; charset=utf-8" } });
+  } catch (e) { console.error("pay route error", e?.message); return new Response("Error", { status: 500, headers: h }); }
+}
 export default {
   async fetch(request, env, ctx) {
     const u = new URL(request.url);
+    if (u.pathname === "/api/orders/pay" || u.pathname === "/api/orders/pay.svg") return payRoute(request, env, u);
     if (u.pathname !== "/api/orders") return new Response("Not found", { status: 404, headers: base });
     if (request.method === "OPTIONS") {
       const o = request.headers.get("Origin");

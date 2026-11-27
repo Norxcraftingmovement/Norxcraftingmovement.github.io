@@ -10,11 +10,12 @@ let rounds = [], orders = [], current = "", busy = false, errs = 0;
 const msg = (e) => e.userMessage || (e.code === "USER_ERROR" ? e.message : "เกิดข้อผิดพลาด (" + (e.code || e.message) + ")");
 
 // One reusable confirm dialog; resolves with the typed value (or true) or null when cancelled.
-function ask({ title, text, label, validate }) {
+let askExtra = "";
+function ask({ title, text, label, label2, validate }) {
   return new Promise((resolve) => {
-    $("dlgT").textContent = title; $("dlgP").textContent = text || ""; $("dlgIn").hidden = !label; $("dlgL").textContent = label || ""; $("dlgInput").value = ""; notice($("dlgErr"), "");
+    $("dlgT").textContent = title; $("dlgP").textContent = text || ""; $("dlgIn").hidden = !label; $("dlgL").textContent = label || ""; $("dlgInput").value = ""; $("dlgIn2").hidden = !label2; $("dlgL2").textContent = label2 || ""; $("dlgInput2").value = ""; notice($("dlgErr"), "");
     const done = (v) => { $("dlgForm").onsubmit = null; $("dlgNo").onclick = null; $("dlg").close(); resolve(v); };
-    $("dlgForm").onsubmit = (ev) => { ev.preventDefault(); const v = label ? $("dlgInput").value.trim() : true; const bad = validate && validate(v); if (bad) { notice($("dlgErr"), bad, true); return; } done(v); };
+    $("dlgForm").onsubmit = (ev) => { ev.preventDefault(); const v = label ? $("dlgInput").value.trim() : true; const bad = validate && validate(v); if (bad) { notice($("dlgErr"), bad, true); return; } askExtra = label2 ? $("dlgInput2").value.trim() : ""; done(v); };
     $("dlgNo").onclick = () => done(null); $("dlg").onclose = () => resolve(null); $("dlg").showModal();
   });
 }
@@ -75,10 +76,10 @@ function draw(notifs, lat, ready = lastR) {
 async function move(o, to) {
   let amount;
   if ((to === "ชำระแล้ว" || to === "ส่งมอบแล้ว") && o.status !== "ส่งร้านแล้ว") {
-    amount = await ask({ title: BTN[to] + " " + o.id, text: "ยอดที่ต้องได้รับ " + baht(o.total) + " — พิมพ์ยอดที่ได้รับจริงเพื่อยืนยัน", label: "ยอดที่ได้รับ (บาท)", validate: (v) => (Number(v) === o.total ? "" : "ยอดไม่ตรงกับยอดออเดอร์") });
+    amount = await ask({ title: BTN[to] + " " + o.id, text: "ยอดที่ต้องได้รับ " + baht(o.total) + " — พิมพ์ยอดที่ได้รับจริงเพื่อยืนยัน", label: "ยอดที่ได้รับ (บาท)", label2: to === "ชำระแล้ว" ? "เลขอ้างอิงรายการโอนจากรายการเดินบัญชี (ไม่บังคับ — ใช้กันยืนยันซ้ำ)" : "", validate: (v) => (Number(v) === o.total ? "" : "ยอดไม่ตรงกับยอดออเดอร์") });
     if (amount === null) return; amount = Number(amount);
   } else if (!(await ask({ title: BTN[to] + " " + o.id + "?", text: o.status + " → " + to }))) return;
-  try { await api("/api/admin/orders/" + encodeURIComponent(o.id) + "/status", { method: "POST", body: { from: o.status, to, amount } }); await load(); } catch (e) { notice($("notice"), msg(e), true); await load({ quiet: true }); }
+  try { await api("/api/admin/orders/" + encodeURIComponent(o.id) + "/status", { method: "POST", body: { from: o.status, to, amount, ...(askExtra ? { bankTxnRef: askExtra } : {}) } }); await load(); } catch (e) { notice($("notice"), msg(e), true); await load({ quiet: true }); }
 }
 async function roundOp(r, op, text, body = {}) {
   if (!(await ask({ title: r.name, text }))) return;

@@ -48,7 +48,10 @@ CREATE TABLE shipments (id INTEGER PRIMARY KEY, order_id INTEGER NOT NULL REFERE
   label_printed_count INTEGER NOT NULL DEFAULT 0, last_label_at TEXT) STRICT;
 CREATE TABLE payments (id INTEGER PRIMARY KEY, order_id INTEGER NOT NULL REFERENCES orders(id), amount_baht INTEGER NOT NULL CHECK (amount_baht > 0),
   method TEXT, reference TEXT, slip_key TEXT, status TEXT NOT NULL DEFAULT 'recorded' CHECK (status IN ('recorded','confirmed','void')),
-  recorded_by TEXT, created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')), voided_at TEXT, void_reason TEXT) STRICT;
+  recorded_by TEXT, created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')), voided_at TEXT, void_reason TEXT,
+  request_id INTEGER, provider TEXT, bank_txn_ref TEXT, verified_at TEXT, verified_by TEXT) STRICT;
+-- Duplicate-payment prevention: one bank transaction can confirm at most one payment.
+CREATE UNIQUE INDEX uq_payment_bank_txn ON payments(bank_txn_ref) WHERE bank_txn_ref IS NOT NULL AND status='confirmed';
 -- Payment integrity: an order can have at most ONE confirmed payment (undo voids it; re-confirm records a new one).
 CREATE UNIQUE INDEX uq_payment_confirmed ON payments(order_id) WHERE status='confirmed';
 CREATE TABLE order_status_history (id INTEGER PRIMARY KEY, order_id INTEGER NOT NULL REFERENCES orders(id),
@@ -58,6 +61,22 @@ CREATE TABLE audit_log (id INTEGER PRIMARY KEY, at TEXT NOT NULL DEFAULT (strfti
   entity TEXT NOT NULL, entity_id TEXT, before TEXT CHECK (before IS NULL OR json_valid(before)), after TEXT CHECK (after IS NULL OR json_valid(after))) STRICT;
 -- Owner-editable configuration (sender, storefront info incl. bank account, notification recipient). Never in the repo.
 CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL CHECK (json_valid(value))) STRICT;
+-- Expected payment for an order (what the customer was asked to pay and how). Creating or displaying a QR NEVER marks an order paid:
+-- only an owner-confirmed `payments` row does (later: reconciled bank data under an explicit policy).
+-- provider: promptpay_p2p = standard PromptPay credit-transfer QR (carries payee + amount, NOT an order reference; the bank does not call us back);
+-- merchant_qr / bill_payment / gateway = future providers that can carry a reference or send webhooks.
+CREATE TABLE payment_requests (id INTEGER PRIMARY KEY, order_id INTEGER NOT NULL UNIQUE REFERENCES orders(id), reference TEXT NOT NULL UNIQUE,
+  provider TEXT NOT NULL CHECK (provider IN ('promptpay_p2p','merchant_qr','bill_payment','gateway','manual')),
+  expected_amount_baht INTEGER NOT NULL CHECK (expected_amount_baht > 0), currency TEXT NOT NULL DEFAULT 'THB' CHECK (currency='THB'),
+  status TEXT NOT NULL DEFAULT 'awaiting' CHECK (status IN ('awaiting','slip_received','verified','expired','cancelled','mismatch','duplicate')),
+  deadline_at TEXT, qr_payload TEXT, payee_name TEXT, payee_id_masked TEXT,
+  bank_txn_ref TEXT, verified_at TEXT, verified_by TEXT,
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')), updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))) STRICT;
+CREATE UNIQUE INDEX uq_payreq_bank_txn ON payment_requests(bank_txn_ref) WHERE bank_txn_ref IS NOT NULL;
+-- Append-only. Future: slip uploaded/verified, webhook received (provider_event_id UNIQUE for idempotent webhooks), auto-match proposed.
+CREATE TABLE payment_events (id INTEGER PRIMARY KEY, request_id INTEGER NOT NULL REFERENCES payment_requests(id), at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+  event TEXT NOT NULL, detail TEXT, provider_event_id TEXT) STRICT;
+CREATE UNIQUE INDEX uq_payevent_provider ON payment_events(request_id, provider_event_id) WHERE provider_event_id IS NOT NULL;
 -- Notification outbox: written in the SAME atomic batch as the order, delivered later, retried with backoff.
 -- status 'sent' = ACCEPTED BY THE PROVIDER (not proof of inbox delivery; delivery_confirmed_at stays NULL unless the owner
 -- or a future provider event confirms it). 'unconfirmed' = ambiguous delivery, automatic attempts exhausted: owner decides.

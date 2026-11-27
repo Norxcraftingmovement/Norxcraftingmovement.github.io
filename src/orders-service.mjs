@@ -2,6 +2,7 @@
 // conditional write re-checks its preconditions inside SQL, so concurrent requests cannot corrupt state.
 import * as core from "./orders-core.mjs";
 import { toCsv } from "./csv.mjs";
+import { newPayToken, hashToken, paymentForReceipt } from "./payments.mjs";
 const { UserError, STATUS } = core;
 const iso = (ms) => new Date(ms).toISOString();
 const J = JSON.stringify;
@@ -92,7 +93,10 @@ export async function submitOrder(env, raw, { now = Date.now(), ctx } = {}) {
   if (dupe) { // idempotent replay: same receipt, and make sure the alert exists
     const items = await itemsOf(env, dupe.id);
     await alertStmt(env, dupe.order_no, dupe.customer_name, dupe.customer_phone, { items: items.map((i) => ({ name: i.product_name, sleeve: i.sleeve, size: i.size, qty: i.qty })) }, dupe.total_baht, iso(now)).run();
-    return receiptFromRow(env, dupe);
+    const rotated = await newPayToken(); // the original token cannot be recovered (stored hashed): issue a fresh one to the retrying client
+    await db.prepare("UPDATE orders SET tracking_token_hash=?2 WHERE order_no=?1").bind(dupe.order_no, rotated.hash).run();
+    const base = await receiptFromRow(env, dupe), pay = await paymentForReceipt(env, dupe.order_no, rotated.token, now);
+    return pay ? { ...base, payment: pay } : base;
   }
   let isTest = 0;
   if (store.liveEnabled !== true) {
@@ -101,15 +105,15 @@ export async function submitOrder(env, raw, { now = Date.now(), ctx } = {}) {
   }
   const q = core.quote(n, config, now);
   if (raw.expectedTotal !== q.total) throw new UserError("ยอดเงินเปลี่ยน กรุณาโหลดหน้าใหม่แล้วตรวจราคาก่อนสั่ง");
-  const round = core.currentRound(config, now), at = iso(now), pairs = [...new Set(q.items.map((i) => i.product + "|" + i.sleeve))];
+  const pt = await newPayToken(), round = core.currentRound(config, now), at = iso(now), pairs = [...new Set(q.items.map((i) => i.product + "|" + i.sleeve))];
 
   for (let attempt = 0; attempt < 5; attempt++) {
     const orderNo = "NORX-" + crypto.randomUUID().slice(0, 8).toUpperCase();
     let k = 0; const a = []; const p = (v) => { a.push(v); return "?" + ++k; };
     const priceSql = pairs.map((pr) => { const [slug, sleeve] = pr.split("|"), price = q.items.find((i) => i.product === slug && i.sleeve === sleeve).unitPrice; return `(p.slug=${p(slug)} AND v.sleeve=${p(sleeve)} AND v.price_baht=${p(price)})`; }).join(" OR ");
     // The order row is inserted only if the round is STILL open, shipping and every price are unchanged since quoting.
-    const col = [orderNo, n.requestId, fp, n.name, n.phone, n.delivery, q.subtotal, q.shipping, q.total, round.paymentDue ? iso(Date.parse(round.paymentDue)) : at, J(q.round), isTest, isTest ? "ทดสอบ" : ""].map(p), atP = p(at);
-    const orderSql = `INSERT INTO orders(order_no,request_key,fingerprint,customer_name,customer_phone,delivery,subtotal_baht,shipping_baht,total_baht,payment_due_at,round_snapshot,is_test,note,created_at,updated_at,source,payment_status,fulfillment_status,round_id)
+    const col = [orderNo, n.requestId, fp, n.name, n.phone, n.delivery, q.subtotal, q.shipping, q.total, round.paymentDue ? iso(Date.parse(round.paymentDue)) : at, J(q.round), isTest, isTest ? "ทดสอบ" : "", pt.hash].map(p), atP = p(at);
+    const orderSql = `INSERT INTO orders(order_no,request_key,fingerprint,customer_name,customer_phone,delivery,subtotal_baht,shipping_baht,total_baht,payment_due_at,round_snapshot,is_test,note,tracking_token_hash,created_at,updated_at,source,payment_status,fulfillment_status,round_id)
       SELECT ${col.join(",")},${atP},${atP},'web','pending','received',r.id FROM rounds r
       WHERE r.code=${p(round.id)} AND r.status='open' AND r.opens_at<=${atP} AND r.closes_at>=${atP} AND r.shipping_baht=${p(round.shipping)}
         AND EXISTS (SELECT 1 FROM json_each(r.deliveries) WHERE value=${p(n.delivery)})
@@ -134,7 +138,9 @@ export async function submitOrder(env, raw, { now = Date.now(), ctx } = {}) {
     }
     const ms = Date.now() - t0, log = db.prepare("INSERT INTO latency_log(kind,ref,ms,at) VALUES ('order_creation',?1,?2,?3)").bind(orderNo, ms, iso(Date.now())).run().catch(() => {});
     ctx?.waitUntil ? ctx.waitUntil(log) : await log; // measured separately from notification latency
-    return core.receipt({ id: orderNo, name: n.name, roundId: n.roundId, items: q.items, subtotal: q.subtotal, shipping: q.shipping, total: q.total, round: q.round, status: STATUS.PENDING });
+    const receipt = core.receipt({ id: orderNo, name: n.name, roundId: n.roundId, items: q.items, subtotal: q.subtotal, shipping: q.shipping, total: q.total, round: q.round, status: STATUS.PENDING });
+    const pay = await paymentForReceipt(env, orderNo, pt.token, now); // extra field; null unless the owner has verified a PromptPay ID
+    return pay ? { ...receipt, payment: pay } : receipt;
   }
   throw new UserError(GENERIC);
 }
@@ -176,13 +182,16 @@ export async function pulse(env) {
 }
 
 // ---------- admin: status change (V1 setOrderStatus, atomic) ----------
-export async function changeStatus(env, actor, { orderNo, from, to, amount, now = Date.now() }) {
+export async function changeStatus(env, actor, { orderNo, from, to, amount, bankTxnRef, now = Date.now() }) {
   const db = env.ORDERS_DB, o = await db.prepare(ORDER_SELECT + " WHERE o.order_no=?1").bind(String(orderNo)).first();
   if (!o) throw new UserError("ไม่พบออเดอร์ " + orderNo);
   const cur = core.toLegacy(o.payment_status, o.fulfillment_status);
   if (cur === to) return { changed: false }; // V1: same status is a no-op
   const round = (await loadConfig(env)).rounds.find((r) => r.id === o.round_code);
   core.checkTransition({ order: { id: o.order_no, status: cur, total: o.total_baht }, round, from, to, amount });
+  const txn = bankTxnRef === undefined || bankTxnRef === null || bankTxnRef === "" ? null : String(bankTxnRef).trim();
+  if (txn !== null && !/^[A-Za-z0-9._-]{4,40}$/.test(txn)) throw new UserError("เลขอ้างอิงรายการโอนไม่ถูกต้อง (ใช้ A-Z 0-9 . _ - ความยาว 4–40)");
+  if (txn !== null) { const used = await db.prepare("SELECT o.order_no n FROM payments y JOIN orders o ON o.id=y.order_id WHERE y.bank_txn_ref=?1 AND y.status='confirmed' AND y.order_id!=?2").bind(txn, o.id).first(); if (used) throw new UserError("รายการโอนนี้ถูกใช้ยืนยันออเดอร์อื่นแล้ว (" + used.n + ") ป้องกันการยืนยันซ้ำ"); }
   const m = core.FROM_LEGACY[to], at = iso(now), paidNow = core.PAID_LIKE.includes(to) && !core.PAID_LIKE.includes(cur), leavingPaid = core.PAID_LIKE.includes(cur) && !core.PAID_LIKE.includes(to);
   const guard = "id=?1 AND payment_status=?2 AND fulfillment_status=?3 AND updated_at=?4"; // optimistic concurrency on the exact row version
   const g = [o.id, o.payment_status, o.fulfillment_status, o.updated_at];
@@ -192,15 +201,23 @@ export async function changeStatus(env, actor, { orderNo, from, to, amount, now 
   ];
   // Undo / cancel of a paid order VOIDS its confirmed payment (kept for history), so a later re-confirm records exactly one new payment.
   if (leavingPaid) stmts.push(db.prepare(`UPDATE payments SET status='void', voided_at=?5, void_reason=?6 WHERE status='confirmed' AND order_id IN (SELECT id FROM orders WHERE ${guard})`).bind(...g, at, cur + " → " + to));
-  if (paidNow) stmts.push(db.prepare(`INSERT INTO payments(order_id,amount_baht,method,status,recorded_by,created_at) SELECT id,total_baht,?5,'confirmed',?6,?7 FROM orders WHERE ${guard}`).bind(...g, cur === STATUS.LATER ? "on_site" : "bank_transfer", actor, at));
+  if (paidNow) stmts.push(db.prepare(`INSERT INTO payments(order_id,amount_baht,method,status,recorded_by,created_at,request_id,provider,bank_txn_ref,verified_at,verified_by) SELECT id,total_baht,?5,'confirmed',?6,?7,(SELECT id FROM payment_requests WHERE order_id=orders.id),COALESCE((SELECT provider FROM payment_requests WHERE order_id=orders.id),'manual'),?8,?7,?6 FROM orders WHERE ${guard}`).bind(...g, cur === STATUS.LATER ? "on_site" : "bank_transfer", actor, at, txn));
+  const newUpdated = at > o.updated_at ? at : iso(Date.parse(o.updated_at) + 1);
   stmts.push(db.prepare(`UPDATE orders SET payment_status=?5, fulfillment_status=?6, status_updated_at=?7, status_updated_by=?8, updated_at=?9,
-      paid_at=CASE WHEN ?10=1 THEN ?7 ELSE paid_at END, received_at=CASE WHEN ?6='completed' THEN ?7 ELSE received_at END WHERE ${guard}`).bind(...g, m.payment, m.fulfillment, at, actor, at > o.updated_at ? at : iso(Date.parse(o.updated_at) + 1), paidNow ? 1 : 0));
+      paid_at=CASE WHEN ?10=1 THEN ?7 ELSE paid_at END, received_at=CASE WHEN ?6='completed' THEN ?7 ELSE received_at END WHERE ${guard}`).bind(...g, m.payment, m.fulfillment, at, actor, newUpdated, paidNow ? 1 : 0));
+  const ordersUpdateIdx = stmts.length - 1;
+  // Keep the payment request in step with the order. A QR / slip never causes this; only the owner's status change does.
+  const reqStatus = { confirmed: "verified", pending: "awaiting", deferred_on_site: "awaiting", cancelled: "cancelled" }[m.payment] ?? "awaiting", ver = reqStatus === "verified";
+  const applied = "EXISTS (SELECT 1 FROM orders WHERE id=?1 AND updated_at=?2)";
+  stmts.push(db.prepare(`UPDATE payment_requests SET status=?3, verified_at=?4, verified_by=?5, bank_txn_ref=?6, updated_at=?7 WHERE order_id=?1 AND status!='expired' AND ${applied}`).bind(o.id, newUpdated, reqStatus, ver ? at : null, ver ? actor : null, ver ? txn : null, at));
+  stmts.push(db.prepare(`INSERT INTO payment_events(request_id,at,event,detail) SELECT id,?3,?4,?5 FROM payment_requests WHERE order_id=?1 AND ${applied}`).bind(o.id, newUpdated, at, ver ? "verified_by_owner" : reqStatus === "cancelled" ? "cancelled" : "reopened", ver ? (txn ? "bank_txn_ref_recorded" : "no_bank_txn_ref") : cur + " → " + to));
   let res;
   try { res = await db.batch(stmts); } catch (e) {
+    if (/UNIQUE constraint failed: payments\.bank_txn_ref|UNIQUE constraint failed: payment_requests\.bank_txn_ref|uq_payreq_bank_txn|uq_payment_bank_txn/.test(String(e?.message))) throw new UserError("รายการโอนนี้ถูกใช้ยืนยันออเดอร์อื่นแล้ว ป้องกันการยืนยันซ้ำ");
     if (/UNIQUE constraint failed: payments\.order_id/.test(String(e?.message))) throw new UserError("ข้อมูลการชำระเงินของออเดอร์นี้ไม่สอดคล้อง กรุณาตรวจที่หน้าความถูกต้องของข้อมูล");
     throw e;
   }
-  if (res[res.length - 1].meta.changes !== 1) throw new UserError("ออเดอร์ " + orderNo + " ถูกแก้ไขโดยคนอื่นแล้ว กรุณาโหลดใหม่");
+  if (res[ordersUpdateIdx].meta.changes !== 1) throw new UserError("ออเดอร์ " + orderNo + " ถูกแก้ไขโดยคนอื่นแล้ว กรุณาโหลดใหม่");
   return { changed: true, status: to };
 }
 
@@ -265,6 +282,7 @@ export async function cancelUnpaid(env, actor, code, expected, now = Date.now())
   const res = await db.batch([
     db.prepare(`INSERT INTO order_status_history(order_id,kind,from_status,to_status,actor,at,note) SELECT id,'legacy',?3,?4,?5,?6,'ยกเลิก (ไม่โอน)' FROM orders WHERE ${guard}`).bind(r.dbId, Number(expected), STATUS.PENDING, STATUS.CANCEL, actor, at),
     db.prepare(`UPDATE orders SET payment_status='cancelled',fulfillment_status='cancelled',status_updated_at=?3,status_updated_by=?4,updated_at=?3 WHERE ${guard}`).bind(r.dbId, Number(expected), at, actor),
+    db.prepare(`UPDATE payment_requests SET status='cancelled', updated_at=?2 WHERE status IN ('awaiting','slip_received') AND order_id IN (SELECT id FROM orders WHERE round_id=?1 AND payment_status='cancelled' AND status_updated_at=?2)`).bind(r.dbId, at),
   ]);
   if (res[1].meta.changes !== Number(expected) || !Number(expected)) throw new UserError("จำนวนออเดอร์รอโอนเปลี่ยนไป กรุณาโหลดใหม่");
   await audit(env, actor, "round.cancel_unpaid", code, null, { cancelled: res[1].meta.changes });

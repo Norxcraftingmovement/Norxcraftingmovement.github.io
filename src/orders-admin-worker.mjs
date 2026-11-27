@@ -4,6 +4,7 @@ import { assets } from "./generated/orders-admin-assets.mjs";
 import * as api from "./orders-admin-api.mjs";
 import * as svc from "./orders-service.mjs";
 import { UserError } from "./orders-core.mjs";
+import * as pay from "./payments.mjs";
 import { listNotifications, retryNotification, markNotificationReceived, notificationHistory, latencyStats, notificationReadiness } from "./orders-notify.mjs";
 const headers = { "Cache-Control": "no-store", "X-Robots-Tag": "noindex, nofollow", "X-Content-Type-Options": "nosniff", "Referrer-Policy": "no-referrer" };
 const reply = (error, status) => Response.json({ error }, { status, headers });
@@ -38,7 +39,7 @@ const routes = [
   ["PUT", /^\/api\/admin\/orders\/(\d{1,12})\/address$/, "write", (r, env, a, m) => api.putAddress(r, env, a, +m[1])],
   ["PUT", /^\/api\/admin\/orders\/(\d{1,12})\/shipment$/, "write", (r, env, a, m) => api.putShipment(r, env, a, +m[1])],
   ["GET", /^\/api\/admin\/orders$/, "api", async (r, env) => { const q = new URL(r.url).searchParams; return api.json({ ok: true, orders: await svc.listOrders(env, { round: q.get("round") || undefined, status: q.get("status") || undefined, q: (q.get("q") || "").slice(0, 60) || undefined }) }); }],
-  ["POST", /^\/api\/admin\/orders\/(NORX-[A-Za-z0-9-]{1,60})\/status$/, "write", async (r, env, a, m) => { const b = await r.json().catch(() => null); if (!b || typeof b.from !== "string" || typeof b.to !== "string") return api.json({ ok: false, error: "BAD_REQUEST" }, 400); return api.json({ ok: true, ...(await svc.changeStatus(env, a, { orderNo: m[1], from: b.from, to: b.to, amount: b.amount })) }); }],
+  ["POST", /^\/api\/admin\/orders\/(NORX-[A-Za-z0-9-]{1,60})\/status$/, "write", async (r, env, a, m) => { const b = await r.json().catch(() => null); if (!b || typeof b.from !== "string" || typeof b.to !== "string") return api.json({ ok: false, error: "BAD_REQUEST" }, 400); return api.json({ ok: true, ...(await svc.changeStatus(env, a, { orderNo: m[1], from: b.from, to: b.to, amount: b.amount, bankTxnRef: b.bankTxnRef })) }); }],
   ["GET", /^\/api\/admin\/rounds$/, "api", async (r, env) => api.json({ ok: true, ...(await svc.roundsWithSummary(env, Date.now())) })],
   ["POST", /^\/api\/admin\/rounds$/, "write", async (r, env, a) => api.json({ ok: true, ...(await svc.saveRound(env, a, await r.json().catch(() => ({})))) })],
   ["POST", /^\/api\/admin\/rounds\/(ROUND-\d{3,})\/(open|close|cancel-unpaid|send-to-shop)$/, "write", async (r, env, a, m) => {
@@ -54,6 +55,10 @@ const routes = [
   ["GET", /^\/admin\/?$/, "page", () => page("overview.html")],
   ["GET", /^\/admin\/production\/?$/, "page", () => page("production.html")],
   ["GET", /^\/admin\/products\/?$/, "page", () => page("products.html")],
+  ["GET", /^\/api\/admin\/settings\/payment$/, "api", async (r, env) => api.json({ ok: true, payment: pay.publicPaymentSettings(await pay.getPaymentSettings(env)) })],
+  ["PUT", /^\/api\/admin\/settings\/payment$/, "write", async (r, env, a) => api.json({ ok: true, payment: await pay.putPaymentSettings(env, a, await r.json().catch(() => ({}))) })],
+  ["POST", /^\/api\/admin\/settings\/payment\/verify$/, "write", async (r, env, a) => api.json({ ok: true, payment: await pay.verifyPaymentSettings(env, a, await r.json().catch(() => ({}))) })],
+  ["GET", /^\/api\/admin\/settings\/payment\/preview\.svg$/, "api", async (r, env) => { const svg = await pay.previewSvg(env); return svg ? new Response(svg, { headers: { ...headers, "Content-Type": "image/svg+xml; charset=utf-8" } }) : api.json({ ok: false, error: "NOT_CONFIGURED" }, 404); }],
   ["GET", /^\/api\/admin\/integrity$/, "api", async (r, env) => api.json({ ok: true, violations: await svc.paymentIntegrity(env) })],
   ["GET", /^\/api\/admin\/pulse$/, "api", async (r, env) => api.json({ ok: true, ...(await svc.pulse(env)) })],
   ["GET", /^\/api\/admin\/notifications$/, "api", async (r, env) => api.json({ ok: true, notifications: await listNotifications(env), readiness: await notificationReadiness(env, async () => (await svc.getSetting(env, "storefront"))?.notifyTo ?? null) })],

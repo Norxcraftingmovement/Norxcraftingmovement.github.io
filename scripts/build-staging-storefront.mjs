@@ -8,7 +8,7 @@ import { fileURLToPath } from "node:url";
 import { join, extname } from "node:path";
 const root = fileURLToPath(new URL("../", import.meta.url)), out = join(root, "dist-staging");
 export const STAGING_ORIGIN = "https://staging.norxcraftingmovement.com";
-const include = ["index.html", "shop.js", "assets", "cart", "home-terrain", "woven-stride", "community"]; // no events/, no admin/
+const include = ["index.html", "shop.js", "assets", "cart", "home-terrain", "woven-stride", "community", "pay"]; // no events/, no admin/
 const banner = '<div role="status" style="position:sticky;top:0;z-index:99999;background:#b04922;color:#fff;font:700 14px/1.4 system-ui,sans-serif;padding:8px 12px;text-align:center">STAGING · ระบบทดสอบ ข้อมูลสมมติเท่านั้น — ห้ามโอนเงินจริง</div>';
 const walk = (d) => readdirSync(d).flatMap((f) => (statSync(join(d, f)).isDirectory() ? walk(join(d, f)) : [join(d, f)]));
 
