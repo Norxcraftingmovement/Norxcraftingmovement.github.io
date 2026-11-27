@@ -80,13 +80,15 @@ function draw(notifs, lat, ready = lastR) {
     g.append(t, b); if (o.isTest) g.append(el("span", "tag", "ทดสอบ")); if (o.payment?.legacyPayee && o.status === "รอโอน") g.append(el("span", "tag", "QR บัญชีเดิม"));
     g.append(el("br"), document.createTextNode(o.name + " · " + o.phone + " · " + ({ city: "นัดรับในเมือง", event: "รับที่งาน", ship: "จัดส่ง" }[o.delivery])), el("br"),
       el("small", "muted", o.items.map((i) => i.name + " " + (i.sleeve === "short" ? "แขนสั้น" : "แขนยาว") + " " + i.size + "×" + i.qty).join(", ")), el("br"), el("b", "", baht(o.total) + (o.shipping ? " (รวมส่ง " + baht(o.shipping) + ")" : "")));
-    const acts = el("div", "acts");
+    const acts = el("div", "acts"), secondaryActs = el("div", "order-secondary");
+    const primaryMove = queue === "pickup" ? "ส่งมอบแล้ว" : o.moves.find((to) => ["ชำระแล้ว", "ส่งมอบแล้ว"].includes(to));
     for (const to of o.moves) {
       if (queue === "pickup" && to !== "ส่งมอบแล้ว") continue; // pickup queue: one hand-over button (paid, or รับเงินและส่งมอบ)
-      const style = to === "ยกเลิก" ? "secondary danger-text" : ["ชำระแล้ว", "ส่งมอบแล้ว"].includes(to) ? "" : "secondary";
-      const bt = el("button", style, btnLabel(o, to)); bt.type = "button"; bt.onclick = () => move(o, to); acts.append(bt);
+      const isOther = to === "ยกเลิก" || to === "รอโอน" || to === "ส่งร้านแล้ว";
+      const style = to === "ยกเลิก" ? "secondary danger-text" : to === primaryMove ? "" : "secondary";
+      const bt = el("button", style, btnLabel(o, to)); bt.type = "button"; bt.onclick = () => move(o, to); (isOther ? secondaryActs : acts).append(bt);
     }
-    g.append(acts); li.append(g); ul.append(li);
+    g.append(acts); if (secondaryActs.childElementCount) g.append(secondaryActs); li.append(g); ul.append(li);
   }
   $("nsum").textContent = notifs.length ? notifs.length + " รายการ (รอส่ง/ล้มเหลว) · ส่งอัตโนมัติและลองใหม่เมื่อล้มเหลว" : "ไม่มีรายการค้าง";
   $("notificationSummary").textContent = "การแจ้งเตือนออเดอร์ · " + (notifs.length ? "ค้าง " + notifs.length + " รายการ" : "ไม่มีรายการค้าง");
