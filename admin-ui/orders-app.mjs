@@ -123,6 +123,10 @@ $("q").oninput = () => draw(lastN, lastL); $("status").onchange = () => draw(las
 $("csv").onclick = () => { location.href = "/api/admin/orders/export.csv?" + new URLSearchParams({ round: current, status: $("status").value }); };
 if (!filteredQueue && filters.get("status")) $("status").value = filters.get("status");
 if (filters.get("round")) current = filters.get("round");
+// A dashboard follow-up link must reveal the queue inside its disclosure.
+const revealNotificationQueue = () => { if (location.hash === "#notifs") $("notificationDetails").open = true; };
+window.addEventListener("hashchange", revealNotificationQueue);
+revealNotificationQueue();
 if (filteredQueue) {
   $("reviewQueue").hidden = false;
   $("reviewQueueText").textContent = { review: "เฉพาะออเดอร์ที่ส่งหลักฐานแล้ว", unpaid: "ออเดอร์ที่ยังไม่ได้ยืนยันการชำระ", pickup: "เฉพาะออเดอร์ที่ของครบและรอลูกค้ามารับ" }[queue];
