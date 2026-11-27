@@ -1,7 +1,7 @@
 # STATE — NORX Website / Orders V2
 > จุดเริ่มต้นเท่านั้น: ตรวจ git HEAD/status และโค้ดจริงก่อนเสมอ; แทนที่ไฟล์นี้เมื่อจบ session
 
-As of: 27 พ.ย. 2026 ค่ำ · deployed source bc2b4d1 (HEAD อาจใหม่กว่าเพราะเอกสาร) · production ไม่แตะ
+As of: 28 พ.ย. 2026 · deployed source bc2b4d1 (HEAD อาจใหม่กว่าเพราะเอกสาร) · production ไม่แตะ
 กฎ: [CLAUDE.md](CLAUDE.md) · หลักฐาน: [TEST_REPORT](docs/TEST_REPORT.md#staging-rollout--27-nov-2026-codex) · ด่าน: [GO_LIVE_CHECKLIST](docs/GO_LIVE_CHECKLIST.md)
 
 ## Staging ที่ใช้อยู่
@@ -21,6 +21,9 @@ Rollback ก่อนรอบนี้: Public 26439a64, Admin 9aa87251; เก
 
 ## UX/UI update — development only
 Shared sidebar/mobile menu + compact Orders, refined to owner black/white references with warm off-white/frosted Overview per 28 Nov clarification; opaque operational data. Orders, Production, Settings and Shipping now share warm/frosted layers and compact actions. Shipping separates labels/downloads/tracking/actual shipment; versioned selection prevents late label results re-enabling stale actions. Production counts/receipt actions precede table; Settings grouped. Production rejection notice persists through quiet reload; scoped print rule restored main/table visibility. Existing confirmations/guards retained. Typography remains readable with 44px action targets. See DESIGN.md; orange remains experimental. Overview work list, Settings section anchors, notification deep-link reveal; not deployed. Local 8/8 workflow + 24 viewport checks pass; full 242: 241 pass / 1 skip / 0 fail. See TEST_REPORT: Monochrome reference refinement. Events/Media destinations retained; separate consoles unchanged.
+
+## Products draft preparation — development only
+Products แสดงแคตตาล็อก/ค้นหา/กรอง สร้างและแก้ร่าง ดูตัวอย่างข้อมูลได้; active/archived/มีออเดอร์อ่านอย่างเดียว. CAS revision + atomic audit/child writes; ไม่เปลี่ยนแคตตาล็อกสาธารณะหรือออเดอร์เก่า. ไม่มี migration/deploy. ดู TEST_REPORT: Products draft preparation. ยังไม่มีอัปโหลดรูป/สร้าง Collection ใหม่/เผยแพร่หรือหน้าเว็บสินค้าอัตโนมัติ
 
 ## Next exact action
 ต่อ A2 รับบางส่วน/รับเงินพร้อมส่งมอบบน staging ด้วยข้อมูลสมมติ และ A4/A6 ก่อน production/cutover. คำอนุมัติเมลรอบนี้ไม่ครอบคลุมส่งเมลลูกค้าจริง
