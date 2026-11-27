@@ -7,7 +7,7 @@
     "staging": {
       "name": "norx-orders-staging",
       "workers_dev": false,
-      "vars": { "ENVIRONMENT": "staging", "ORDERS_DB_LABEL": "staging", "ORDERS_ALLOWED_ORIGIN": "https://staging.norxcraftingmovement.com" },
+      "vars": { "ENVIRONMENT": "staging", "ORDERS_DB_LABEL": "staging", "ORDERS_ALLOWED_ORIGIN": "https://staging.norxcraftingmovement.com", "MEDIA_ADMIN_ENABLED": "1", "MEDIA_ACCESS_AUD": "REPLACE_WITH_STAGING_ACCESS_AUD", "MEDIA_ADMIN_EMAIL_HASH": "REPLACE_WITH_SHA256_OF_OWNER_EMAIL" },
       "d1_databases": [
         { "binding": "ORDERS_DB", "database_name": "norx-orders-staging", "database_id": "REPLACE_WITH_STAGING_DB_ID", "migrations_dir": "migrations/orders" }
       ]
@@ -15,7 +15,7 @@
     "production": {
       "name": "norx-orders",
       "workers_dev": false,
-      "vars": { "ENVIRONMENT": "production", "ORDERS_DB_LABEL": "production", "ORDERS_ALLOWED_ORIGIN": "https://norxcraftingmovement.com" },
+      "vars": { "ENVIRONMENT": "production", "ORDERS_DB_LABEL": "production", "ORDERS_ALLOWED_ORIGIN": "https://norxcraftingmovement.com", "MEDIA_ADMIN_ENABLED": "1", "MEDIA_ACCESS_AUD": "REPLACE_WITH_PRODUCTION_ACCESS_AUD", "MEDIA_ADMIN_EMAIL_HASH": "REPLACE_WITH_SHA256_OF_OWNER_EMAIL" },
       "d1_databases": [
         { "binding": "ORDERS_DB", "database_name": "norx-orders", "database_id": "REPLACE_WITH_PRODUCTION_DB_ID", "migrations_dir": "migrations/orders" }
       ]

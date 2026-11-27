@@ -59,3 +59,7 @@ settings(key PK, value JSON)             -- sender info, logo key, bank info
 - `order_status_history.kind` เพิ่ม `legacy` (เก็บสถานะแบบ V1 ตามที่แอดมินเห็น)
 - `notification_queue`: `locked_at`, `UNIQUE(order_id,channel,template)`
 - `settings`: `storefront` (บัญชีธนาคาร ลิงก์ โหมดทดสอบ/เปิดจริง รอบรายสัปดาห์ ผู้รับแจ้งเตือน test-key เป็น hash) และ `sender` — **ไม่อยู่ใน repo**
+
+
+## Changes (review fixes + Phase 03) — 0001 still not applied anywhere
+`payments`: `voided_at`, `void_reason`, partial `UNIQUE(order_id) WHERE status='confirmed'` · `orders.import_hash`, `rounds.import_hash` (delta sync markers) · `notification_queue`: `provider_called_at`, `possible_duplicate`.

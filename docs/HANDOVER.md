@@ -37,3 +37,10 @@ Phase 02 (สร้างออเดอร์/ราคา/เลขออเ�
 5. Preview ของ Worker หลัก (S2) ยังผูก D1/R2 จริงของ Events/Media — ไม่เกี่ยวกับ Orders V2 แต่ห้ามใช้เป็น staging ของหน้าร้าน
 6. fixture golden ขนาด ~0.8 MB
 7. `src/admin-console.mjs` (มีอยู่ก่อนแล้ว) ฝัง URL หลังบ้าน Apps Script ใน public repo — ไม่ได้แตะ (เป็นเรื่องของ Production)
+
+## Review fixes + Phase 03 (2026-11-27)
+**Tests:** 148 total, 147 pass, 0 fail, 1 skipped (live V1 differential; passes 5/5 when run with `NORX_V1_SOURCE`).
+**Fixed (P0/P1 from the independent review):** payment integrity (void on undo/cancel + DB unique guard + audit endpoint), V1 delta sync with full reconciliation, `NORX-LEGACY-xxx` ids everywhere, notification crash-safety (provider OK then worker stops).
+**Prepared:** native Cloudflare email provider with mock tests (API shape unverified — `docs/EMAIL_NOTIFICATIONS.md`), standalone staging storefront + runbook (`docs/STAGING_RUNBOOK.md`), anonymised migration fixtures + CLI, delta-reconciliation tests.
+**Phase 03a (Admin Console V2):** one 8-entry menu on all admin pages, **Overview** (tasks + auto-refresh), **Production** (summary by collection/product/fit/sleeve/size/payment state, CSV, print, batch production status), Orders CSV export, Settings → storefront/bank/live switch/notification recipient, Products placeholder. Shipping Labels and Sender Settings unchanged (tests + browser re-verified).
+**Remaining risks:** (1) nothing has run on real D1/Workers/Cron; (2) email binding call shape unverified; (3) deployed V1 version still unconfirmed; (4) real private V1 export never read; (5) Overview cannot show open Events (isolation by design — D22); (6) Orders batch actions (multi-select status change), `/track/`, Products management, round create/edit UI are still pending; (7) `wrangler.orders*.jsonc` contain `REPLACE_*` placeholders that fail closed; (8) dist-staging build is ignored by git and rebuilt on demand.

@@ -51,3 +51,17 @@ Phase 00 · 2026-11-27 · Branch `feature/orders-v2` (จาก `feature/cloudfl
 | 09 | Cutover (**ต้องอนุมัติแยก**) | ดู `MIGRATION_PLAN.md` |
 
 หลัง Phase 02 เสถียรจึงเริ่ม Phase 08 ตามที่กำหนด. MOVE KIDS (Events/Media) ไม่ถูกแตะ — Orders V2 ใช้ Worker/DB แยก ไม่แก้ `events-worker`, `event-admin-worker`, `media-worker`; แก้เฉพาะเมนู shell ของ Admin Console ใน Phase 03 พร้อม regression test.
+
+
+## Status update 2026-11-27 (after independent review)
+| Item | Status |
+|---|---|
+| Review P0-1 payment integrity | **Completed + regression tests** |
+| Review P0-2 migration delta sync + reconciliation | **Completed + tests on anonymised fixtures** (not run against real export/D1) |
+| Review P1-3 `NORX-LEGACY-xxx` | **Completed + tests** |
+| Review P1-4 notification crash window | **Completed + tests** |
+| D17 native Cloudflare email provider | **Prepared with mock tests; API shape Blocked on docs access; service not enabled** |
+| D18 staging storefront | **Prepared (build + config + runbook); not deployed; DNS/routes/Access = owner** |
+| D19 anonymised fixtures / delta tests | **Completed** |
+| Phase 03a Admin Console V2 (menu, Overview, Production, CSV, batch production status, storefront settings) | **Completed on staging code; Chromium-verified** |
+| Phase 03b (orders batch actions, round create/edit UI, Events card via read-only API, Content/Analytics hooks) | **Pending** |

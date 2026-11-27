@@ -91,3 +91,12 @@ test("both Orders Workers: staging fully isolated from production (DB, rate-limi
   assert.ok(!/https:\/\/norxcraftingmovement\.com(?![.\w])/.test(JSON.stringify(pubCfg.env.staging.vars)+JSON.stringify(cfg.env.staging.vars)),"staging workers do not allow the production apex origin");
   assert.equal(pubCfg.env.staging.vars.ORDERS_PUBLIC_ORIGINS,"https://staging.norxcraftingmovement.com");assert.equal(cfg.env.staging.vars.ORDERS_ALLOWED_ORIGIN,"https://staging.norxcraftingmovement.com");
 });
+
+test("unconfigured Access placeholders fail closed: a deployed-but-unconfigured admin Worker denies everyone",async()=>{
+  const {verifiedOwner}=await import("../src/admin-access-worker.mjs");
+  for(const e of ["staging","production"]){
+    const v=cfg.env[e].vars;assert.match(v.MEDIA_ACCESS_AUD,/^REPLACE_/);assert.ok(!/^[a-f0-9]{64}$/.test(v.MEDIA_ADMIN_EMAIL_HASH));
+    const ctx={access:{aud:v.MEDIA_ACCESS_AUD,getIdentity:async()=>({email:"anyone@example.test"})}};
+    assert.equal(await verifiedOwner(ctx,v),false,e);
+  }
+});

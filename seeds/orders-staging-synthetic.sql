@@ -22,3 +22,5 @@ INSERT INTO order_items(order_id,product_id,sleeve,size,qty,unit_price_baht,line
 INSERT INTO shipping_addresses(order_id,recipient,phone,address,postal_code) VALUES
  (2,'ทดสอบ นามสมมติ','0800000001','99/9 หมู่ 9 ถนนทดสอบ ตำบลทดสอบ อำเภอเมืองสมมติ จังหวัดเชียงราย 57000','57000'),
  (3,'ทดสอบ ชื่อยาวมากสำหรับตรวจการตัดบรรทัด สมมติ นามสกุลยาวเช่นกัน','0800000002','เลขที่ 123/45 อาคารสมมติเรสซิเดนซ์ ชั้น 12 ห้อง 1208 หมู่บ้านทดสอบวิลล์ ซอยทดสอบ 7 แยก 3 (ตรงข้ามร้านสมมติ ติดกับโรงเรียนทดสอบวิทยา) ถนนสมมติเหนือ แขวงทดสอบใต้ เขตสมมติ กรุงเทพมหานคร 10110 โทรก่อนส่งทุกครั้ง ฝากไว้กับ รปภ. ได้','10110');
+-- Paid synthetic orders carry their (synthetic) payment so the payment-integrity audit stays clean.
+INSERT INTO payments(order_id,amount_baht,method,reference,status,recorded_by) VALUES (2,550,'seed','synthetic','confirmed','seed'),(3,1250,'seed','synthetic','confirmed','seed');

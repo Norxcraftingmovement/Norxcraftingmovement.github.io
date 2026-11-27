@@ -58,3 +58,16 @@ OpenAPI/ตัวอย่าง request-response จะเพิ่มใน Ph
 | GET / POST | `/api/admin/notifications` , `/{id}/retry` | คิวแจ้งเตือนที่ค้าง/ล้มเหลว, ส่งใหม่ |
 | GET | `/api/admin/metrics/latency` | p50/p95 แยก `order_creation` กับ `notification` |
 | GET/PUT | `/api/admin/settings/storefront` | บัญชีธนาคาร ลิงก์ โหมดเปิดจริง รอบรายสัปดาห์ ผู้รับแจ้งเตือน test-key (เก็บ hash ไม่ส่งกลับ) |
+
+
+## Phase 03 + review fixes (all owner-only, same guards as above)
+| Method | Path | Notes |
+|---|---|---|
+| GET | `/admin/`, `/admin/production/`, `/admin/products/` | pages (products = placeholder) |
+| GET | `/api/admin/dashboard?includeTest=1` | tasks: awaiting payment (count, amount, oldest 5), ready for production (orders, pieces by round), awaiting shipment, awaiting hand-over, notifications, current round, integrity violations; `events: null` (separate system) |
+| GET | `/api/admin/production/summary?round=&includeTest=` | rows by round/collection/product/fit/sleeve/size with `production` (= paid + on-site), `paid`, `deferred`, `pending`, per-status piece counts; totals |
+| GET | `/api/admin/production/summary.csv` · `/api/admin/orders/export.csv` | UTF-8 BOM, formula-safe, `attachment`, `no-store`; orders export is audited |
+| POST | `/api/admin/production/items-status` `{round,from,to,expected,product?,sleeve?,size?}` | batched→produced→received (+undo), only after cut-off, guarded by the piece count seen |
+| GET | `/api/admin/integrity` | payment-integrity violations (empty = healthy) |
+| GET | `/api/admin/notifications` | now includes `readiness` `{mode,ready,missing[]}` |
+| POST | `/api/admin/orders/NORX-LEGACY-001/status` | order ids with extra hyphen segments are accepted everywhere |

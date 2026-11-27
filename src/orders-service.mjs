@@ -1,6 +1,7 @@
 // Orders V2 data layer over D1. Every multi-row change is ONE db.batch() (a transaction), and every
 // conditional write re-checks its preconditions inside SQL, so concurrent requests cannot corrupt state.
 import * as core from "./orders-core.mjs";
+import { toCsv } from "./csv.mjs";
 const { UserError, STATUS } = core;
 const iso = (ms) => new Date(ms).toISOString();
 const J = JSON.stringify;
@@ -306,4 +307,92 @@ export async function paymentIntegrity(env) {
     if (!paid && r.n > 0) out.push({ order: r.order_no, problem: "unpaid order has a confirmed payment", confirmed: r.n, amount: r.amt });
   }
   return out;
+}
+
+// ======================= Phase 03: dashboard, production, exports =======================
+const T = (includeTest) => (includeTest ? "1=1" : "o.is_test=0");
+const PAIDLIKE_SQL = "(o.payment_status='confirmed' AND o.fulfillment_status!='cancelled')";
+
+/** Overview: the work that needs the owner today. `includeTest` shows synthetic/test orders (staging). */
+export async function dashboard(env, { now = Date.now(), includeTest = false } = {}) {
+  const db = env.ORDERS_DB, w = T(includeTest), one = (sql, ...a) => db.prepare(sql).bind(...a).first(), all = (sql, ...a) => rowsOf(db.prepare(sql).bind(...a));
+  const [pend, pendList, prod, prodByRound, ship, pickup, notif] = await Promise.all([
+    one(`SELECT COUNT(*) n, COALESCE(SUM(o.total_baht),0) amt FROM orders o WHERE ${w} AND o.payment_status IN ('pending','slip_received') AND o.fulfillment_status='received'`),
+    all(`SELECT o.order_no id, o.customer_name name, o.total_baht total, o.created_at createdAt, r.code round FROM orders o JOIN rounds r ON r.id=o.round_id WHERE ${w} AND o.payment_status IN ('pending','slip_received') AND o.fulfillment_status='received' ORDER BY o.created_at LIMIT 5`),
+    one(`SELECT COUNT(DISTINCT o.id) orders, COALESCE(SUM(i.qty),0) pieces FROM orders o JOIN rounds r ON r.id=o.round_id JOIN order_items i ON i.order_id=o.id WHERE ${w} AND r.status!='sent' AND o.fulfillment_status='received' AND o.payment_status IN ('confirmed','deferred_on_site')`),
+    all(`SELECT r.code, r.name, r.closes_at closesAt, COALESCE(SUM(i.qty),0) pieces, COUNT(DISTINCT o.id) orders FROM orders o JOIN rounds r ON r.id=o.round_id JOIN order_items i ON i.order_id=o.id WHERE ${w} AND r.status!='sent' AND o.fulfillment_status='received' AND o.payment_status IN ('confirmed','deferred_on_site') GROUP BY r.id ORDER BY r.id DESC`),
+    one(`SELECT COUNT(*) n FROM orders o LEFT JOIN shipments s ON s.order_id=o.id WHERE ${w} AND o.delivery='ship' AND o.payment_status='confirmed' AND o.fulfillment_status IN ('in_production','qc','ready_ship') AND s.shipped_at IS NULL`),
+    one(`SELECT COUNT(*) n FROM orders o WHERE ${w} AND o.delivery IN ('city','event') AND o.payment_status IN ('confirmed','deferred_on_site') AND o.fulfillment_status IN ('in_production','qc','ready_pickup')`),
+    one(`SELECT COALESCE(SUM(status='queued'),0) queued, COALESCE(SUM(status IN ('failed','sending')),0) failed, COALESCE(SUM(status='dead'),0) dead FROM notification_queue WHERE status!='sent'`),
+  ]);
+  const shipList = await all(`SELECT o.order_no id, a.recipient name, o.total_baht total FROM orders o LEFT JOIN shipping_addresses a ON a.order_id=o.id LEFT JOIN shipments s ON s.order_id=o.id WHERE ${w} AND o.delivery='ship' AND o.payment_status='confirmed' AND o.fulfillment_status IN ('in_production','qc','ready_ship') AND s.shipped_at IS NULL ORDER BY o.created_at LIMIT 5`);
+  const config = await loadConfig(env).catch(() => ({ rounds: [] }));
+  const accepting = core.currentRound(config, now), live = accepting || config.rounds.filter((r) => r.state !== "draft").at(-1) || null;
+  let round = null;
+  if (live) { const all2 = await roundsWithSummary(env, now); const r = all2.rounds.find((x) => x.id === live.id); round = { code: r.id, name: r.name, phase: r.phase, closesAt: r.closesAt, summary: r.summary }; }
+  const violations = (await paymentIntegrity(env)).length;
+  return {
+    awaitingPayment: { count: pend.n, amount: pend.amt, oldest: pendList },
+    readyForProduction: { orders: prod.orders, pieces: prod.pieces, rounds: prodByRound },
+    awaitingShipment: { count: ship.n, orders: shipList }, awaitingHandover: { count: pickup.n },
+    notifications: { queued: notif.queued, failed: notif.failed, dead: notif.dead },
+    round, integrityViolations: violations, includeTest,
+    events: null, // Events live in a separate system/DB (kept isolated); shown as a link, not read from here
+  };
+}
+
+/** Production summary: quantities by collection/product/fit/sleeve/size, split by payment state. Production = paid + on-site; pending shown for information. */
+export async function productionSummary(env, { round = "", includeTest = false } = {}) {
+  const args = [], where = [T(includeTest)];
+  if (round && round !== "all") { where.push("r.code=?"); args.push(round); }
+  const sum = (cond) => `COALESCE(SUM(CASE WHEN ${cond} THEN i.qty END),0)`;
+  const live = "o.payment_status IN ('confirmed','deferred_on_site')";
+  const raw = await rowsOf(env.ORDERS_DB.prepare(
+    `SELECT r.code round, COALESCE(c.name,'—') collection, p.slug product, p.name productName, p.fit_name fitName, p.sort psort, i.sleeve, i.size,
+        (SELECT sort FROM product_sizes ps WHERE ps.product_id=p.id AND ps.size=i.size) ssort,
+        ${sum("o.payment_status='confirmed'")} paid, ${sum("o.payment_status='deferred_on_site'")} deferred, ${sum("o.payment_status IN ('pending','slip_received')")} pending,
+        ${sum(live + " AND i.production_status='pending'")} s_pending, ${sum(live + " AND i.production_status='batched'")} s_batched,
+        ${sum(live + " AND i.production_status='produced'")} s_produced, ${sum(live + " AND i.production_status='received'")} s_received
+     FROM order_items i JOIN orders o ON o.id=i.order_id JOIN rounds r ON r.id=o.round_id JOIN products p ON p.id=i.product_id LEFT JOIN collections c ON c.id=p.collection_id
+     WHERE ${where.join(" AND ")} AND o.fulfillment_status!='cancelled' AND o.payment_status!='cancelled' GROUP BY r.id, p.id, i.sleeve, i.size`).bind(...args));
+  const rows = raw.map((r) => ({ round: r.round, collection: r.collection, product: r.product, productName: r.productName, fitName: r.fitName, sleeve: r.sleeve, size: r.size, production: r.paid + r.deferred, paid: r.paid, deferred: r.deferred, pending: r.pending,
+      status: { pending: r.s_pending, batched: r.s_batched, produced: r.s_produced, received: r.s_received }, _k: [r.round, r.psort, r.sleeve === "short" ? 0 : 1, r.ssort ?? 99] }))
+    .filter((r) => r.production + r.pending > 0).sort((a, b) => { for (let i = 0; i < 4; i++) { if (a._k[i] < b._k[i]) return -1; if (a._k[i] > b._k[i]) return 1; } return 0; });
+  for (const r of rows) delete r._k;
+  const t = rows.reduce((n, r) => ({ production: n.production + r.production, paid: n.paid + r.paid, deferred: n.deferred + r.deferred, pending: n.pending + r.pending,
+    status: Object.fromEntries(["pending", "batched", "produced", "received"].map((k) => [k, n.status[k] + r.status[k]])) }), { production: 0, paid: 0, deferred: 0, pending: 0, status: { pending: 0, batched: 0, produced: 0, received: 0 } });
+  return { round: round || "all", rows, totals: t };
+}
+export function productionCsv(sum) {
+  return toCsv([["รอบ", "Collection", "รุ่น", "ทรง", "แขน", "ไซส์", "ผลิต (ชำระแล้ว+จ่ายหน้างาน)", "ชำระแล้ว", "จ่ายหน้างาน (ยังไม่ชำระ)", "รอโอน (ไม่นับผลิต)", "รอส่งร้าน", "ส่งร้านแล้ว", "ผลิตเสร็จ", "รับของแล้ว"],
+    ...sum.rows.map((r) => [r.round, r.collection, r.productName, r.fitName, core.sleeveName(r.sleeve), r.size, r.production, r.paid, r.deferred, r.pending, r.status.pending, r.status.batched, r.status.produced, r.status.received]),
+    ["", "", "", "", "", "รวม", sum.totals.production, sum.totals.paid, sum.totals.deferred, sum.totals.pending, sum.totals.status.pending, sum.totals.status.batched, sum.totals.status.produced, sum.totals.status.received]]);
+}
+
+// Batch update of production status for a lot (V1 had none). Only after cut-off (round "sent"); atomic; guarded by the piece count the admin saw.
+export const ITEM_MOVES = { batched: ["produced"], produced: ["batched", "received"], received: ["produced"] };
+export async function setItemsStatus(env, actor, { round, from, to, product = null, sleeve = null, size = null, expected, now = Date.now() }) {
+  if (!(ITEM_MOVES[from] || []).includes(to)) throw new UserError("เปลี่ยนสถานะการผลิตจาก " + from + " เป็น " + to + " ไม่ได้");
+  if (sleeve && !["short", "long"].includes(sleeve)) throw new UserError("แขนไม่ถูกต้อง");
+  if (!Number.isSafeInteger(expected) || expected < 1) throw new UserError("จำนวนที่คาดหวังไม่ถูกต้อง");
+  const r = roundOf(await loadConfig(env), round);
+  if (r.state !== "sent") throw new UserError("ต้องตัดยอดส่งร้านก่อน จึงจะอัปเดตสถานะการผลิตได้");
+  const db = env.ORDERS_DB, at = iso(now);
+  const cond = `i.production_status=?2 AND o.round_id=?1 AND o.payment_status IN ('confirmed','deferred_on_site') AND o.fulfillment_status!='cancelled' AND (?4 IS NULL OR i.sleeve=?4) AND (?5 IS NULL OR i.size=?5) AND (?6 IS NULL OR i.product_id=(SELECT id FROM products WHERE slug=?6))`;
+  const piecesSql = `(SELECT COALESCE(SUM(i.qty),0) FROM order_items i JOIN orders o ON o.id=i.order_id WHERE ${cond})`;
+  const res = await db.batch([
+    db.prepare(`UPDATE order_items SET production_status=?3 WHERE id IN (SELECT i.id FROM order_items i JOIN orders o ON o.id=i.order_id WHERE ${cond}) AND ${piecesSql}=?7`).bind(r.dbId, from, to, sleeve, size, product, expected),
+  ]);
+  if (res[0].meta.changes < 1) throw new UserError("จำนวนชิ้นเปลี่ยนไปจากที่เห็น กรุณาโหลดใหม่");
+  await audit(env, actor, "production.items_status", round, { from, product, sleeve, size }, { to, pieces: expected, rows: res[0].meta.changes });
+  return { rows: res[0].meta.changes, pieces: expected };
+}
+
+export async function ordersCsv(env, actor, { round, status, includeTest = true } = {}) {
+  const list = (await listOrders(env, { round, status, limit: 500 })).filter((o) => includeTest || !o.isTest);
+  const addr = new Map((await rowsOf(env.ORDERS_DB.prepare("SELECT o.order_no n, a.address a FROM shipping_addresses a JOIN orders o ON o.id=a.order_id"))).map((r) => [r.n, r.a]));
+  const csv = toCsv([["เลขออเดอร์", "สั่งเมื่อ", "รอบ", "ชื่อ", "เบอร์โทร", "วิธีรับ", "ที่อยู่จัดส่ง", "รายการ", "ค่าเสื้อ", "ค่าส่ง", "ยอดรวม", "สถานะ", "สถานะชำระเงิน", "สถานะจัดส่ง", "ออเดอร์ทดสอบ", "หมายเหตุ"],
+    ...list.map((o) => [o.id, o.createdAt, o.roundId, o.name, o.phone, core.DELIVERY[o.delivery], addr.get(o.id) ?? "", o.items.map((i) => i.name + " " + core.sleeveName(i.sleeve) + " " + i.size + "×" + i.qty).join("; "), o.subtotal, o.shipping, o.total, o.status, o.paymentStatus, o.fulfillmentStatus, o.isTest ? "ใช่" : "", o.note])]);
+  await audit(env, actor, "export.orders", round || "all", null, { rows: list.length });
+  return csv;
 }

@@ -1,11 +1,12 @@
 import { $, api, notice, el } from "./common.mjs";
+import { startAutoRefresh, trackInteraction } from "./autorefresh.mjs";
 const TH_PHASE = { draft: "ฉบับร่าง", scheduled: "ตั้งเวลาเปิด", accepting: "กำลังเปิดรับ", closed: "ปิดรับแล้ว", sent: "ส่งร้านแล้ว" };
 const BTN = { "ชำระแล้ว": "ยืนยันรับเงิน", "จ่ายหน้างาน": "จ่ายหน้างาน", "รอโอน": "กลับเป็นรอโอน", "ยกเลิก": "ยกเลิก", "ส่งมอบแล้ว": "ส่งมอบแล้ว", "ส่งร้านแล้ว": "ย้อนเป็นส่งร้านแล้ว" };
 const CLS = { "รอโอน": "pending", "ชำระแล้ว": "paid", "ส่งร้านแล้ว": "paid", "ส่งมอบแล้ว": "paid", "จ่ายหน้างาน": "later", "ยกเลิก": "cancel" };
 const baht = (n) => Number(n).toLocaleString("th-TH") + " บาท";
 const hhmm = () => new Date().toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
-let lastN = [], lastL = { order_creation: { count: 0 }, notification: { count: 0 } };
-let rounds = [], orders = [], current = "", token = null, busy = false, interactAt = 0, errs = 0, timer, pending = false;
+let lastR = null, lastN = [], lastL = { order_creation: { count: 0 }, notification: { count: 0 } };
+let rounds = [], orders = [], current = "", busy = false, errs = 0;
 const msg = (e) => e.userMessage || (e.code === "USER_ERROR" ? e.message : "เกิดข้อผิดพลาด (" + (e.code || e.message) + ")");
 
 // One reusable confirm dialog; resolves with the typed value (or true) or null when cancelled.
@@ -24,13 +25,14 @@ async function load({ quiet = false } = {}) {
     const [r, o, n, l, p] = await Promise.all([api("/api/admin/rounds"), api("/api/admin/orders" + (current ? "?round=" + encodeURIComponent(current) : "")), api("/api/admin/notifications"), api("/api/admin/metrics/latency"), api("/api/admin/pulse")]);
     rounds = r.rounds; orders = o.orders; token = p.token; errs = 0;
     if (!current || !rounds.some((x) => x.id === current)) { current = (rounds.find((x) => x.phase === "accepting") || rounds.at(-1) || {}).id || ""; if (current) { orders = (await api("/api/admin/orders?round=" + encodeURIComponent(current))).orders; } }
-    draw(n.notifications, l.latency); pending = false; $("fresh").hidden = true; $("live").textContent = "อัปเดตล่าสุด " + hhmm() + " · รีเฟรชอัตโนมัติทุก 15 วินาที"; notice($("notice"), "");
+    draw(n.notifications, l.latency, n.readiness); refresher?.setToken(p.token); $("fresh").hidden = true; $("live").textContent = "อัปเดตล่าสุด " + hhmm() + " · รีเฟรชอัตโนมัติทุก 15 วินาที"; notice($("notice"), "");
   } catch (e) { errs++; if (!quiet) notice($("notice"), msg(e), true); $("live").textContent = "เชื่อมต่อไม่ได้ จะลองใหม่อัตโนมัติ"; }
   busy = false;
 }
 
-function draw(notifs, lat) {
-  lastN = notifs; lastL = lat;
+function draw(notifs, lat, ready = lastR) {
+  lastN = notifs; lastL = lat; lastR = ready;
+  $("ready").textContent = ready ? (ready.ready ? "ช่องทางแจ้งเตือน: พร้อม (" + ready.mode + ")" : "ช่องทางแจ้งเตือน: ยังไม่พร้อม — ขาด " + (ready.missing || []).join(", ")) : "";
   const sel = $("round"); sel.replaceChildren(...rounds.slice().reverse().map((r) => { const o = el("option", "", r.name + " (" + r.id + ") · " + TH_PHASE[r.phase]); o.value = r.id; return o; })); sel.value = current;
   const r = rounds.find((x) => x.id === current), box = $("roundBox"); box.replaceChildren();
   if (r) {
@@ -80,21 +82,13 @@ async function roundOp(r, op, text, body = {}) {
   try { await api("/api/admin/rounds/" + r.id + "/" + op, { method: "POST", body }); await load(); } catch (e) { notice($("notice"), msg(e), true); await load({ quiet: true }); }
 }
 
-// ---- Auto refresh: cheap pulse every 15s, only when the tab is visible; never replaces the UI mid-interaction ----
-const interacting = () => $("dlg").open || Date.now() - interactAt < 4000 || document.activeElement === $("q");
-async function tick() {
-  clearTimeout(timer);
-  if (!document.hidden && !busy) {
-    try {
-      const p = await api("/api/admin/pulse"); errs = 0;
-      if (token !== null && p.token !== token) { if (interacting()) { pending = true; $("fresh").hidden = false; } else await load({ quiet: true }); }
-    } catch { errs++; $("live").textContent = "เชื่อมต่อไม่ได้ จะลองใหม่อัตโนมัติ"; }
-  }
-  timer = setTimeout(tick, Math.min(15000 * 2 ** Math.min(errs, 2), 60000)); // back off to 60s on repeated errors
-}
-for (const ev of ["input", "keydown", "pointerdown"]) document.addEventListener(ev, () => { interactAt = Date.now(); }, { passive: true });
-document.addEventListener("visibilitychange", () => { if (!document.hidden) tick(); });
+// ---- Auto refresh (shared module): cheap pulse every 15 s while visible; never replaces the UI mid-interaction ----
+const interacting = trackInteraction(() => $("dlg").open || document.activeElement === $("q"));
+let refresher = null;
 $("refresh").onclick = () => load(); $("showFresh").onclick = () => load();
 $("round").onchange = async () => { current = $("round").value; await load(); };
 $("q").oninput = () => draw(lastN, lastL); $("status").onchange = () => draw(lastN, lastL);
-await load(); tick();
+$("csv").onclick = () => { location.href = "/api/admin/orders/export.csv?" + new URLSearchParams({ round: current, status: $("status").value }); };
+{ const qs = new URLSearchParams(location.search); if (qs.get("status")) $("status").value = qs.get("status"); if (qs.get("round")) current = qs.get("round"); }
+await load();
+refresher = startAutoRefresh({ pulse: () => api("/api/admin/pulse"), reload: load, interacting, onPending: (v) => { $("fresh").hidden = !v; }, onError: () => { $("live").textContent = "เชื่อมต่อไม่ได้ จะลองใหม่อัตโนมัติ"; } });

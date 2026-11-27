@@ -18,6 +18,7 @@ export async function overview(env) {
   };
 }
 
+const csvResponse = (csv, name) => new Response(csv, { headers: { ...headers, "Content-Type": "text/csv; charset=utf-8", "Content-Disposition": `attachment; filename="${name.replace(/[^A-Za-z0-9._-]/g, "_")}"` } });
 const decoded = new Map();
 const bytes = (name) => { if (!decoded.has(name)) decoded.set(name, Uint8Array.from(atob(assets[name].base64), (c) => c.charCodeAt(0))); return decoded.get(name); };
 const page = (name) => new Response(assets[name].text, { headers: { ...headers, "Content-Type": assets[name].type, "Content-Security-Policy": pageCsp } });
@@ -45,6 +46,14 @@ const routes = [
     const out = m[2] === "open" ? await svc.openRound(env, a, m[1]) : m[2] === "close" ? await svc.closeRound(env, a, m[1]) : m[2] === "cancel-unpaid" ? await svc.cancelUnpaid(env, a, m[1], b.expected) : await svc.sendToShop(env, a, m[1], b.expectedPieces);
     return api.json({ ok: true, ...(out ?? {}) });
   }],
+  ["GET", /^\/api\/admin\/dashboard$/, "api", async (r, env) => api.json({ ok: true, ...(await svc.dashboard(env, { includeTest: new URL(r.url).searchParams.get("includeTest") === "1" })) })],
+  ["GET", /^\/api\/admin\/production\/summary$/, "api", async (r, env) => { const q = new URL(r.url).searchParams; return api.json({ ok: true, ...(await svc.productionSummary(env, { round: q.get("round") || "", includeTest: q.get("includeTest") === "1" })) }); }],
+  ["GET", /^\/api\/admin\/production\/summary\.csv$/, "api", async (r, env) => { const q = new URL(r.url).searchParams; const csv = svc.productionCsv(await svc.productionSummary(env, { round: q.get("round") || "", includeTest: q.get("includeTest") === "1" })); return csvResponse(csv, "NORX-production-" + (q.get("round") || "all") + ".csv"); }],
+  ["POST", /^\/api\/admin\/production\/items-status$/, "write", async (r, env, a) => { const b = await r.json().catch(() => null); if (!b) return api.json({ ok: false, error: "BAD_REQUEST" }, 400); return api.json({ ok: true, ...(await svc.setItemsStatus(env, a, { round: String(b.round || ""), from: b.from, to: b.to, product: b.product || null, sleeve: b.sleeve || null, size: b.size || null, expected: b.expected })) }); }],
+  ["GET", /^\/api\/admin\/orders\/export\.csv$/, "api", async (r, env) => { const q = new URL(r.url).searchParams; return csvResponse(await svc.ordersCsv(env, env.MEDIA_ADMIN_EMAIL_HASH, { round: q.get("round") || undefined, status: q.get("status") || undefined, includeTest: q.get("includeTest") !== "0" }), "NORX-orders-" + (q.get("round") || "all") + ".csv"); }],
+  ["GET", /^\/admin\/?$/, "page", () => page("overview.html")],
+  ["GET", /^\/admin\/production\/?$/, "page", () => page("production.html")],
+  ["GET", /^\/admin\/products\/?$/, "page", () => page("products.html")],
   ["GET", /^\/api\/admin\/integrity$/, "api", async (r, env) => api.json({ ok: true, violations: await svc.paymentIntegrity(env) })],
   ["GET", /^\/api\/admin\/pulse$/, "api", async (r, env) => api.json({ ok: true, ...(await svc.pulse(env)) })],
   ["GET", /^\/api\/admin\/notifications$/, "api", async (r, env) => api.json({ ok: true, notifications: await listNotifications(env), readiness: await notificationReadiness(env, async () => (await svc.getSetting(env, "storefront"))?.notifyTo ?? null) })],

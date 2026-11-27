@@ -54,3 +54,18 @@
 | D17 | ต้องมีอีเมลแจ้งเตือนเจ้าของแบบเดิม (เนื้อหา V1: เลขออเดอร์ ชื่อ รายการ ยอด ลิงก์หลังบ้าน) ผ่านช่องทางใด โดยไม่มีค่าใช้จ่าย | เริ่มที่ webhook→บริการที่คุณมีอยู่แล้ว หรือดูในหน้า Admin อย่างเดียว (มี auto-refresh) |
 | D18 | ทดสอบ storefront กับ staging ต้องมี origin หน้าร้านชั่วคราว (preview ของ Worker หลักผูก binding production — ดู S2) | สร้างหน้าร้านชุดทดสอบแยก origin ที่ชี้ `NORX_API` ไป staging |
 | D19 | ตัวนำเข้า V1: จะส่งออก Sheets เป็น CSV (ลบ PII สำหรับ staging) ได้เมื่อไร | หลัง staging พร้อม |
+
+
+## เพิ่ม (2026-11-27, หลังรีวิวอิสระ)
+- **A20** Payment integrity: ยกเลิก/ย้อนจากชำระแล้ว = void payment (เก็บประวัติ); มี `UNIQUE` บางส่วน "1 confirmed payment ต่อออเดอร์"; ตรวจสอบได้ที่ `/api/admin/integrity` และบนแดชบอร์ด
+- **A21** Import = delta sync ด้วย `import_hash` + guard ฝั่ง V2; `safe` ไม่ทับงานฝั่ง V2, `v1-wins` เฉพาะ final sync ตอน freeze; ไม่ลบ orphan
+- **A22** แจ้งเตือน at-least-once: บันทึก `provider_called_at` ก่อนเรียก provider; กรณีไม่แน่ใจ = ส่งซ้ำพร้อม idempotency key เดิมและข้อความ "อาจซ้ำ"
+- **A23 (D17)** provider อีเมลแบบ native เตรียมไว้หลัง adapter จุดเดียว (`sendViaBinding`) — **ยังไม่ยืนยันกับเอกสาร Cloudflare** (เข้าไม่ได้); ไม่เปิดบริการ/DNS
+- **A24 (D18)** staging storefront แยกเดี่ยว (assets-only) ที่ `staging.norxcraftingmovement.com` (ข้อเสนอ); build ล้มเหลวถ้ามีการอ้างถึง production
+- **A25 (D19)** fixtures anonymised + `scripts/anonymize-v1-export.mjs`
+- **A26** เมนู Admin ชุดเดียว 8 รายการ (ภาพรวม ออเดอร์ การผลิต จัดส่ง สินค้า กิจกรรม สื่อ ตั้งค่า) render ฝั่ง server; Content/Analytics ยังไม่แสดง
+| # | ใหม่ | คำแนะนำ |
+|---|---|---|
+| D20 | อ่านหน้าเอกสาร Email Service ให้ครบ (ให้เพิ่ม host `developers.cloudflare.com` ใน allowlist ของ session หรือวางเนื้อหา) แล้วยืนยัน/แก้ `sendViaBinding` | ทำก่อนเปิดใช้ |
+| D21 | Access ครอบทั้ง host staging (แนะนำ) หรือเฉพาะ `/admin*` | ทั้ง host |
+| D22 | Overview ต้องแสดง "กิจกรรมที่เปิดรับสมัคร" จริง: ต้องมี read-only endpoint จาก Events Worker (ไม่ผูก EVENTS_DB เข้ากับ Orders Worker) | ทำใน Phase 03b ถ้าต้องการ |
