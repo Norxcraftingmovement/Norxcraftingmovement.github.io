@@ -14,13 +14,19 @@ Admin `9aa87251` (rollback ได้เฉพาะ `589b707d` ห้าม `eed
 - A4 QR แอปธนาคาร + independent retest QR staging: **ค้าง**
 - A5 ซ้อมนำเข้า V1: **เขียว** (staging 17 ออเดอร์/2 รอบ reconcile 0 diff) — เจ้าของดูตัวเลขใน Admin
 - A6 ซ้อมทางถอยกับสำเนาชีต V1 จริง: **ค้าง** (เจ้าของ)
-- go/no-go **ศ. 4 ธ.ค.** · cutover คืน 5–6 ธ.ค. ถ้าทุกด่านเขียว · ห้ามแตะ production 11–13 ธ.ค.
+- เจ้าของยืนยันเป้าหมาย: ขึ้นระบบให้เร็วที่สุดเมื่อพร้อม; วันที่เดิมปรับได้ ไม่ใช้เป็นด่านเวลาอัตโนมัติ แต่ Security Gate, QA, rollback และการอนุมัติแต่ละการเปลี่ยนแปลงยังครบตามเดิม
 
 ## รออนุมัติ/ตัดสินใจ (เจ้าของ)
 Email Service + โดเมนผู้ส่ง · deploy Admin (readiness) · ทรัพยากร production ทีละคำสั่ง · ทุกอย่างของ cutover
 
-## Next exact action (Claude)
-เตรียมทรัพยากร production ทีละคำสั่ง **เมื่อเจ้าของสั่ง** (ขออนุมัติทุกคำสั่ง) · ไม่แตะ production จนกว่าอนุมัติ
+## Workflow Phase 1 review (Codex, 27 พ.ย.)
+ยังไม่ merge เข้า Orders V2. แก้ preflight ให้หยุดเมื่อ base ไม่ถูกต้อง/Git check ล้มเหลว และตรวจทุก outgoing commit เพื่อไม่ให้ค่าลับที่ลบภายหลังหลุดไปกับประวัติ. เพิ่ม CLI regression tests 5 กรณี; ทดสอบใน clone แยก: 228 tests, ผ่าน 227 ข้าม 1 ล้ม 0; preflight OK (developer-reported โดย Codex; ไม่ใช่ independent QA ของตัวแก้). ไม่ deploy และไม่แก้ checkout ของ Claude
+
+## Next exact action
+ตรวจรับตัวแก้ preflight ใน Phase 1 แล้วขอเจ้าของอนุมัติ merge เข้า feature/orders-v2; ใช้ Single Writer. ปิดด่าน Orders V2 ที่ค้างบน staging; ทุก Cloudflare write ยังต้องอนุมัติตามเดิม
+
+## ทิศทางรอบถัดไป (เจ้าของยืนยัน)
+NORX Management Platform: เจ้าของจัดการข้อมูลผ่าน Admin + Template ของ NORX; AI เพิ่มความสามารถใหม่. ต่อจาก Commerce/Orders ให้ทำ Products (สร้าง Drop 04 → Preview → Publish โดยไม่แก้โค้ดรายสินค้า) โดยต่อยอด schema/API เดิมและไม่เปลี่ยน snapshot ของออเดอร์เก่า. จากนั้น Website, Events, Content/Media, Routes/GPX, Analytics/SEO, Growth ตาม roadmap ภาพรวม; ไม่รื้อ Phase ทางเทคนิคเดิม
 
 ## สถานะบน Trello
 การ์ดสถานะสั้น: https://trello.com/c/a89Pbdgg · การ์ดเดิม https://trello.com/c/2imGq33Y = ประวัติ (ไม่ต้องอ่านทั้งการ์ด)

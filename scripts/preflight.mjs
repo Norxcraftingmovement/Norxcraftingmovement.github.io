@@ -39,14 +39,22 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   const problems = [], branch = git("rev-parse", "--abbrev-ref", "HEAD"), head = git("rev-parse", "--short", "HEAD");
   if (branch === "feature/cloudflare-migration" || branch === "main" || branch === "master") problems.push(`on protected/production branch ${branch} — do not push from here`);
   const upstream = tryGit("rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}");
-  const base = arg("base") || upstream || (tryGit("rev-parse", "--verify", `origin/${branch}`) && `origin/${branch}`) || tryGit("merge-base", "HEAD", "origin/feature/orders-v2") || "HEAD";
-  const [behind, ahead] = (tryGit("rev-list", "--left-right", "--count", `${base}...HEAD`) || "0\t0").split(/\s+/).map(Number);
-  const dirty = tryGit("status", "--porcelain").split("\n").filter(Boolean);
+  const requestedBase = arg("base");
+  if (args.includes("--base") && (!requestedBase || requestedBase.startsWith("--"))) {
+    console.error("PREFLIGHT FAILED: --base requires an existing commit/ref"); process.exit(1);
+  }
+  const base = requestedBase || upstream || (tryGit("rev-parse", "--verify", `origin/${branch}`) && `origin/${branch}`) || tryGit("merge-base", "HEAD", "origin/feature/orders-v2");
+  const baseSha = base && tryGit("rev-parse", "--verify", "--end-of-options", `${base}^{commit}`);
+  if (!baseSha) { console.error("PREFLIGHT FAILED: cannot resolve comparison base; supply --base <existing-ref>"); process.exit(1); }
+  // Once a base is selected, Git failures must stop the gate rather than become empty, passing results.
+  const [behind, ahead] = git("rev-list", "--left-right", "--count", `${baseSha}...HEAD`).split(/\s+/).map(Number);
+  const dirty = git("status", "--porcelain").split("\n").filter(Boolean);
   console.log(`branch ${branch} @ ${head} · base ${base.slice(0, 12)} · ahead ${ahead}, behind ${behind} · uncommitted ${dirty.length}`);
   if (behind > 0) problems.push(`branch is ${behind} commit(s) behind ${base} — a push would need a merge/rebase (never force-push)`);
 
-  let diff = tryGit("diff", "-U0", "--no-color", `${base}`, "HEAD") + "\n" + tryGit("diff", "-U0", "--no-color", "HEAD");
-  for (const f of tryGit("ls-files", "--others", "--exclude-standard").split("\n").filter(Boolean)) { try { const t = readFileSync(f, "utf8"); diff += `\n+++ b/${f}\n@@ -0,0 +1 @@\n` + t.split("\n").map((x) => "+" + x).join("\n"); } catch { /* binary/unreadable: skipped */ } }
+  // Every outgoing commit is published, including secrets removed by a later commit.
+  let diff = git("log", "-m", "--format=", "-p", "-U0", "--no-color", "--no-renames", `${baseSha}..HEAD`) + "\n" + git("diff", "-U0", "--no-color", "--no-renames", "HEAD");
+  for (const f of git("ls-files", "--others", "--exclude-standard").split("\n").filter(Boolean)) { const t = readFileSync(f, "utf8"); diff += `\n+++ b/${f}\n@@ -0,0 +1 @@\n` + t.split("\n").map((x) => "+" + x).join("\n"); }
   const hits = scanDiff(diff);
   console.log(hits.length ? `sensitive-value scan: ${hits.length} hit(s)\n` + hits.slice(0, 20).map((h) => `  ${h.file}:${h.line} ${h.rule}`).join("\n") : "sensitive-value scan: 0 hits in added lines");
   if (hits.length) problems.push("added lines look like secrets/PII/real ids (see file:line above; add `preflight-allow` at the end of a line only for a deliberate fake)");
