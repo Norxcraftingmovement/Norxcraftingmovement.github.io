@@ -26,7 +26,8 @@ Status: PLAN ONLY. Nothing here is approved or executed. Every step marked OWNER
 Revert the single `NORX_API` commit, remove production routes, keep D1 untouched; export V2-native orders to the V1 Sheet with the reverse script (to be written and rehearsed in A6), reconcile.
 
 ## E. What is still missing in code (as of `9f24911`, Recovery Mode)
-- Reverse export V2 → V1 Sheet (A6/D) — the earlier local version was lost with 7b20b5f; to be rewritten (Recovery R4).
+- ~~Reverse export V2 → V1 Sheet (A6/D)~~ — rewritten in Recovery R4 (`scripts/export-v2-to-v1.mjs`, see MIGRATION_PLAN "Recovery R4"); tested on SQLite incl. round trip. **Still open for A6:** rehearsal on a COPY of the real V1 Sheet (owner) — how V1 stores phones/dates is unverified.
+- **Timeline (DECISIONS A40):** go/no-go Fri 4 Dec 2026; cutover night 5–6 Dec only if every gate above is green, otherwise after 13 Dec; nothing on 11–13 Dec.
 - ~~Partial receipts / pickup queue + migration `0002`~~ — restored on GitHub in `cf1fed0` from the code running on staging (Admin 589b707d).
 - Deferred (owner-approved, not needed to open): round create/edit UI, `0003` event name per round + `shop.js`, weekly-round switch on the Orders page, `rehearse-v1-local`.
 - Not started: batch status actions, `/track/` (next after Orders V2 integration), Products management.
