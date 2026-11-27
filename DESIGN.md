@@ -21,3 +21,6 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 - Raster preview provenance: screenshots of local synthetic app with test-only records; not production data and not generated product photography.
 
 28 Nov owner clarification: prioritize the soft warm neutrals and frosted translucency in the reference. Keep charcoal navigation; use translucent white on Overview header/round context, not behind money or order details. Bounded light CSS gradients keep text readable without photography or 3D. Background does not tile; body fills the viewport.
+
+## Type and spacing refinement — 28 Nov
+Keep Sarabun. Body 16px with 1.65 line height; section headings 20px; standard page heading 32px (mobile 30px). Operational metadata/badges/actions have 14px floor except navigation group/brand captions; queue supporting copy 15px/24px, task titles 18px desktop/17px mobile. Standard page headings use normal tracking; Overview title retains its display treatment. Spacing scale 8/12/16/20/24/32px: related controls closer, panels separated by 24px, queue rows 20px, forms labels 16px above/6px below. Order status badge separated from identifier, long names wrap, totals retain tabular numbers; action targets at least 44px.
