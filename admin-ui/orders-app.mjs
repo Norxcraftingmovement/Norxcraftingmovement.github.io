@@ -96,4 +96,3 @@ $("csv").onclick = () => { location.href = "/api/admin/orders/export.csv?" + new
 { const qs = new URLSearchParams(location.search); if (qs.get("status")) $("status").value = qs.get("status"); if (qs.get("round")) current = qs.get("round"); }
 await load();
 refresher = startAutoRefresh({ pulse: () => api("/api/admin/pulse"), reload: load, interacting, onPending: (v) => { $("fresh").hidden = !v; }, onError: () => { $("live").textContent = "เชื่อมต่อไม่ได้ จะลองใหม่อัตโนมัติ"; } });
-
