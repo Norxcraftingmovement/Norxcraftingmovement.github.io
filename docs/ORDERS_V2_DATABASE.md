@@ -42,3 +42,9 @@ settings(key PK, value JSON)             -- sender info, logo key, bank info
 - `legacy_ref` = เลขแถว/ID ใน Sheets เพื่อ idempotent migration และ reconcile
 - ข้อมูลผู้ส่ง (`settings.sender`) ไม่อยู่ใน repo/seed จริง; seed staging ใช้ข้อมูลสมมติเท่านั้น
 - Migration files: `migrations/orders/NNNN_*.sql` (additive, ไม่แตะ `migrations/events/`)
+
+## Changes 2026-11-27 (ยังไม่เคย apply ลง D1 ใด ๆ จึงแก้ 0001 ตรง ๆ; **หลัง apply ครั้งแรก 0001 ถูกตรึง** การเปลี่ยนต่อไปต้องเป็นไฟล์ใหม่)
+- `orders.payment_timing` (`prepaid|on_site`), `orders.received_at`, `fulfillment_status` เพิ่ม `completed`
+- `UNIQUE(shipments.order_id)` (แทน index ธรรมดา) เพื่อ upsert ตัวนับ reprint
+- ตารางใหม่: `notification_queue`, `notification_failures`, `latency_log` (ดู ARCHITECTURE §7)
+- Seed สมมติเพิ่มออเดอร์ TEST-0002..0005 (รวมที่อยู่ภาษาไทยยาว และจ่ายหน้างาน)

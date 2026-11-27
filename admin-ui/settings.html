@@ -1,0 +1,13 @@
+<!doctype html><html lang="th"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>NORX | ตั้งค่าผู้ส่ง</title><link rel="stylesheet" href="/admin/assets/style.css"></head>
+<body><a class="skip" href="#main">ข้ามไปเนื้อหา</a>
+<header><strong>NORX / ADMIN</strong><nav aria-label="เมนู"><a href="/admin/shipping/">จัดส่ง</a><a href="/admin/settings/" aria-current="page">ตั้งค่า</a></nav></header>
+<main id="main"><p class="eyebrow">SETTINGS</p><h1>ตั้งค่าผู้ส่ง.</h1><p class="muted">ข้อมูลนี้ใช้พิมพ์ในใบจ่าหน้าพัสดุ เก็บในฐานข้อมูลหลังบ้านเท่านั้น ไม่อยู่ในโค้ดหรือหน้าเว็บสาธารณะ</p>
+<div id="notice" class="notice" role="status" hidden></div>
+<div class="grid"><form class="panel" id="form" novalidate><h2>ข้อมูลผู้ส่ง</h2>
+<label class="f" for="brandName">ชื่อแบรนด์</label><input id="brandName" maxlength="60" autocomplete="off" required>
+<label class="f" for="senderName">ชื่อผู้ส่ง</label><input id="senderName" maxlength="80" autocomplete="off" required>
+<label class="f" for="address">ที่อยู่ผู้ส่ง</label><textarea id="address" maxlength="300" required></textarea>
+<label class="f" for="phone">เบอร์โทรศัพท์</label><input id="phone" inputmode="tel" maxlength="20" autocomplete="off" required>
+<p class="muted">โลโก้: ใช้โลโก้ NORX ต้นฉบับ (ไม่เปลี่ยนจากหน้านี้)</p><div class="row"><button type="submit" id="save">บันทึก</button></div></form>
+<section class="panel" aria-labelledby="pv"><h2 id="pv">ตัวอย่างใบจ่าหน้า (ผู้รับเป็นข้อมูลสมมติ)</h2><canvas id="preview" width="10" height="10" aria-label="ตัวอย่างใบจ่าหน้า A6"></canvas></section></div></main>
+<script type="module" src="/admin/assets/settings-app.mjs"></script></body></html>

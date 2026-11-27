@@ -29,3 +29,16 @@
 
 Error format: `{ok:false,error:"CODE"}` + HTTP status ที่ถูกต้อง (V1 adapter ใช้ 200 + `ok:false` เพื่อเข้ากับ `shop.js`).
 OpenAPI/ตัวอย่าง request-response จะเพิ่มใน Phase 02.
+
+## Implemented (Phase 02a) — `src/orders-admin-worker.mjs`, `src/orders-admin-api.mjs`
+ทุก route: allowlist → host → method → `verifiedOwner` (403) → environment guard (API, 503) → เขียนข้อมูลต้อง `Origin` ตรง + `application/json` ≤64KB (CSRF).
+| Method | Path | หมายเหตุ |
+|---|---|---|
+| GET | `/admin/shipping/`, `/admin/settings/` | หน้า Admin (CSP เข้ม) |
+| GET | `/admin/assets/{file}` | JS/CSS/Sarabun/โลโก้ (เฉพาะไฟล์ใน allowlist) |
+| GET/PUT | `/api/admin/settings/sender` | ผู้ส่ง: brandName ≤60, senderName ≤80, address 10–300, phone; audit |
+| GET | `/api/admin/labels/orders?q=&printed=0\|1` | ออเดอร์ `delivery=ship` ที่มีที่อยู่ (≤100) |
+| POST | `/api/admin/labels/data` `{ids≤50}` | ข้อมูลใบจ่าหน้า + sender + `missing[]` |
+| POST | `/api/admin/labels/printed` `{ids}` | เพิ่มตัวนับ reprint เท่านั้น |
+| PUT | `/api/admin/orders/{id}/address` | แก้ที่อยู่ (กฎเดียวกับ V1: เบอร์ `^0\d{8,9}$`, ที่อยู่ ≥15 ตัว + รหัส ปณ. 5 หลัก), audit before/after |
+| PUT | `/api/admin/orders/{id}/shipment` | provider / tracking `[A-Za-z0-9-]{0,40}` / shippedAt `YYYY-MM-DD` — ไม่เปลี่ยนสถานะ |

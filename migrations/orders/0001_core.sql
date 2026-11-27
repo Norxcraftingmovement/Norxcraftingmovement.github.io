@@ -25,7 +25,9 @@ CREATE TABLE orders (id INTEGER PRIMARY KEY, order_no TEXT NOT NULL UNIQUE, requ
   subtotal_baht INTEGER NOT NULL CHECK (subtotal_baht >= 0), shipping_baht INTEGER NOT NULL CHECK (shipping_baht >= 0),
   total_baht INTEGER NOT NULL CHECK (total_baht = subtotal_baht + shipping_baht),
   payment_status TEXT NOT NULL DEFAULT 'pending' CHECK (payment_status IN ('pending','slip_received','confirmed','refunded','cancelled')),
-  fulfillment_status TEXT NOT NULL DEFAULT 'received' CHECK (fulfillment_status IN ('received','in_production','qc','ready_pickup','ready_ship','shipped','cancelled')),
+  fulfillment_status TEXT NOT NULL DEFAULT 'received' CHECK (fulfillment_status IN ('received','in_production','qc','ready_pickup','ready_ship','shipped','completed','cancelled')),
+  payment_timing TEXT NOT NULL DEFAULT 'prepaid' CHECK (payment_timing IN ('prepaid','on_site')),
+  received_at TEXT,
   payment_due_at TEXT, paid_amount_baht INTEGER NOT NULL DEFAULT 0, paid_at TEXT, note TEXT, tracking_token_hash TEXT UNIQUE,
   is_test INTEGER NOT NULL DEFAULT 0 CHECK (is_test IN (0,1)), legacy_ref TEXT UNIQUE,
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP) STRICT;
@@ -52,4 +54,17 @@ CREATE INDEX idx_orders_round ON orders(round_id);
 CREATE INDEX idx_orders_created ON orders(created_at);
 CREATE INDEX idx_items_order ON order_items(order_id);
 CREATE INDEX idx_items_prod ON order_items(product_id, sleeve, size);
-CREATE INDEX idx_shipments_order ON shipments(order_id);
+CREATE UNIQUE INDEX uq_shipments_order ON shipments(order_id);
+-- Notification outbox: written in the same batch as the order, delivered later, retried with backoff.
+CREATE TABLE notification_queue (id INTEGER PRIMARY KEY, order_id INTEGER REFERENCES orders(id), channel TEXT NOT NULL, template TEXT NOT NULL,
+  payload TEXT NOT NULL CHECK (json_valid(payload)),
+  status TEXT NOT NULL DEFAULT 'queued' CHECK (status IN ('queued','sending','sent','failed','dead')),
+  attempts INTEGER NOT NULL DEFAULT 0, max_attempts INTEGER NOT NULL DEFAULT 5, next_attempt_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  last_error TEXT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, sent_at TEXT) STRICT;
+CREATE INDEX idx_notif_due ON notification_queue(status, next_attempt_at);
+CREATE TABLE notification_failures (id INTEGER PRIMARY KEY, queue_id INTEGER NOT NULL REFERENCES notification_queue(id), at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  attempt INTEGER NOT NULL, error TEXT NOT NULL) STRICT;
+-- Order creation and notification delivery are measured separately.
+CREATE TABLE latency_log (id INTEGER PRIMARY KEY, kind TEXT NOT NULL CHECK (kind IN ('order_creation','notification')), ref TEXT,
+  ms INTEGER NOT NULL CHECK (ms >= 0), at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP) STRICT;
+CREATE INDEX idx_latency_kind ON latency_log(kind, at);

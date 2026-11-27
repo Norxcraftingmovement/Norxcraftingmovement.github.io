@@ -11,7 +11,9 @@ Phase 00 · 2026-11-27 · Branch `feature/orders-v2` (จาก `feature/cloudfl
 | ออกแบบ Architecture / Database / API / Migration | **Completed (ร่าง)** — รอเจ้าของตัดสินใจ `DECISIONS.md` |
 | ตรวจ Business Logic ของ Apps Script / Sheets | **Blocked** — ดูข้อ 2 |
 | ตรวจ Cloudflare dashboard (bindings จริง, preview, Access) | **Blocked** — ไม่มีสิทธิ์เข้าถึงจากสภาพแวดล้อมนี้ |
-| Implementation Orders V2 | **Pending** — รอ Phase 00 approval |
+| Phase 01 staging foundation | **Verified** (35 tests) |
+| Phase 02a Sender Settings + Shipping Labels (A6/A4, PNG 300 PPI, PDF, batch print) | **Completed on staging code** — 57 tests + Chromium verification; ยังไม่ deploy; ไม่ผ่านเครื่องพิมพ์จริง |
+| Phase 02 ราคา/เลขออเดอร์/สร้างออเดอร์ | **Blocked** — รอตรวจ Apps Script |
 
 ## 2. ข้อจำกัดของ Phase 00 (ต้องบอกตรง ๆ)
 - **ซอร์ส Apps Script ไม่อยู่ใน repo** และ sandbox นี้เรียก `script.google.com` ไม่ได้ (proxy 403) จึงไม่ได้อ่านโค้ด, ไม่ได้ GET API จริง, ไม่ได้เห็นโครงสร้าง Sheets
