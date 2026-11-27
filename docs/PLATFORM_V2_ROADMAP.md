@@ -13,7 +13,8 @@ Phase 00 · 2026-11-27 · Branch `feature/orders-v2` (จาก `feature/cloudfl
 | ตรวจ Cloudflare dashboard (bindings จริง, preview, Access) | **Blocked** — ไม่มีสิทธิ์เข้าถึงจากสภาพแวดล้อมนี้ |
 | Phase 01 staging foundation | **Verified** (35 tests) |
 | Phase 02a Sender Settings + Shipping Labels (A6/A4, PNG 300 PPI, PDF, batch print) | **Completed on staging code** — 57 tests + Chromium verification; ยังไม่ deploy; ไม่ผ่านเครื่องพิมพ์จริง |
-| Phase 02 ราคา/เลขออเดอร์/สร้างออเดอร์ | **Blocked** — รอตรวจ Apps Script |
+| Phase 02 ราคา/เลขออเดอร์/สร้างออเดอร์/สถานะ/รอบ/แจ้งเตือน/นำเข้า V1 | **Completed on staging code** — 112 tests (111 pass, 1 skipped = differential สด ซึ่งผ่านเมื่อรันแยก), Chromium; ยังไม่ deploy; ยังไม่ผ่าน D1 จริง |
+| ยืนยันซอร์สตรงกับ deployed version | **Blocked** — ต้องให้เจ้าของส่งออกโค้ดเวอร์ชันที่ deploy (ดู MIGRATION_PLAN) |
 
 ## 2. ข้อจำกัดของ Phase 00 (ต้องบอกตรง ๆ)
 - **ซอร์ส Apps Script ไม่อยู่ใน repo** และ sandbox นี้เรียก `script.google.com` ไม่ได้ (proxy 403) จึงไม่ได้อ่านโค้ด, ไม่ได้ GET API จริง, ไม่ได้เห็นโครงสร้าง Sheets

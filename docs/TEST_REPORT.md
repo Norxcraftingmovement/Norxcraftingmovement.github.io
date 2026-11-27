@@ -22,3 +22,21 @@ Order creation · Duplicate submission · Server-side price validation · Cart c
 - Print CSS (`@page` ชื่อ a6/a4, emulate print): A6 = 1 หน้า 298×420 pt, A4 = 1 หน้า A4 ไม่มีหน้าเปล่า
 - มือถือ 390px: ไม่มี horizontal overflow; ไม่มี console/page error
 - ไม่ได้ทดสอบ: การพิมพ์ด้วยเครื่องพิมพ์จริง (ต้องทดลองกับกระดาษจริงเพื่อดู non-printable area), Safari (ไม่รองรับ named `@page` → ขนาดกระดาษต้องเลือกในกล่องพิมพ์เอง), ฟอนต์ภาษาไทยบน Firefox, การใช้งานบน Cloudflare Workers จริง
+
+
+## Phase 02 — Orders V2 core (2026-11-27)
+**Automated:** `node --test tests/*.test.mjs` → **112 tests, 111 pass, 0 fail, 1 skipped** (skipped = differential กับซอร์ส V1 สด ซึ่งรันเฉพาะเมื่อตั้ง `NORX_V1_SOURCE`; **รันแยกแล้ว 5/5 ผ่าน** ด้วยไฟล์ที่เจ้าของส่งมา)
+| ไฟล์ | จำนวน | ครอบคลุม |
+|---|---|---|
+| orders-core.golden | 5 | V2 core = V1 `NorxCore` ทุกเคสที่บันทึก: normalize 260 (รวมข้อความ error ภาษาไทย), quote 381, fingerprint 125, รอบ/ตัดยอดวันอาทิตย์/successor 517, summary+shopText 60, MOVES 56, receipt 113 · mapping สถานะ 6 ค่า lossless · กติกาเปลี่ยนสถานะ V1 |
+| orders-service | 15 | สร้างออเดอร์, ค่าส่งต่อออเดอร์, รวมบรรทัดซ้ำ, **idempotency (รวม 12 คำขอขนาน)**, ราคาฝั่ง server (แก้ราคา/ฝัง ราคา), รอบ (ขอบเขต 1 ms), **atomic (รอบปิด/ราคา/ค่าส่งเปลี่ยนระหว่าง quote–commit; ล้มกลาง batch → ไม่มีแถวค้าง)**, ไม่รออีเมล, โหมดทดสอบ, config สัญญา V1, รอบรายสัปดาห์ (ขนาน 8 คำขอ → 1 รอบ), รหัส `ROUND-NNN` |
+| orders-status-rounds | 7 | ขั้นสถานะ+payment/history/audit, stale/ขนาน, **จ่ายหน้างาน ≠ ชำระ (ไม่มี payment, นับผลิต ไม่นับรายได้)**, หลังตัดยอด, ตัดยอด/ยกเลิกไม่โอน atomic, สรุปผลิตบนข้อมูลจริง, pulse |
+| orders-notify | 7 | ส่งสำเร็จ, ล้มเหลว→backoff 1m/5m/30m/2h/12h→dead + failure log, ส่งใหม่ด้วยมือ, ไม่มี provider, **dispatcher ขนานไม่ส่งซ้ำ**, worker ตายกลางทาง, webhook, latency แยกชนิด |
+| orders-public-worker | 6 | สัญญา V1 (text/plain, HTTP 200), CORS, error ทั่วไปไม่รั่ว, preflight, rate limit, ไม่มี route admin, cron |
+| orders-admin-v2 | 6 | **ทุก route/หน้าใหม่ปฏิเสธ anonymous/AUD ผิด/อีเมลผิด และไม่รั่วข้อมูล**, CSRF, flow เจ้าของ, 500 ทั่วไป, settings storefront (test-key เก็บ hash), CSP |
+| v1-import | 5 | mapping 7 สถานะ, fail-closed, dry-run/idempotent/ไม่ซ้ำ, reconcile ตรวจจับการแก้, **retry ลูกค้า V1 หลัง import ได้ออเดอร์เดิม** |
+| orders-foundation | 6 | schema/constraint (ตรวจเหตุผลที่ถูกต้อง), isolation ของ staging ทั้ง 2 Worker, guard |
+| repo-hygiene | 3 | ไม่มีเลขบัญชี/อีเมลจริง/รหัส Sheet/URL Apps Script/ค่าคงที่ V1 ใน repo |
+**Mutation check:** ถอด guard ใน SQL ของ INSERT ออเดอร์ทีละตัว (สถานะรอบ/เวลา, ค่าส่ง, ราคา) → เทส atomic ล้มทุกครั้ง (พิสูจน์ว่าเทสจับได้จริง)
+**เบราว์เซอร์จริง (Chromium, local, ข้อมูลสมมติ):** หน้า Orders: ใส่ยอดผิดถูกปฏิเสธ/ถูกต้องผ่าน; **ออเดอร์ใหม่เข้าขณะเปิดหน้า → รายการอัปเดตเองใน ≤15 วินาที**; เปิด dialog ค้างไว้ + ออเดอร์ใหม่เข้า → dialog ไม่หาย รายการไม่ถูกแทนที่ แสดงแถบ "แสดงเลย"; มือถือ 390px ไม่ล้นจอ; ไม่มี console error. Label/PNG 300 PPI/PDF ยังผ่านหลังเปลี่ยน schema.
+**ข้อจำกัดที่ต้องรู้:** ทดสอบกับ SQLite ในหน่วยความจำ (จำลอง D1: prepare/bind/batch ทรานแซกชัน) ไม่ใช่ D1 จริง — ความหน่วงที่วัดได้ (~2–3 ms ต่อออเดอร์) **ไม่ใช่ตัวเลขจริงบน Cloudflare**; ยังไม่ได้ทดสอบบน Cloudflare, ไม่ได้ทดสอบ cron จริง, ไม่ได้ทดสอบโหลดจริง, ไม่ได้ยืนยันว่าซอร์สตรงกับเวอร์ชันที่ deploy.

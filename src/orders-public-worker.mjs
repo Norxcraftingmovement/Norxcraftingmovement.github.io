@@ -1,0 +1,44 @@
+// Public storefront API (V1-compatible contract): GET config, POST {action:'submit', order}.
+// Anonymous by design; protected by validation, idempotency, rate limit and size caps. No admin routes here.
+import { publicConfig, submitOrder } from "./orders-service.mjs";
+import { UserError } from "./orders-core.mjs";
+import { environmentGuard } from "./orders-guard.mjs";
+import { dispatchDue, makeProvider } from "./orders-notify.mjs";
+import { getSetting } from "./orders-service.mjs";
+
+const base = { "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff" };
+const allowed = (env, origin) => (env.ORDERS_PUBLIC_ORIGINS ?? "").split(",").map((s) => s.trim()).filter(Boolean).includes(origin);
+function respond(env, request, body) {
+  const h = { ...base, "Content-Type": "application/json; charset=utf-8" }, o = request.headers.get("Origin");
+  if (o && allowed(env, o)) { h["Access-Control-Allow-Origin"] = o; h["Vary"] = "Origin"; }
+  return new Response(JSON.stringify(body), { status: 200, headers: h }); // V1 contract: always HTTP 200, errors in {ok:false,error}
+}
+export default {
+  async fetch(request, env, ctx) {
+    const u = new URL(request.url);
+    if (u.pathname !== "/api/orders") return new Response("Not found", { status: 404, headers: base });
+    if (request.method === "OPTIONS") {
+      const o = request.headers.get("Origin");
+      return new Response(null, { status: 204, headers: { ...base, ...(o && allowed(env, o) ? { "Access-Control-Allow-Origin": o, "Access-Control-Allow-Methods": "GET,POST", "Access-Control-Allow-Headers": "Content-Type", "Access-Control-Max-Age": "86400", Vary: "Origin" } : {}) } });
+    }
+    if (!["GET", "POST"].includes(request.method)) return new Response("Method not allowed", { status: 405, headers: base });
+    if (!(await environmentGuard(env))) return respond(env, request, { ok: false, error: "ระบบสั่งซื้อยังไม่พร้อม กรุณาทักเพจ NORX" });
+    try {
+      if (request.method === "GET") return respond(env, request, await publicConfig(env, Date.now()));
+      if (env.ORDERS_LIMITER) { const { success } = await env.ORDERS_LIMITER.limit({ key: request.headers.get("CF-Connecting-IP") ?? "unknown" }); if (!success) return respond(env, request, { ok: false, error: "ส่งคำขอถี่เกินไป กรุณารอสักครู่แล้วลองใหม่" }); }
+      const text = await request.text();
+      if (text.length > 65536) throw new UserError("ข้อมูลออเดอร์ไม่ถูกต้อง");
+      let t; try { t = JSON.parse(text); } catch { throw new UserError("ข้อมูลออเดอร์ไม่ถูกต้อง"); } // text/plain body: no CORS preflight (same as V1)
+      if (t?.action !== "submit") throw new UserError("ไม่รองรับคำสั่งนี้");
+      return respond(env, request, await submitOrder(env, t.order, { ctx }));
+    } catch (e) {
+      if (!(e instanceof UserError)) console.error("orders-public error", e?.message); // never log request bodies (PII)
+      return respond(env, request, { ok: false, error: e instanceof UserError ? e.message : "ไม่สามารถบันทึกคำขอได้ กรุณาลองใหม่อีกครั้ง หรือทักเพจ NORX" });
+    }
+  },
+  // Cron Trigger: deliver queued notifications. Entirely separate from order creation.
+  async scheduled(_event, env, ctx) {
+    if (!(await environmentGuard(env))) return;
+    ctx.waitUntil(dispatchDue(env, makeProvider(env, async () => (await getSetting(env, "storefront"))?.notifyTo ?? null)));
+  },
+};

@@ -42,3 +42,19 @@ OpenAPI/ตัวอย่าง request-response จะเพิ่มใน Ph
 | POST | `/api/admin/labels/printed` `{ids}` | เพิ่มตัวนับ reprint เท่านั้น |
 | PUT | `/api/admin/orders/{id}/address` | แก้ที่อยู่ (กฎเดียวกับ V1: เบอร์ `^0\d{8,9}$`, ที่อยู่ ≥15 ตัว + รหัส ปณ. 5 หลัก), audit before/after |
 | PUT | `/api/admin/orders/{id}/shipment` | provider / tracking `[A-Za-z0-9-]{0,40}` / shippedAt `YYYY-MM-DD` — ไม่เปลี่ยนสถานะ |
+
+
+## Phase 02 — Storefront contract (public Worker, `src/orders-public-worker.mjs`)
+`GET /api/orders` → `{ok,testOnly,rolling,serverNow,bank,chatUrl,pageUrl,eventName,products[],round,nextRound}` · `POST /api/orders` body (text/plain หรือ JSON) `{action:"submit",order}` → ใบเสร็จ V1 `{ok,id,name,roundId,items,subtotal,shipping,total,paymentDue,status}` หรือ `{ok:false,error}`. HTTP 200 เสมอ (สัญญา V1), CORS เฉพาะ `ORDERS_PUBLIC_ORIGINS`, จำกัดขนาด 64 KB, rate limit ผ่าน binding `ORDERS_LIMITER`. หน้าร้านสลับด้วยการเปลี่ยน `window.NORX_API` เท่านั้น (ไม่ต้องแก้ `shop.js`).
+## Phase 02 — Admin เพิ่มเติม (ทุกเส้นทางผ่าน `verifiedOwner`; เขียนข้อมูลต้อง same-origin + JSON)
+| Method | Path | หมายเหตุ |
+|---|---|---|
+| GET | `/admin/orders/` | หน้าออเดอร์ + รีเฟรชอัตโนมัติ |
+| GET | `/api/admin/orders?round=&status=&q=` | รายการ + `moves[]` ที่ทำได้ |
+| POST | `/api/admin/orders/{NORX-XXXXXXXX}/status` `{from,to,amount}` | กติกา V1; optimistic concurrency ที่ระดับแถว; 400 `{ok:false,error:"USER_ERROR",message}` |
+| GET/POST | `/api/admin/rounds` | สรุปรอบ+phase+shopText / สร้าง-แก้รอบ |
+| POST | `/api/admin/rounds/{code}/open\|close\|cancel-unpaid\|send-to-shop` | ตัดยอดเป็น atomic batch |
+| GET | `/api/admin/pulse` | token การเปลี่ยนแปลง (auto-refresh) |
+| GET / POST | `/api/admin/notifications` , `/{id}/retry` | คิวแจ้งเตือนที่ค้าง/ล้มเหลว, ส่งใหม่ |
+| GET | `/api/admin/metrics/latency` | p50/p95 แยก `order_creation` กับ `notification` |
+| GET/PUT | `/api/admin/settings/storefront` | บัญชีธนาคาร ลิงก์ โหมดเปิดจริง รอบรายสัปดาห์ ผู้รับแจ้งเตือน test-key (เก็บ hash ไม่ส่งกลับ) |

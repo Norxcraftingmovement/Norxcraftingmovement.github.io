@@ -2,7 +2,7 @@ export const $ = (id) => document.getElementById(id);
 export async function api(path, { method = "GET", body } = {}) {
   const r = await fetch(path, { method, headers: body ? { "Content-Type": "application/json" } : {}, body: body ? JSON.stringify(body) : undefined, credentials: "same-origin" });
   let data = null; try { data = await r.json(); } catch {}
-  if (!r.ok || data?.ok === false) { const e = new Error(data?.error || "HTTP_" + r.status); e.code = data?.error; throw e; }
+  if (!r.ok || data?.ok === false) { const e = new Error(data?.error || "HTTP_" + r.status); e.code = data?.error; e.userMessage = data?.message; throw e; }
   return data;
 }
 export function notice(el, text, isErr = false) { el.hidden = !text; el.textContent = text || ""; el.classList.toggle("err", isErr); }

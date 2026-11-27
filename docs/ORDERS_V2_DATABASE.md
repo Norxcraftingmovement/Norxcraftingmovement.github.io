@@ -48,3 +48,14 @@ settings(key PK, value JSON)             -- sender info, logo key, bank info
 - `UNIQUE(shipments.order_id)` (แทน index ธรรมดา) เพื่อ upsert ตัวนับ reprint
 - ตารางใหม่: `notification_queue`, `notification_failures`, `latency_log` (ดู ARCHITECTURE §7)
 - Seed สมมติเพิ่มออเดอร์ TEST-0002..0005 (รวมที่อยู่ภาษาไทยยาว และจ่ายหน้างาน)
+
+
+## Changes 2026-11-27 (Phase 02) — 0001 ยังไม่ถูก apply ที่ใด
+- ลบ `payment_timing`, `customers`, `counters`, `round_products` (V1 ไม่มี; ลดแหล่งความจริงซ้ำ). ลูกค้า = `orders.customer_name/phone`
+- `payment_status` เพิ่ม `deferred_on_site` (จ่ายหน้างาน ≠ ชำระแล้ว)
+- `rounds`: `code` (= roundId V1 "ROUND-003"), `supplier_shipping_baht`, `sent_at`, `successor_of UNIQUE` (กันสร้างรอบรายสัปดาห์ซ้ำ), สถานะ `draft|open|closed|sent`, เวลาต้องเป็น `YYYY-MM-DDTHH:MM:SS.sssZ` (CHECK) เพื่อให้เทียบสตริง = เทียบเวลา
+- `products.slug` = id สาธารณะที่หน้าร้านใช้ (`drop02`/`drop03`), เพิ่ม `fit_name`
+- `orders`: `fingerprint`, `round_snapshot`, `status_updated_by/at`; `order_items`: snapshot `product_name/fit/fit_name`, `UNIQUE(order,product,sleeve,size)`
+- `order_status_history.kind` เพิ่ม `legacy` (เก็บสถานะแบบ V1 ตามที่แอดมินเห็น)
+- `notification_queue`: `locked_at`, `UNIQUE(order_id,channel,template)`
+- `settings`: `storefront` (บัญชีธนาคาร ลิงก์ โหมดทดสอบ/เปิดจริง รอบรายสัปดาห์ ผู้รับแจ้งเตือน test-key เป็น hash) และ `sender` — **ไม่อยู่ใน repo**

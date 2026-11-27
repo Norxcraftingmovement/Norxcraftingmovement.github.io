@@ -1,3 +1,9 @@
 /dist/
 /node_modules/
 /.wrangler/
+
+# Never commit V1 Apps Script source or exports (contain account, email and sheet configuration)
+/v1-source/
+/private/
+*.v1.gs
+*.v1.txt

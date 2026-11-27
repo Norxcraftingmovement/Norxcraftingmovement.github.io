@@ -25,3 +25,17 @@
 
 ## ความเสี่ยง
 เลขออเดอร์ชนกัน (sequence ต้องเริ่มต่อจาก V1), ออเดอร์เข้าระหว่าง freeze, ราคา/ค่าส่งคำนวณต่างจาก V1, ผู้ใช้ที่มีตะกร้าค้างใน localStorage (`norx-cart-v2` ต้องใช้ได้ต่อ — รักษา schema ตะกร้าและ `product.id` เดิม `drop02`, `drop03`).
+
+
+---
+## Update 2026-11-27 — หลังได้รับซอร์ส V1
+**บันทึกการตรวจ:** ไฟล์ซอร์สที่ได้รับ SHA-256 = `a9f9b78a36b654717453ef6f94d05bb18a06e190d2cb1d3447506305b08d7a59`; บล็อก pure logic (`NorxCore`) SHA-256 = `b371971fdbfd006cc282b55255eaae72fa50938880b8d846b6d1760c997bb745`. ซอร์สไม่ถูก commit (มีบัญชีธนาคาร อีเมล และรหัส Sheet) — เก็บไว้นอก repo; `.gitignore` กัน `/v1-source/`, `/private/`, `*.v1.gs`, `*.v1.txt` และมีเทส `repo-hygiene` ตรวจรูปแบบข้อมูลลับ
+
+**ตรวจว่าซอร์สตรงกับเวอร์ชันที่ deploy จริง — ยังทำไม่ได้จากฝั่งผม** (เรียก Google ไม่ได้). ขั้นตอนที่เจ้าของ/ผู้ดูแลต้องทำก่อน cutover:
+1. Apps Script → Deploy → Manage deployments → ดู **เวอร์ชันของ deployment ที่ใช้งานจริง** (ไม่ใช่ HEAD) → เปิดโค้ดของเวอร์ชันนั้น → บันทึกลงไฟล์ในเครื่อง
+2. `node scripts/v1-verify-source.mjs <ไฟล์>` → ต้องได้ `RESULT: pure business logic identical` และ hash ตรงกับข้างบน (พิมพ์เฉพาะ hash ไม่พิมพ์ซอร์ส)
+3. ส่วนที่ไม่ใช่ pure logic (Sheets, admin, trigger, PropertiesService ค่า `LIVE_ENABLED`/`ROLLING_WEEKLY`/`EMAIL_ENABLED`) ให้เทียบไฟล์ทั้งหมดกับที่ตรวจแล้ว (hash ไฟล์ทั้งก้อนต้องตรง) และบันทึกค่า Script Properties ปัจจุบัน
+4. `GET` config จริงของ V1 (อ่านอย่างเดียว) เทียบกับ `publicConfig` ของ V2 หลัง import: products/ราคา/รอบ/วิธีรับ
+
+**เครื่องมือที่ทำแล้ว** (`src/v1-import.mjs`): วางแผนนำเข้า (fail-closed: สถานะ/ยอดเงิน/รายการ/สินค้า/ซ้ำ ไม่ถูกต้อง = หยุด), dry-run, นำเข้าแบบ idempotent (`ON CONFLICT DO NOTHING` ต่อ `order_no`/`code`; ทรานแซกชันต่อออเดอร์), **คง `NORX-XXXXXXXX`, requestId, fingerprint, เวลาสั่ง, snapshot ราคา**, reconcile (จำนวนออเดอร์/ชิ้น, ยอดสินค้า/ค่าส่ง/รวม, จำนวนต่อสถานะ, ผู้รับ/เบอร์/ที่อยู่/รอบ ต่อออเดอร์). เทส cutover: retry ของลูกค้าที่ requestId เดิมหลัง import → ได้ออเดอร์เดิม ไม่เกิดซ้ำ.
+**ยังไม่ได้ทำ:** ตัวอ่าน CSV/Sheets ของจริง (ตอนนี้รับแถวที่ parse แล้ว), delta import หลัง freeze, สคริปต์ rollback ย้อนเข้า Sheets, ทดสอบกับข้อมูลจริงที่ปิดบังแล้ว

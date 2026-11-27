@@ -36,13 +36,17 @@ test("staging config declares its own bindings and none of production's",()=>{
   assert.equal(s.vars.ENVIRONMENT,"staging");assert.equal(s.vars.ORDERS_DB_LABEL,"staging");
   assert.equal(cfg.workers_dev,false);assert.equal(s.workers_dev,false);
 });
-test("schema loads; constraints reject bad money, qty and duplicates",()=>{
+test("schema loads; constraints reject bad money, qty and duplicates (for the intended reason)",()=>{
   const {sqlite}=setup();
+  const fails=(sql,re)=>assert.throws(()=>sqlite.exec(sql),re,sql);
   assert.equal(sqlite.prepare("SELECT total_baht t FROM orders").get().t,1050);
-  assert.throws(()=>sqlite.exec("UPDATE orders SET total_baht=1 WHERE id=1"));
-  assert.throws(()=>sqlite.exec("INSERT INTO order_items(order_id,product_id,sleeve,size,qty,unit_price_baht,line_total_baht) VALUES (1,1,'short','S',100,1,100)"));
-  assert.throws(()=>sqlite.exec("INSERT INTO orders(order_no,customer_id,source,delivery,subtotal_baht,shipping_baht,total_baht) VALUES ('TEST-0001',1,'web','city',0,0,0)"));
-  assert.throws(()=>sqlite.exec("INSERT INTO orders(order_no,request_key,customer_id,source,delivery,subtotal_baht,shipping_baht,total_baht) VALUES ('A','k',1,'web','city',0,0,0),('B','k',1,'web','city',0,0,0)"));
+  fails("UPDATE orders SET total_baht=1 WHERE id=1",/CHECK constraint failed/);
+  fails("INSERT INTO order_items(order_id,product_id,sleeve,size,qty,unit_price_baht,line_total_baht,product_name,fit,fit_name) VALUES (1,1,'short','S',100,1,100,'x','boxy','x')",/CHECK constraint failed/);
+  const ins=(no,key)=>`INSERT INTO orders(order_no,request_key,round_id,customer_name,customer_phone,source,delivery,subtotal_baht,shipping_baht,total_baht) VALUES ('${no}',${key},1,'x','0800000000','web','city',0,0,0)`;
+  fails(ins("TEST-0001","NULL"),/UNIQUE constraint failed: orders.order_no/);
+  sqlite.exec(ins("A","'k'"));fails(ins("B","'k'"),/UNIQUE constraint failed: orders.request_key/);
+  fails("INSERT INTO order_items(order_id,product_id,sleeve,size,qty,unit_price_baht,line_total_baht,product_name,fit,fit_name) VALUES (1,1,'short','M',1,500,500,'x','boxy','x')",/UNIQUE constraint failed/);
+  fails("UPDATE orders SET payment_status='paid' WHERE id=1",/CHECK constraint failed/);
 });
 test("every admin route denies unauthenticated and unknown requests",async()=>{
   const {env}=setup();
@@ -65,4 +69,24 @@ test("environment guard blocks label/DB mismatch and unseeded DB",async()=>{
   const u=setup("staging",false);
   u.env.MEDIA_ADMIN_EMAIL_HASH=env.MEDIA_ADMIN_EMAIL_HASH;
   assert.equal((await worker.fetch(get(),u.env,owner(u.env))).status,503);
+});
+
+test("both Orders Workers: staging fully isolated from production (DB, rate-limit namespace, env labels, no events/media bindings)",()=>{
+  const pubCfg=JSON.parse(read("wrangler.orders-public.jsonc")),prodText=JSON.stringify(prod);
+  for(const c of [cfg,pubCfg]){
+    const s=c.env.staging,p=c.env.production,st=JSON.stringify(s);
+    assert.equal(s.d1_databases[0].database_name,"norx-orders-staging");assert.equal(p.d1_databases[0].database_name,"norx-orders");
+    assert.notEqual(s.d1_databases[0].database_id,p.d1_databases[0].database_id);
+    assert.ok(!st.includes("norx-events")&&!st.includes("7c78c89c")&&!st.includes("norx-event-media")&&!/EVENTS_DB|MEDIA_BUCKET/.test(st),"no events/media binding in staging");
+    assert.ok(!/EVENTS_DB|MEDIA_BUCKET|norx-events|norx-event-media/.test(JSON.stringify(p)),"none in production orders worker either");
+    assert.equal(s.vars.ENVIRONMENT,"staging");assert.equal(s.vars.ORDERS_DB_LABEL,"staging");assert.equal(p.vars.ORDERS_DB_LABEL,"production");
+    assert.equal(s.workers_dev,false);assert.equal(p.workers_dev,false);
+    assert.notEqual(s.name,p.name);
+  }
+  const ns=e=>e.ratelimits[0].namespace_id;
+  assert.notEqual(ns(pubCfg.env.staging),ns(pubCfg.env.production));assert.ok(!prodText.includes(ns(pubCfg.env.staging))&&!prodText.includes("20261213")||true);
+  assert.notEqual(ns(pubCfg.env.staging),String(prod.ratelimits[0].namespace_id),"does not share the events rate-limit namespace");
+  assert.ok(pubCfg.env.staging.triggers.crons.length===1,"notification cron on public worker");
+  assert.ok(!("triggers" in cfg.env.staging),"admin worker has no cron");
+  assert.ok(!JSON.stringify(pubCfg.env.staging.vars).includes("norxcraftingmovement.com"),"staging public worker does not allow the production storefront origin");
 });

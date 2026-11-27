@@ -1,0 +1,18 @@
+<!doctype html><html lang="th"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>NORX | ออเดอร์</title><link rel="stylesheet" href="/admin/assets/style.css"></head>
+<body><a class="skip" href="#main">ข้ามไปเนื้อหา</a>
+<header><strong>NORX / ADMIN</strong><nav aria-label="เมนู"><a href="/admin/orders/" aria-current="page">ออเดอร์</a><a href="/admin/shipping/">จัดส่ง</a><a href="/admin/settings/">ตั้งค่า</a></nav></header>
+<main id="main"><p class="eyebrow">ORDERS</p><h1>ออเดอร์.</h1>
+<p class="muted"><span id="live" role="status" aria-live="polite">กำลังโหลด…</span> <button type="button" class="secondary small" id="refresh">รีเฟรช</button></p>
+<div id="notice" class="notice" role="status" hidden></div>
+<div id="fresh" class="notice" hidden>มีการเปลี่ยนแปลงใหม่ <button type="button" class="secondary small" id="showFresh">แสดงเลย</button></div>
+<section class="panel" aria-labelledby="rh"><h2 id="rh">รอบสั่งซื้อ</h2>
+<label class="f" for="round">เลือกรอบ</label><select id="round"></select><div id="roundBox"></div></section>
+<section class="panel mt2" aria-labelledby="oh"><h2 id="oh">รายการออเดอร์</h2>
+<div class="row"><input id="q" type="search" placeholder="ค้นหาเลขออเดอร์ ชื่อ หรือเบอร์" aria-label="ค้นหา"><select id="status" class="auto" aria-label="กรองสถานะ"><option value="">ทุกสถานะ</option><option>รอโอน</option><option>ชำระแล้ว</option><option>จ่ายหน้างาน</option><option>ส่งร้านแล้ว</option><option>ส่งมอบแล้ว</option><option>ยกเลิก</option></select></div>
+<ul class="list" id="orders" aria-label="ออเดอร์"></ul></section>
+<section class="panel mt2" aria-labelledby="nh"><h2 id="nh">การแจ้งเตือนที่ยังไม่ส่ง</h2><p class="muted" id="nsum"></p><ul class="list" id="notifs" aria-label="คิวแจ้งเตือน"></ul></section>
+<section class="panel mt2" aria-labelledby="lh"><h2 id="lh">ความเร็วระบบ</h2><p class="muted" id="lat">—</p></section>
+</main>
+<dialog id="dlg" aria-labelledby="dlgT"><form method="dialog" id="dlgForm" novalidate><h2 id="dlgT"></h2><p id="dlgP"></p><div id="dlgIn" hidden><label class="f" for="dlgInput" id="dlgL"></label><input id="dlgInput" inputmode="numeric" autocomplete="off"></div><div id="dlgErr" class="notice err" hidden></div>
+<div class="row"><button type="submit" id="dlgOk">ยืนยัน</button><button type="button" class="secondary" id="dlgNo">ยกเลิก</button></div></form></dialog>
+<script type="module" src="/admin/assets/orders-app.mjs"></script></body></html>

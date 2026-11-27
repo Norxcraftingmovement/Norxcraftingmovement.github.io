@@ -2,6 +2,9 @@ import { verifiedOwner } from "./admin-access-worker.mjs";
 import { environmentGuard } from "./orders-guard.mjs";
 import { assets } from "./generated/orders-admin-assets.mjs";
 import * as api from "./orders-admin-api.mjs";
+import * as svc from "./orders-service.mjs";
+import { UserError } from "./orders-core.mjs";
+import { listNotifications, retryNotification, latencyStats } from "./orders-notify.mjs";
 const headers = { "Cache-Control": "no-store", "X-Robots-Tag": "noindex, nofollow", "X-Content-Type-Options": "nosniff", "Referrer-Policy": "no-referrer" };
 const reply = (error, status) => Response.json({ error }, { status, headers });
 const pageCsp = "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' blob: data:; font-src 'self'; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'";
@@ -33,6 +36,22 @@ const routes = [
   ["POST", /^\/api\/admin\/labels\/printed$/, "write", (r, env, a) => api.markPrinted(r, env, a)],
   ["PUT", /^\/api\/admin\/orders\/(\d{1,12})\/address$/, "write", (r, env, a, m) => api.putAddress(r, env, a, +m[1])],
   ["PUT", /^\/api\/admin\/orders\/(\d{1,12})\/shipment$/, "write", (r, env, a, m) => api.putShipment(r, env, a, +m[1])],
+  ["GET", /^\/api\/admin\/orders$/, "api", async (r, env) => { const q = new URL(r.url).searchParams; return api.json({ ok: true, orders: await svc.listOrders(env, { round: q.get("round") || undefined, status: q.get("status") || undefined, q: (q.get("q") || "").slice(0, 60) || undefined }) }); }],
+  ["POST", /^\/api\/admin\/orders\/(NORX-[A-Za-z0-9]{1,40})\/status$/, "write", async (r, env, a, m) => { const b = await r.json().catch(() => null); if (!b || typeof b.from !== "string" || typeof b.to !== "string") return api.json({ ok: false, error: "BAD_REQUEST" }, 400); return api.json({ ok: true, ...(await svc.changeStatus(env, a, { orderNo: m[1], from: b.from, to: b.to, amount: b.amount })) }); }],
+  ["GET", /^\/api\/admin\/rounds$/, "api", async (r, env) => api.json({ ok: true, ...(await svc.roundsWithSummary(env, Date.now())) })],
+  ["POST", /^\/api\/admin\/rounds$/, "write", async (r, env, a) => api.json({ ok: true, ...(await svc.saveRound(env, a, await r.json().catch(() => ({})))) })],
+  ["POST", /^\/api\/admin\/rounds\/(ROUND-\d{3,})\/(open|close|cancel-unpaid|send-to-shop)$/, "write", async (r, env, a, m) => {
+    const b = await r.json().catch(() => ({}));
+    const out = m[2] === "open" ? await svc.openRound(env, a, m[1]) : m[2] === "close" ? await svc.closeRound(env, a, m[1]) : m[2] === "cancel-unpaid" ? await svc.cancelUnpaid(env, a, m[1], b.expected) : await svc.sendToShop(env, a, m[1], b.expectedPieces);
+    return api.json({ ok: true, ...(out ?? {}) });
+  }],
+  ["GET", /^\/api\/admin\/pulse$/, "api", async (r, env) => api.json({ ok: true, ...(await svc.pulse(env)) })],
+  ["GET", /^\/api\/admin\/notifications$/, "api", async (r, env) => api.json({ ok: true, notifications: await listNotifications(env) })],
+  ["POST", /^\/api\/admin\/notifications\/(\d{1,12})\/retry$/, "write", async (r, env, a, m) => api.json({ ok: true, retried: await retryNotification(env, +m[1]) })],
+  ["GET", /^\/api\/admin\/metrics\/latency$/, "api", async (r, env) => api.json({ ok: true, latency: await latencyStats(env) })],
+  ["GET", /^\/api\/admin\/settings\/storefront$/, "api", async (r, env) => api.json({ ok: true, storefront: await api.getStorefront(env) })],
+  ["PUT", /^\/api\/admin\/settings\/storefront$/, "write", (r, env, a) => api.putStorefront(r, env, a)],
+  ["GET", /^\/admin\/orders\/?$/, "page", () => page("orders.html")],
   ["GET", /^\/admin\/shipping\/?$/, "page", () => page("shipping.html")],
   ["GET", /^\/admin\/settings\/?$/, "page", () => page("settings.html")],
   ["GET", /^\/admin\/assets\/([A-Za-z0-9._-]+)$/, "asset", (r, env, a, m) => (m[1] in assets && !m[1].endsWith(".html") ? asset(m[1]) : reply("NOT_FOUND", 404))],
@@ -53,6 +72,6 @@ export default {
       if (!(await environmentGuard(env))) return reply("ENVIRONMENT_MISMATCH", 503);
       if (kind === "write" && request.headers.get("Origin") !== env.ORDERS_ALLOWED_ORIGIN) return reply("CROSS_ORIGIN", 403);
     }
-    try { return await handler(request, env, env.MEDIA_ADMIN_EMAIL_HASH, m); } catch { return reply("SERVER_ERROR", 500); }
+    try { return await handler(request, env, env.MEDIA_ADMIN_EMAIL_HASH, m); } catch (e) { return e instanceof UserError ? Response.json({ ok: false, error: "USER_ERROR", message: e.message }, { status: 400, headers }) : reply("SERVER_ERROR", 500); }
   },
 };

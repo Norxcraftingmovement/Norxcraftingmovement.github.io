@@ -24,3 +24,16 @@ Phase 02 (สร้างออเดอร์/ราคา/เลขออเ�
 - ยังไม่ deploy, ไม่แตะ production/Access policy
 - ความเสี่ยงใหม่: (1) ยังไม่ทดสอบกับเครื่องพิมพ์จริง; (2) โลโก้เป็น PNG ความละเอียดต่ำ (D16); (3) PDF เป็นภาพ ไม่ใช่เวกเตอร์; (4) Safari ไม่รองรับ named `@page`; (5) Admin Console เมนู V2 ยังไม่ได้ผูกกับหน้าเหล่านี้ (หน้าอยู่ที่ `/admin/shipping/`, `/admin/settings/` ในตัว Worker staging)
 - ยังไม่เริ่ม: ระบบราคา, เลขออเดอร์, การสร้างออเดอร์ (รอตรวจ Apps Script ครบตามคำสั่ง)
+
+
+## Phase 02 (2026-11-27) — Orders V2 core
+**เพิ่ม:** `src/orders-core.mjs` (V1 logic), `src/orders-service.mjs` (D1 atomic), `src/orders-public-worker.mjs` (+cron), `src/orders-notify.mjs`, `src/v1-import.mjs`, route/หน้า admin ใหม่, `wrangler.orders-public.jsonc`, `scripts/gen-v1-golden.mjs` + `v1-verify-source.mjs`, `tests/fixtures/v1-golden.json` (สมมติล้วน)
+**รันเทียบซอร์ส V1 ในเครื่อง:** `NORX_V1_SOURCE=/path/to/v1.txt node --test tests/orders-core.golden.test.mjs` · สร้าง golden ใหม่: `node scripts/gen-v1-golden.mjs /path/to/v1.txt` · ดูหน้า admin ด้วยข้อมูลสมมติ: `node scripts/dev-orders-admin.mjs`
+**ความเสี่ยงที่ยังเหลือ**
+1. ซอร์สที่ได้รับ ≠ ยืนยันว่าเป็นเวอร์ชันที่ deploy (ดู MIGRATION_PLAN) — **บล็อกก่อน cutover**
+2. ยังไม่เคยรันบน D1/Workers จริง (semantics ของ batch/RETURNING/json_each ตรวจกับ SQLite เท่านั้น)
+3. เนื้อหาอีเมลแจ้งเตือนเดิมยังไม่ได้ทำเทมเพลต (D17); ไม่มี provider → ข้อความค้างในคิวและเห็นในหน้า Admin
+4. หน้า Admin ยังไม่มี UI สร้าง/แก้รอบ (API พร้อมและทดสอบแล้ว) และยังไม่มีการส่งออก CSV/Batch status/Production print (Phase ถัดไป)
+5. Preview ของ Worker หลัก (S2) ยังผูก D1/R2 จริงของ Events/Media — ไม่เกี่ยวกับ Orders V2 แต่ห้ามใช้เป็น staging ของหน้าร้าน
+6. fixture golden ขนาด ~0.8 MB
+7. `src/admin-console.mjs` (มีอยู่ก่อนแล้ว) ฝัง URL หลังบ้าน Apps Script ใน public repo — ไม่ได้แตะ (เป็นเรื่องของ Production)

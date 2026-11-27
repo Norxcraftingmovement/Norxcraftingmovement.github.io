@@ -106,3 +106,29 @@ export async function putShipment(request, env, actor, orderId) {
   await audit(env, actor, "shipment.update", "orders", orderId, before, { provider, tracking, date });
   return json({ ok: true });
 }
+
+// ---- Storefront settings (bank account, links, live switch, weekly rolling, notification recipient). Never in the repo. ----
+const url = (v) => { try { const u = new URL(String(v)); return u.protocol === "https:" ? u.href : null; } catch { return null; } };
+export async function getStorefront(env) {
+  const v = await env.ORDERS_DB.prepare("SELECT value FROM settings WHERE key='storefront'").first();
+  if (!v) return null;
+  const { testKeyHash, ...rest } = JSON.parse(v.value);
+  return { ...rest, testKeySet: !!testKeyHash };
+}
+export async function putStorefront(request, env, actor) {
+  const b = await body(request); if (!b) return bad("BAD_REQUEST");
+  const bank = { name: clean(b.bank?.name, 60), account: clean(b.bank?.account, 30), holder: clean(b.bank?.holder, 80) };
+  if (!bank.name || !bank.account || !/^[0-9-]{8,20}$/.test(bank.account) || !bank.holder) return bad("INVALID_STOREFRONT");
+  const chatUrl = url(b.chatUrl), pageUrl = url(b.pageUrl), eventName = clean(b.eventName ?? "", 120) ?? "";
+  const notifyTo = b.notifyTo ? clean(b.notifyTo, 120) : "";
+  if (!chatUrl || !pageUrl || typeof b.liveEnabled !== "boolean" || typeof b.rolling !== "boolean" || (notifyTo && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(notifyTo))) return bad("INVALID_STOREFRONT");
+  const prev = (await env.ORDERS_DB.prepare("SELECT value FROM settings WHERE key='storefront'").first())?.value;
+  const old = prev ? JSON.parse(prev) : {};
+  let testKeyHash = old.testKeyHash ?? null;
+  if (b.testKey) { const k = clean(b.testKey, 64); if (!k || k.length < 8) return bad("INVALID_STOREFRONT"); testKeyHash = Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(k))), (x) => x.toString(16).padStart(2, "0")).join(""); }
+  const next = { bank, chatUrl, pageUrl, eventName, liveEnabled: b.liveEnabled, rolling: b.rolling, notifyTo, testKeyHash };
+  await env.ORDERS_DB.prepare("INSERT INTO settings(key,value) VALUES ('storefront',?1) ON CONFLICT(key) DO UPDATE SET value=excluded.value").bind(JSON.stringify(next)).run();
+  // audit stores which fields changed, not the bank account itself
+  await audit(env, actor, "storefront.update", "settings", "storefront", { liveEnabled: old.liveEnabled ?? null, rolling: old.rolling ?? null }, { liveEnabled: next.liveEnabled, rolling: next.rolling, bankChanged: JSON.stringify(old.bank) !== JSON.stringify(bank) });
+  return json({ ok: true });
+}

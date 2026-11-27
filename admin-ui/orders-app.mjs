@@ -1,0 +1,100 @@
+import { $, api, notice, el } from "./common.mjs";
+const TH_PHASE = { draft: "ฉบับร่าง", scheduled: "ตั้งเวลาเปิด", accepting: "กำลังเปิดรับ", closed: "ปิดรับแล้ว", sent: "ส่งร้านแล้ว" };
+const BTN = { "ชำระแล้ว": "ยืนยันรับเงิน", "จ่ายหน้างาน": "จ่ายหน้างาน", "รอโอน": "กลับเป็นรอโอน", "ยกเลิก": "ยกเลิก", "ส่งมอบแล้ว": "ส่งมอบแล้ว", "ส่งร้านแล้ว": "ย้อนเป็นส่งร้านแล้ว" };
+const CLS = { "รอโอน": "pending", "ชำระแล้ว": "paid", "ส่งร้านแล้ว": "paid", "ส่งมอบแล้ว": "paid", "จ่ายหน้างาน": "later", "ยกเลิก": "cancel" };
+const baht = (n) => Number(n).toLocaleString("th-TH") + " บาท";
+const hhmm = () => new Date().toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+let lastN = [], lastL = { order_creation: { count: 0 }, notification: { count: 0 } };
+let rounds = [], orders = [], current = "", token = null, busy = false, interactAt = 0, errs = 0, timer, pending = false;
+const msg = (e) => e.userMessage || (e.code === "USER_ERROR" ? e.message : "เกิดข้อผิดพลาด (" + (e.code || e.message) + ")");
+
+// One reusable confirm dialog; resolves with the typed value (or true) or null when cancelled.
+function ask({ title, text, label, validate }) {
+  return new Promise((resolve) => {
+    $("dlgT").textContent = title; $("dlgP").textContent = text || ""; $("dlgIn").hidden = !label; $("dlgL").textContent = label || ""; $("dlgInput").value = ""; notice($("dlgErr"), "");
+    const done = (v) => { $("dlgForm").onsubmit = null; $("dlgNo").onclick = null; $("dlg").close(); resolve(v); };
+    $("dlgForm").onsubmit = (ev) => { ev.preventDefault(); const v = label ? $("dlgInput").value.trim() : true; const bad = validate && validate(v); if (bad) { notice($("dlgErr"), bad, true); return; } done(v); };
+    $("dlgNo").onclick = () => done(null); $("dlg").onclose = () => resolve(null); $("dlg").showModal();
+  });
+}
+
+async function load({ quiet = false } = {}) {
+  if (busy) return; busy = true;
+  try {
+    const [r, o, n, l, p] = await Promise.all([api("/api/admin/rounds"), api("/api/admin/orders" + (current ? "?round=" + encodeURIComponent(current) : "")), api("/api/admin/notifications"), api("/api/admin/metrics/latency"), api("/api/admin/pulse")]);
+    rounds = r.rounds; orders = o.orders; token = p.token; errs = 0;
+    if (!current || !rounds.some((x) => x.id === current)) { current = (rounds.find((x) => x.phase === "accepting") || rounds.at(-1) || {}).id || ""; if (current) { orders = (await api("/api/admin/orders?round=" + encodeURIComponent(current))).orders; } }
+    draw(n.notifications, l.latency); pending = false; $("fresh").hidden = true; $("live").textContent = "อัปเดตล่าสุด " + hhmm() + " · รีเฟรชอัตโนมัติทุก 15 วินาที"; notice($("notice"), "");
+  } catch (e) { errs++; if (!quiet) notice($("notice"), msg(e), true); $("live").textContent = "เชื่อมต่อไม่ได้ จะลองใหม่อัตโนมัติ"; }
+  busy = false;
+}
+
+function draw(notifs, lat) {
+  lastN = notifs; lastL = lat;
+  const sel = $("round"); sel.replaceChildren(...rounds.slice().reverse().map((r) => { const o = el("option", "", r.name + " (" + r.id + ") · " + TH_PHASE[r.phase]); o.value = r.id; return o; })); sel.value = current;
+  const r = rounds.find((x) => x.id === current), box = $("roundBox"); box.replaceChildren();
+  if (r) {
+    const s = r.summary, st = el("div", "stats");
+    for (const [k, v] of [["ออเดอร์", s.orders], ["ชำระแล้ว", s.paidOrders], ["รอโอน", s.pendingOrders + " (" + baht(s.pendingAmount) + ")"], ["จ่ายหน้างาน", s.laterOrders + " (ค้าง " + baht(s.laterAmount) + ")"], ["ยอดรับแล้ว", baht(s.revenue)], ["ต้องผลิต (ตัว)", s.pieces]]) { const d = el("div", "stat", k); d.append(el("b", "", String(v))); st.append(d); }
+    box.append(el("p", "", "สถานะรอบ: " + TH_PHASE[r.phase]), st);
+    const acts = el("div", "acts");
+    const add = (t, f, alt = true) => { const b = el("button", alt ? "secondary" : "", t); b.type = "button"; b.onclick = f; acts.append(b); };
+    if (r.state === "draft" || r.state === "closed") if (r.phase !== "closed" || r.state === "closed") add("เปิดรับ", () => roundOp(r, "open", "เปิดรับรอบนี้?"));
+    if (r.state === "open" && r.phase === "accepting") add("ปิดรับตอนนี้", () => roundOp(r, "close", "ปิดรับรอบนี้ตอนนี้?"));
+    if (r.phase === "closed" && s.pendingOrders) add("ยกเลิกออเดอร์ที่ไม่โอน (" + s.pendingOrders + ")", () => roundOp(r, "cancel-unpaid", "ยกเลิกออเดอร์รอโอน " + s.pendingOrders + " รายการ?", { expected: s.pendingOrders }));
+    if (r.phase === "closed" && s.pieces) add("ตัดยอดส่งร้าน (" + s.pieces + " ตัว)", () => roundOp(r, "send-to-shop", "ตัดยอดส่งร้าน " + s.pieces + " ตัว? หลังจากนี้เปลี่ยนสถานะรอโอน/ชำระ/ยกเลิกไม่ได้", { expectedPieces: s.pieces }), false);
+    if (s.pieces) { add("คัดลอกข้อความส่งร้าน", async () => { try { await navigator.clipboard.writeText(r.shopText); notice($("notice"), "คัดลอกแล้ว"); } catch { notice($("notice"), "คัดลอกไม่ได้ เลือกข้อความด้านล่างเอง", true); } }); }
+    box.append(acts); if (s.pieces) box.append(el("pre", "shop", r.shopText));
+  }
+  const q = $("q").value.trim().toLowerCase(), f = $("status").value, ul = $("orders"); ul.replaceChildren();
+  const shown = orders.filter((o) => (!f || o.status === f) && (!q || (o.id + " " + o.name + " " + o.phone).toLowerCase().includes(q)));
+  if (!shown.length) ul.append(el("li", "muted", "ไม่พบออเดอร์"));
+  for (const o of shown) {
+    const li = el("li"), g = el("div", "grow"), t = el("strong", "", o.id); const b = el("span", "badge " + (CLS[o.status] || ""), o.status);
+    g.append(t, b); if (o.isTest) g.append(el("span", "tag", "ทดสอบ"));
+    g.append(el("br"), document.createTextNode(o.name + " · " + o.phone + " · " + ({ city: "นัดรับในเมือง", event: "รับที่งาน", ship: "จัดส่ง" }[o.delivery])), el("br"),
+      el("small", "muted", o.items.map((i) => i.name + " " + (i.sleeve === "short" ? "แขนสั้น" : "แขนยาว") + " " + i.size + "×" + i.qty).join(", ")), el("br"), el("b", "", baht(o.total) + (o.shipping ? " (รวมส่ง " + baht(o.shipping) + ")" : "")));
+    const acts = el("div", "acts");
+    for (const to of o.moves) { const bt = el("button", "secondary small", BTN[to] || to); bt.type = "button"; bt.onclick = () => move(o, to); acts.append(bt); }
+    g.append(acts); li.append(g); ul.append(li);
+  }
+  $("nsum").textContent = notifs.length ? notifs.length + " รายการ (รอส่ง/ล้มเหลว) · ส่งอัตโนมัติและลองใหม่เมื่อล้มเหลว" : "ไม่มีรายการค้าง";
+  const nl = $("notifs"); nl.replaceChildren();
+  for (const n of notifs) { const li = el("li"), g = el("div", "grow"); g.append(el("strong", "", n.orderNo || "-"), el("span", "badge" + (n.status === "dead" ? " cancel" : ""), { queued: "รอส่ง", failed: "ล้มเหลว (จะลองใหม่)", dead: "ส่งไม่สำเร็จ", sending: "กำลังส่ง" }[n.status] || n.status), el("br"), el("small", "muted", "ลองแล้ว " + n.attempts + "/" + n.maxAttempts + (n.lastError ? " · " + n.lastError : "")));
+    if (n.status === "failed" || n.status === "dead") { const b = el("button", "secondary small", "ส่งใหม่"); b.type = "button"; b.onclick = async () => { try { await api("/api/admin/notifications/" + n.id + "/retry", { method: "POST", body: {} }); await load(); } catch (e) { notice($("notice"), msg(e), true); } }; g.append(el("br"), b); }
+    li.append(g); nl.append(li); }
+  const f2 = (k) => (lat[k].count ? "p50 " + lat[k].p50 + " ms · p95 " + lat[k].p95 + " ms (" + lat[k].count + " ครั้ง)" : "ยังไม่มีข้อมูล");
+  $("lat").textContent = "สร้างออเดอร์: " + f2("order_creation") + "  |  ส่งแจ้งเตือน: " + f2("notification");
+}
+
+async function move(o, to) {
+  let amount;
+  if ((to === "ชำระแล้ว" || to === "ส่งมอบแล้ว") && o.status !== "ส่งร้านแล้ว") {
+    amount = await ask({ title: BTN[to] + " " + o.id, text: "ยอดที่ต้องได้รับ " + baht(o.total) + " — พิมพ์ยอดที่ได้รับจริงเพื่อยืนยัน", label: "ยอดที่ได้รับ (บาท)", validate: (v) => (Number(v) === o.total ? "" : "ยอดไม่ตรงกับยอดออเดอร์") });
+    if (amount === null) return; amount = Number(amount);
+  } else if (!(await ask({ title: BTN[to] + " " + o.id + "?", text: o.status + " → " + to }))) return;
+  try { await api("/api/admin/orders/" + encodeURIComponent(o.id) + "/status", { method: "POST", body: { from: o.status, to, amount } }); await load(); } catch (e) { notice($("notice"), msg(e), true); await load({ quiet: true }); }
+}
+async function roundOp(r, op, text, body = {}) {
+  if (!(await ask({ title: r.name, text }))) return;
+  try { await api("/api/admin/rounds/" + r.id + "/" + op, { method: "POST", body }); await load(); } catch (e) { notice($("notice"), msg(e), true); await load({ quiet: true }); }
+}
+
+// ---- Auto refresh: cheap pulse every 15s, only when the tab is visible; never replaces the UI mid-interaction ----
+const interacting = () => $("dlg").open || Date.now() - interactAt < 4000 || document.activeElement === $("q");
+async function tick() {
+  clearTimeout(timer);
+  if (!document.hidden && !busy) {
+    try {
+      const p = await api("/api/admin/pulse"); errs = 0;
+      if (token !== null && p.token !== token) { if (interacting()) { pending = true; $("fresh").hidden = false; } else await load({ quiet: true }); }
+    } catch { errs++; $("live").textContent = "เชื่อมต่อไม่ได้ จะลองใหม่อัตโนมัติ"; }
+  }
+  timer = setTimeout(tick, Math.min(15000 * 2 ** Math.min(errs, 2), 60000)); // back off to 60s on repeated errors
+}
+for (const ev of ["input", "keydown", "pointerdown"]) document.addEventListener(ev, () => { interactAt = Date.now(); }, { passive: true });
+document.addEventListener("visibilitychange", () => { if (!document.hidden) tick(); });
+$("refresh").onclick = () => load(); $("showFresh").onclick = () => load();
+$("round").onchange = async () => { current = $("round").value; await load(); };
+$("q").oninput = () => draw(lastN, lastL); $("status").onchange = () => draw(lastN, lastL);
+await load(); tick();

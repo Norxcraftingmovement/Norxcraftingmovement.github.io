@@ -1,0 +1,28 @@
+{
+  "name": "norx-orders-public",
+  "main": "src/orders-public-worker.mjs",
+  "compatibility_date": "2026-11-26",
+  "workers_dev": false,
+  "env": {
+    "staging": {
+      "name": "norx-orders-public-staging",
+      "workers_dev": false,
+      "vars": { "ENVIRONMENT": "staging", "ORDERS_DB_LABEL": "staging", "ORDERS_PUBLIC_ORIGINS": "https://REPLACE-STAGING-STOREFRONT-ORIGIN" },
+      "triggers": { "crons": ["* * * * *"] },
+      "d1_databases": [
+        { "binding": "ORDERS_DB", "database_name": "norx-orders-staging", "database_id": "REPLACE_WITH_STAGING_DB_ID" }
+      ],
+      "ratelimits": [{ "name": "ORDERS_LIMITER", "namespace_id": "REPLACE_STAGING_RATELIMIT_NS", "simple": { "limit": 10, "period": 60 } }]
+    },
+    "production": {
+      "name": "norx-orders-public",
+      "workers_dev": false,
+      "vars": { "ENVIRONMENT": "production", "ORDERS_DB_LABEL": "production", "ORDERS_PUBLIC_ORIGINS": "https://norxcraftingmovement.com" },
+      "triggers": { "crons": ["* * * * *"] },
+      "d1_databases": [
+        { "binding": "ORDERS_DB", "database_name": "norx-orders", "database_id": "REPLACE_WITH_PRODUCTION_DB_ID" }
+      ],
+      "ratelimits": [{ "name": "ORDERS_LIMITER", "namespace_id": "REPLACE_PRODUCTION_RATELIMIT_NS", "simple": { "limit": 10, "period": 60 } }]
+    }
+  }
+}

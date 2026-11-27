@@ -96,14 +96,15 @@ test("shipment: provider/tracking/date saved without touching status; validation
   assert.equal(sqlite.prepare("SELECT fulfillment_status s FROM orders WHERE id=2").get().s,"ready_ship");
   assert.equal((await call(worker,env,ctx,"/api/admin/orders/999/shipment",{method:"PUT",body:{}})).status,404);
 });
-test("schema additions: on-site payment, completed status, notification queue, latency log",async()=>{
+test("schema: deferred on-site status is distinct from paid; completed status; queue dedupe; latency kinds",async()=>{
   const {sqlite}=await setup();
-  assert.equal(sqlite.prepare("SELECT payment_timing t FROM orders WHERE order_no='TEST-0005'").get().t,"on_site");
-  sqlite.exec("UPDATE orders SET fulfillment_status='completed',received_at='2026-11-27' WHERE id=5");
-  assert.throws(()=>sqlite.exec("UPDATE orders SET payment_timing='cod' WHERE id=5"));
-  sqlite.exec("INSERT INTO notification_queue(order_id,channel,template,payload) VALUES (5,'email','order_received','{}')");
-  assert.throws(()=>sqlite.exec("INSERT INTO notification_queue(channel,template,payload) VALUES ('email','x','not json')"));
+  assert.equal(sqlite.prepare("SELECT payment_status s FROM orders WHERE order_no='TEST-0005'").get().s,"deferred_on_site");
+  sqlite.exec("UPDATE orders SET fulfillment_status='completed',received_at='2026-11-27T00:00:00Z' WHERE id=5");
+  assert.throws(()=>sqlite.exec("UPDATE orders SET payment_status='cod' WHERE id=5"),/CHECK constraint failed/);
+  sqlite.exec("INSERT INTO notification_queue(order_id,channel,template,payload) VALUES (5,'email','order_alert','{}')");
+  assert.throws(()=>sqlite.exec("INSERT INTO notification_queue(order_id,channel,template,payload) VALUES (5,'email','order_alert','{}')"),/UNIQUE constraint failed/);
+  assert.throws(()=>sqlite.exec("INSERT INTO notification_queue(channel,template,payload) VALUES ('email','x','not json')"),/CHECK constraint failed/);
   sqlite.exec("INSERT INTO notification_failures(queue_id,attempt,error) VALUES (1,1,'timeout')");
   sqlite.exec("INSERT INTO latency_log(kind,ref,ms) VALUES ('order_creation','TEST-0005',120),('notification','1',900)");
-  assert.throws(()=>sqlite.exec("INSERT INTO latency_log(kind,ms) VALUES ('other',1)"));
+  assert.throws(()=>sqlite.exec("INSERT INTO latency_log(kind,ms) VALUES ('other',1)"),/CHECK constraint failed/);
 });
