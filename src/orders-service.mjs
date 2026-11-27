@@ -298,7 +298,7 @@ export async function sendToShop(env, actor, code, expectedPieces, now = Date.no
   if (s.pieces !== Number(expectedPieces)) throw new UserError("ยอดตัวเปลี่ยนไป กรุณาโหลดใหม่");
   const piecesSql = `(SELECT COALESCE(SUM(i.qty),0) FROM order_items i JOIN orders o ON o.id=i.order_id WHERE o.round_id=?1 AND (o.payment_status='confirmed' OR o.payment_status='deferred_on_site') AND o.fulfillment_status!='cancelled')`;
   const res = await db.batch([
-    db.prepare(`UPDATE rounds SET status='sent', sent_at=?3 WHERE id=?1 AND status IN ('open','closed') AND closes_at<=?3
+    db.prepare(`UPDATE rounds SET status='sent', sent_at=?3 WHERE id=?1 AND (status='closed' OR (status='open' AND closes_at<=?3))
        AND (SELECT COUNT(*) FROM orders WHERE round_id=?1 AND ${PENDING_SQL})=0 AND ${piecesSql}=?2`).bind(r.dbId, Number(expectedPieces), at),
     db.prepare(`INSERT INTO order_status_history(order_id,kind,from_status,to_status,actor,at) SELECT o.id,'legacy',?3,?4,?5,?6 FROM orders o JOIN rounds r ON r.id=o.round_id WHERE o.round_id=?1 AND r.status='sent' AND r.sent_at=?6 AND o.payment_status='confirmed' AND o.fulfillment_status='received'`).bind(r.dbId, null, STATUS.PAID, STATUS.SENT, actor, at),
     db.prepare(`UPDATE order_items SET production_status='batched' WHERE order_id IN (SELECT o.id FROM orders o JOIN rounds r ON r.id=o.round_id WHERE o.round_id=?1 AND r.status='sent' AND r.sent_at=?2 AND o.payment_status IN ('confirmed','deferred_on_site') AND o.fulfillment_status!='cancelled')`).bind(r.dbId, at),

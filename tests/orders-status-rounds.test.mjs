@@ -107,3 +107,12 @@ test("order list: search/filter by status and round, wildcard-safe; pulse token 
   const p2=await svc.pulse(env);assert.notEqual(p2.token,p1.token);
   await mk(env);assert.notEqual((await svc.pulse(env)).token,p2.token);
 });
+
+test("regression (found by the staging smoke rehearsal): closing a round EARLY by hand still allows the cut-off (V1 behaviour); an open round past its end also can; an open round before its end cannot",async()=>{
+  const {env,sqlite}=await setupV1();const a=await mk(env);await svc.changeStatus(env,"adm",{orderNo:a.id,from:S.PENDING,to:S.PAID,amount:980,now:NOW});
+  await rejects(svc.sendToShop(env,"adm","ROUND-001",2,NOW),/ต้องปิดรับรอบนี้ก่อนตัดยอด/);                 // still open and before its end
+  await svc.closeRound(env,"adm","ROUND-001");                                                              // owner closes at NOW (well before closes_at)
+  assert.deepEqual(await svc.sendToShop(env,"adm","ROUND-001",2,NOW),{sent:1,pieces:2});assert.equal(sqlite.prepare("SELECT status s FROM rounds WHERE code='ROUND-001'").get().s,"sent");
+  const b=await setupV1();const c=await mk(b.env);await svc.changeStatus(b.env,"adm",{orderNo:c.id,from:S.PENDING,to:S.PAID,amount:980,now:NOW});
+  assert.deepEqual(await svc.sendToShop(b.env,"adm","ROUND-001",2,CLOSED),{sent:1,pieces:2},"open round after its end time");
+});

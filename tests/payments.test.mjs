@@ -82,7 +82,7 @@ test("token: random, stored hashed, wrong token = unknown order (identical 404);
   const ok=await req(r.payment.apiUrl);assert.equal(ok.status,200);const v=await ok.json();
   assert.deepEqual([v.order.id,v.order.total,v.order.status,v.payment.state,v.payment.amount,v.payment.reference,v.payment.payeeName],[r.id,980,S.PENDING,"awaiting",980,r.id,SYN.payeeName]);assert.ok(v.bank.name,"bank-transfer fallback present");assert.ok(!JSON.stringify(v).includes("0800000000"),"payee id is not in the JSON");
   const svg=await req(r.payment.qrUrl);assert.equal(svg.status,200);assert.match(svg.headers.get("content-type"),/svg/);assert.ok(!svg.headers.get("content-disposition"));
-  assert.match((await req(r.payment.downloadUrl)).headers.get("content-disposition"),/attachment; filename="NORX-NORX-[0-9A-F]{8}-QR\.svg"/);
+  assert.match((await req(r.payment.downloadUrl)).headers.get("content-disposition"),/attachment; filename="NORX-[0-9A-F]{8}-QR\.svg"/);
   const nf=[`/api/orders/pay?o=${r.id}&t=${"A".repeat(22)}`,`/api/orders/pay?o=NORX-00000000&t=${tok}`,`/api/orders/pay?o=${r.id}`,`/api/orders/pay?o=bad&t=${tok}`,`/api/orders/pay.svg?o=${r.id}&t=${"B".repeat(22)}`];
   const bodies=[];for(const p of nf){const x=await req(p);assert.equal(x.status,404,p);bodies.push(await x.text())}assert.equal(new Set(bodies).size,1,"same body for every failure");
   assert.equal(JSON.stringify([sqlite.prepare("SELECT * FROM orders").all(),sqlite.prepare("SELECT * FROM payments").all()]),before,"viewing/downloading a QR changed nothing");

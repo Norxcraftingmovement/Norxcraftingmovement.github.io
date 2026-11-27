@@ -52,3 +52,11 @@ test("scheduled(): dispatches queue; with no provider secret nothing is marked f
   const jobs=[];await pub.scheduled({},env,{waitUntil:p=>jobs.push(p)});await Promise.all(jobs);
   assert.equal(sqlite.prepare("SELECT status s FROM notification_queue").get().s,"queued");
 });
+
+test("scheduled(): a burst of orders is drained in ONE cron run (several batches), not 10 per minute",async()=>{
+  const {env,sqlite}=await setupV1();env.EMAIL={send:async()=>({messageId:"m"})};env.NOTIFY_FROM="alerts@example.test";
+  await withClock(NOW,async()=>{for(let i=0;i<40;i++)await post(env,{action:"submit",order:orderInput()})});
+  assert.equal(sqlite.prepare("SELECT COUNT(*) n FROM notification_queue WHERE status='queued'").get().n,40);
+  const jobs=[];const real=Date.now;Date.now=()=>NOW+60000;try{await pub.scheduled({},env,{waitUntil:p=>jobs.push(p)});await Promise.all(jobs)}finally{Date.now=real}
+  assert.equal(sqlite.prepare("SELECT COUNT(*) n FROM notification_queue WHERE status='sent'").get().n,40);
+});

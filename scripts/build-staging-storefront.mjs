@@ -6,7 +6,7 @@
 import { cpSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { join, extname } from "node:path";
-const root = fileURLToPath(new URL("../", import.meta.url)), out = join(root, "dist-staging");
+const root = fileURLToPath(new URL("../", import.meta.url)), defaultOut = join(root, "dist-staging");
 export const STAGING_ORIGIN = "https://staging.norxcraftingmovement.com";
 const include = ["index.html", "shop.js", "assets", "cart", "home-terrain", "woven-stride", "community", "pay"]; // no events/, no admin/
 const banner = '<div role="status" style="position:sticky;top:0;z-index:99999;background:#b04922;color:#fff;font:700 14px/1.4 system-ui,sans-serif;padding:8px 12px;text-align:center">STAGING · ระบบทดสอบ ข้อมูลสมมติเท่านั้น — ห้ามโอนเงินจริง</div>';
@@ -19,7 +19,7 @@ export function transformHtml(html) {
   html = html.replace(/<head>/i, '<head><meta name="robots" content="noindex,nofollow">').replace(/(<body[^>]*>)/i, "$1" + banner);
   return { html, apiRewrites: n };
 }
-export function build() {
+export function build(out = defaultOut) {
   rmSync(out, { recursive: true, force: true }); mkdirSync(out, { recursive: true });
   for (const p of include) cpSync(join(root, p), join(out, p), { recursive: true });
   let rewrites = 0;

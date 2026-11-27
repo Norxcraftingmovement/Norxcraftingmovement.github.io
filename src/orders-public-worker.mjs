@@ -28,7 +28,7 @@ async function payRoute(request, env, u) {
     if (u.pathname === "/api/orders/pay.svg") {
       const svg = await getPaySvg(env, o, t, Date.now());
       if (!svg) return new Response("Not found", { status: 404, headers: h });
-      return new Response(svg, { headers: { ...h, "Content-Type": "image/svg+xml; charset=utf-8", ...(u.searchParams.get("download") === "1" ? { "Content-Disposition": `attachment; filename="NORX-${o}-QR.svg"` } : {}) } });
+      return new Response(svg, { headers: { ...h, "Content-Type": "image/svg+xml; charset=utf-8", ...(u.searchParams.get("download") === "1" ? { "Content-Disposition": `attachment; filename="${o}-QR.svg"` } : {}) } });
     }
     const v = await getPayView(env, o, t, Date.now());
     if (!v) return new Response("Not found", { status: 404, headers: h });
@@ -64,6 +64,8 @@ export default {
   // Cron Trigger: deliver queued notifications. Entirely separate from order creation.
   async scheduled(_event, env, ctx) {
     if (!(await environmentGuard(env))) return;
-    ctx.waitUntil(dispatchDue(env, makeProvider(env, async () => (await getSetting(env, "storefront"))?.notifyTo ?? null)));
+    const provider = makeProvider(env, async () => (await getSetting(env, "storefront"))?.notifyTo ?? null);
+    // Drain a burst of orders within one run (bounded): up to 6 batches of 25, stop when nothing is due.
+    ctx.waitUntil((async () => { for (let i = 0; i < 6; i++) { const s = await dispatchDue(env, provider, { batch: 25 }); if (!s.claimed) break; } })());
   },
 };

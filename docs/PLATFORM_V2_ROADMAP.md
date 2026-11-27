@@ -65,3 +65,14 @@ Phase 00 · 2026-11-27 · Branch `feature/orders-v2` (จาก `feature/cloudfl
 | D19 anonymised fixtures / delta tests | **Completed** |
 | Phase 03a Admin Console V2 (menu, Overview, Production, CSV, batch production status, storefront settings) | **Completed on staging code; Chromium-verified** |
 | Phase 03b (orders batch actions, round create/edit UI, Events card via read-only API, Content/Analytics hooks) | **Pending** |
+
+
+## Status update 2026-11-27 (staging readiness)
+| Item | Status |
+|---|---|
+| Notification retry bounds (ambiguous = one retry) | **Completed + regression tests** |
+| Cloudflare Email Service provider | **Completed with mock tests; not enabled (no DNS/service change)** |
+| Staging deployment preparation (configs, pre-flight, D1 identity, guarded SQL, sequence) | **Prepared; dry-run validated with wrangler; not deployed** |
+| Staging integration test suite (smoke + UI + latency method) | **Completed and rehearsed locally; Cloudflare run Pending (needs resources)** |
+| PromptPay dynamic QR payments Phase 1 | **Completed on staging code; real-bank scan Pending (D23)** |
+| Slip upload / merchant QR / gateway webhooks / auto-reconciliation | **Pending (schema seams only)** |

@@ -10,7 +10,7 @@
     x.fillStyle = '#fff'; x.fillRect(0, 0, c.width, c.height); x.drawImage(img, 0, 0, s, s);
     x.fillStyle = '#000'; x.textAlign = 'center'; x.font = 'bold 48px sans-serif'; x.fillText('NORX · ' + orderNo, s / 2, s + 70);
     x.font = '44px sans-serif'; x.fillText(baht(p.amount) + ' · ' + p.payeeName, s / 2, s + 135); x.font = '32px sans-serif'; x.fillText('ชำระภายใน ' + when(p.deadline), s / 2, s + 190);
-    c.toBlob(function (b) { var a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = 'NORX-' + orderNo + '-QR.png'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(function () { URL.revokeObjectURL(a.href); }, 10000); }, 'image/png');
+    c.toBlob(function (b) { var a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = orderNo + '-QR.png'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(function () { URL.revokeObjectURL(a.href); }, 10000); }, 'image/png');
   }
   function build(orderNo, p) {
     var box = el('section', 'dyn-pay'); box.id = 'dynamicPay'; box.setAttribute('aria-label', 'QR สำหรับชำระเงิน');

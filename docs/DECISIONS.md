@@ -69,3 +69,21 @@
 | D20 | อ่านหน้าเอกสาร Email Service ให้ครบ (ให้เพิ่ม host `developers.cloudflare.com` ใน allowlist ของ session หรือวางเนื้อหา) แล้วยืนยัน/แก้ `sendViaBinding` | ทำก่อนเปิดใช้ |
 | D21 | Access ครอบทั้ง host staging (แนะนำ) หรือเฉพาะ `/admin*` | ทั้ง host |
 | D22 | Overview ต้องแสดง "กิจกรรมที่เปิดรับสมัคร" จริง: ต้องมี read-only endpoint จาก Events Worker (ไม่ผูก EVENTS_DB เข้ากับ Orders Worker) | ทำใน Phase 03b ถ้าต้องการ |
+
+
+## Staging readiness (2026-11-27)
+- **D17 decided:** Cloudflare Email Service via Workers `send_email` binding restricted to the verified owner address. Provider acceptance ≠ inbox delivery. No custom idempotency header assumed.
+- **D18 decided:** `staging.norxcraftingmovement.com`; three staging Workers; no production bindings; workers.dev and preview URLs off.
+- **D19 decided:** synthetic data only on staging (fixtures, seed, PromptPay ID, bank details).
+- **D21 decided:** Access on the entire staging hostname (owner policy + a service-token policy for the smoke test); the public staging Worker additionally enforces the owner check.
+- **D22 deferred:** no live Events metrics; Events system untouched (Orders Workers no longer import any Events/Media module: `src/orders-access.mjs`).
+- **A27** Ambiguous delivery is bounded: one retry, then `unconfirmed` (owner decides). Normal failures ≤ 5 calls. Outcomes are compare-and-set on `lock_token`.
+- **A28** Notification history never stores raw provider errors (codes only).
+- **A29** Staging configs are rendered flat from env vars into git-ignored `.staging/`; render/pre-flight refuse production ids; remote D1 writes need `--remote`, a verified id and the environment guard.
+- **A30 (payments)** Dynamic PromptPay QR only from a verified PromptPay ID (never a bank account number); QR/slip never marks paid; manual verification retained; bank transaction reference is unique per confirmed payment. See `docs/PAYMENTS.md`.
+- **A31** Cut-off after a manual early close is allowed (V1 behaviour) — found by the staging smoke rehearsal; cron drains bursts (6×25 per run).
+| # | Open |
+|---|---|
+| D23 | Owner scans the 1.00 THB preview QR with a banking app (no transfer) before the first real PromptPay use |
+| D24 | Sending domain for `NOTIFY_FROM` (may need DNS records) — approval needed |
+| D25 | Provide D1 id, rate-limit namespace id, Access AUD, verified owner address (see STAGING_RUNBOOK §3) |

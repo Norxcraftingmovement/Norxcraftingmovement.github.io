@@ -71,3 +71,8 @@ OpenAPI/ตัวอย่าง request-response จะเพิ่มใน Ph
 | GET | `/api/admin/integrity` | payment-integrity violations (empty = healthy) |
 | GET | `/api/admin/notifications` | now includes `readiness` `{mode,ready,missing[]}` |
 | POST | `/api/admin/orders/NORX-LEGACY-001/status` | order ids with extra hyphen segments are accepted everywhere |
+
+
+## Staging readiness additions
+Public (token-protected, no admin data): `GET /api/orders/pay?o=&t=` (JSON: state awaiting|paid|cancelled|on_site|expired|unavailable, amount, payee, deadline, bank fallback), `GET /api/orders/pay.svg?o=&t=[&download=1]`. Receipt gets an optional trailing `payment` block when PromptPay is verified.
+Admin: `GET/PUT /api/admin/settings/payment`, `POST …/payment/verify {confirmName}`, `GET …/payment/preview.svg` (1.00 THB, scan to read the payee name only) · `POST /api/admin/orders/{id}/status` accepts `bankTxnRef` · `GET /api/admin/notifications/{id}/history`, `POST …/received`, `POST …/retry` (resets counters, keeps history).
