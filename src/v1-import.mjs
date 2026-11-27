@@ -63,6 +63,9 @@ const v2Order = (s) => ({ ...s, legacy_status: toLegacy(s.payment_status, s.fulf
 const v2Round = (r) => ({ ...r, deliveries: typeof r.deliveries === "string" ? JSON.parse(r.deliveries) : r.deliveries });
 const h = (c) => sha(JSON.stringify(c));
 const itemsDiffer = (cur, o) => JSON.stringify(canonOrder(v2Order(cur)).items) !== JSON.stringify(canonOrder(o).items);
+// Same canonical hash planSync stores as import_hash, computed for a V2 row as it is NOW (used by the rollback export to find what changed since import).
+export const v2OrderHash = (row) => h(canonOrder(v2Order(row)));
+export const v2RoundHash = (row) => h(canonRound(v2Round(row)));
 
 // ---------- reading V2 state (same SQL works in-process and via `wrangler d1 execute --json`) ----------
 export const STATE_SQL = {
