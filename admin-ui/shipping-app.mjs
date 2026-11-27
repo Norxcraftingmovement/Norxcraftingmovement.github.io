@@ -1,13 +1,24 @@
 import { $, api, notice, el, errText } from "./common.mjs";
 import { loadAssets, buildLabel, renderA6, renderA4Sheets, canvasToPng, canvasesToPdf, download, printCanvases } from "./label-canvas.mjs";
 import { SIZES } from "./label-layout.mjs";
+import { canonicalCarrier, checkTracking } from "./carriers.mjs";
+// A format warning never blocks: the first submit shows it, a second submit of the SAME values goes through.
+let acknowledged = "";
+const needsAck = (key, warnings) => { if (!warnings.length || acknowledged === key) return false; acknowledged = key; return true; };
 
 const sel = new Set(); let orders = [], data = new Map(), sender = null, lastPrintIds = [], timer;
 const fmt = () => document.querySelector('input[name="fmt"]:checked').value;
 const ids = () => orders.map((o) => o.id).filter((i) => sel.has(i));
+const readyForBatch = (o) => o.fulfillmentStatus === "ready_ship" && o.paymentStatus === "confirmed" && !o.shippedAt;
+const filters = new URLSearchParams(location.search);
+if (filters.get("queue") === "ready") $("readyQueue").hidden = false;
 
 async function loadOrders() {
   const p = new URLSearchParams({ q: $("q").value, printed: $("printed").value });
+  if (filters.get("queue") === "ready") {
+    p.set("queue", "ready");
+    p.set("includeTest", filters.get("includeTest") === "1" ? "1" : "0");
+  }
   try { orders = (await api("/api/admin/labels/orders?" + p)).orders; } catch (e) { notice($("notice"), errText(e), true); return; }
   for (const i of [...sel]) if (!orders.some((o) => o.id === i)) sel.delete(i);
   const ul = $("list"); ul.replaceChildren();
@@ -37,6 +48,8 @@ async function refresh() {
   $("count").textContent = "เลือก " + sel.size + " รายการ";
   const has = sel.size > 0; $("slotRow").hidden = fmt() !== "A4";
   for (const b of ["edit", "ship"]) $(b).disabled = sel.size !== 1;
+  const selected = orders.filter((o) => sel.has(o.id));
+  $("shipBatch").disabled = !selected.length || selected.length > 50 || !selected.every(readyForBatch);
   const c = $("preview"); c.getContext("2d").clearRect(0, 0, c.width, c.height);
   if (!has) { layouts = []; for (const b of ["png", "pdf", "print"]) $(b).disabled = true; notice($("warn"), ""); return; }
   let labels; try { labels = await fetchLabels(); } catch (e) { notice($("notice"), errText(e), true); return; }
@@ -77,8 +90,70 @@ $("ship").addEventListener("click", () => { const o = orders.find((x) => x.id ==
 $("sCancel").addEventListener("click", () => $("shipDlg").close());
 $("shipForm").addEventListener("submit", async (ev) => {
   ev.preventDefault(); const id = ids()[0];
-  try { await api(`/api/admin/orders/${id}/shipment`, { method: "PUT", body: { provider: $("sProv").value, trackingNo: $("sTrack").value.trim(), shippedAt: $("sDate").value || null } }); data.delete(id); $("shipDlg").close(); await loadOrders(); } catch (e) { notice($("sErr"), errText(e), true); }
+  const provider = canonicalCarrier($("sProv").value), trackingNo = $("sTrack").value.trim().toUpperCase();
+  $("sProv").value = provider; $("sTrack").value = trackingNo;
+  const check = checkTracking(provider, trackingNo);
+  if (needsAck(["one", id, provider, trackingNo].join("|"), check.warnings)) { notice($("sErr"), "⚠ " + check.warnings[0] + " — ตรวจกับฉลากอีกครั้ง ถ้าถูกต้องแล้วกด \"บันทึก\" อีกครั้งเพื่อยืนยัน", true); return; }
+  try { await api(`/api/admin/orders/${id}/shipment`, { method: "PUT", body: { provider, trackingNo, shippedAt: $("sDate").value || null } }); data.delete(id); $("shipDlg").close(); await loadOrders(); } catch (e) { notice($("sErr"), errText(e), true); }
 });
+
+let batchInputs = new Map();
+$("shipBatch").onclick = () => {
+  batchInputs = new Map();
+  $("batchRows").replaceChildren(...orders.filter(o => sel.has(o.id)).map((order) => {
+    const row = el("tr"), td = el("td"), input = el("input");
+    input.required = true;
+    input.maxLength = 40;
+    input.pattern = "[A-Za-z0-9\\-]+";
+    input.setAttribute("aria-label", "เลขพัสดุ " + order.orderNo);
+    input.value = order.trackingNo || "";
+    batchInputs.set(order.orderNo, input);
+    td.append(input);
+    row.append(el("th", "", order.orderNo), el("td", "", order.recipient || ""), td);
+    return row;
+  }));
+  $("batchPaste").value = "";
+  $("batchDate").value = new Intl.DateTimeFormat("sv-SE", { year: "numeric", month: "2-digit", day: "2-digit", timeZone: "Asia/Bangkok" }).format(new Date());
+  notice($("batchError"), "");
+  $("batchDialog").showModal();
+};
+$("applyTracking").onclick = () => {
+  const pairs = new Map();
+  for (const [i, line] of $("batchPaste").value.trim().split(/\r?\n/).entries()) {
+    if (!line.trim()) continue;
+    const [order, number, extra] = line.trim().split(/[\t,]/).map(value => value.trim());
+    if (extra !== undefined || !batchInputs.has(order) || pairs.has(order) || !/^[A-Za-z0-9-]{1,40}$/.test(number ?? "")) {
+      notice($("batchError"), "ตรวจแถวที่ " + (i + 1) + " ให้เป็นเลขออเดอร์ที่เลือกกับเลขพัสดุ และอย่าใส่ออเดอร์ซ้ำ", true);
+      return;
+    }
+    pairs.set(order, number);
+  }
+  for (const [order, number] of pairs) batchInputs.get(order).value = number;
+  notice($("batchError"), "");
+};
+$("batchClose").onclick = () => $("batchDialog").close();
+$("batchForm").onsubmit = async (event) => {
+  event.preventDefault();
+  const provider = canonicalCarrier($("batchCarrier").value);
+  $("batchCarrier").value = provider;
+  const rows = [...batchInputs].map(([orderNo, field]) => ({ orderNo, trackingNo: field.value.trim().toUpperCase(), provider }));
+  for (const [i, field] of [...batchInputs.values()].entries()) field.value = rows[i].trackingNo;
+  const flagged = rows.map((r) => ({ r, c: checkTracking(provider, r.trackingNo) })).filter((x) => !x.c.ok);
+  if (needsAck(["batch", provider, ...rows.map((r) => r.orderNo + "=" + r.trackingNo)].join("|"), flagged)) {
+    notice($("batchError"), "⚠ เลขพัสดุที่ผิดรูปแบบ: " + flagged.map(({ r, c }) => r.orderNo + " (" + r.trackingNo + ") — " + c.warnings[0]).join(" · ") + " — ตรวจกับกล่อง/ฉลากอีกครั้ง ถ้าถูกต้องแล้วกดบันทึกอีกครั้งเพื่อยืนยัน", true);
+    return;
+  }
+  $("batchSave").disabled = true;
+  try {
+    const result = await api("/api/admin/shipments/batch", { method: "POST", body: { rows, shippedAt: $("batchDate").value } });
+    $("batchDialog").close();
+    for (const id of sel) data.delete(id);
+    sel.clear();
+    await loadOrders();
+    notice($("notice"), "บันทึกจัดส่งแล้ว " + result.shipped + " รายการ");
+  } catch (error) { notice($("batchError"), error.userMessage || errText(error), true); }
+  finally { $("batchSave").disabled = false; }
+};
 
 $("all").addEventListener("click", () => { for (const o of orders) sel.add(o.id); for (const cb of $("list").querySelectorAll("input")) cb.checked = true; changed(); });
 $("none").addEventListener("click", () => { sel.clear(); for (const cb of $("list").querySelectorAll("input")) cb.checked = false; changed(); });

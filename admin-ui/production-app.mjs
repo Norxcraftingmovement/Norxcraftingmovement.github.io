@@ -31,23 +31,79 @@ function drawBatch(d) {
   const r = rounds.find((x) => x.id === $("round").value), s = d.totals.status, box = $("batch"), st = $("stats"); box.replaceChildren(); st.replaceChildren();
   for (const [k, v] of [["รอตัดยอด", s.pending], ["ส่งร้านแล้ว", s.batched], ["ผลิตเสร็จ", s.produced], ["รับของแล้ว", s.received]]) { const x = el("div", "stat", k); x.append(el("b", "", String(v))); st.append(x); }
   if (!r) { $("batchHint").textContent = "เลือกรอบเดียวเพื่ออัปเดตสถานะการผลิตทั้งล็อต"; return; }
-  if (r.state !== "sent") { $("batchHint").textContent = "รอบนี้ยังไม่ได้ตัดยอดส่งร้าน (ทำได้ที่หน้าออเดอร์) จึงยังอัปเดตสถานะการผลิตไม่ได้"; return; }
+  if (r.state !== "sent") {
+    $("batchHint").textContent = "รอบนี้ยังไม่ได้ตัดยอดส่งร้าน";
+    const link = el("a", "btn secondary", "จัดการรอบและส่งยอดร้าน");
+    link.href = "/admin/orders/?" + new URLSearchParams({ round: r.id });
+    box.append(link);
+    return;
+  }
   $("batchHint").textContent = "เปลี่ยนสถานะทุกรายการของรอบนี้พร้อมกัน (ระบบจะตรวจว่าจำนวนชิ้นยังตรงกับที่เห็น)";
   if (s.batched) box.append(btn("ผลิตเสร็จทั้งล็อต (" + s.batched + " ชิ้น)", () => move(r.id, "batched", "produced", s.batched)));
-  if (s.produced) box.append(btn("รับของจากโรงงานทั้งล็อต (" + s.produced + " ชิ้น)", () => move(r.id, "produced", "received", s.produced)), btn("ย้อนเป็นส่งร้านแล้ว (" + s.produced + ")", () => move(r.id, "produced", "batched", s.produced)));
+  if (s.produced) box.append(
+    btn("รับของจากโรงงานทั้งล็อต", () => move(r.id, "produced", "received", s.produced)),
+    btn("รับของไม่ครบ", () => openReceipt(r.id)),
+    btn("ย้อนเป็นส่งร้านแล้ว (" + s.produced + ")", () => move(r.id, "produced", "batched", s.produced)),
+  );
   if (s.received) box.append(btn("ย้อนเป็นผลิตเสร็จ (" + s.received + ")", () => move(r.id, "received", "produced", s.received)));
 }
+let receipt;
+const receiptInputs = () => [...$("receiptRows").querySelectorAll("input")];
+async function openReceipt(round) {
+  const includeTest = $("test").checked;
+  try {
+    const result = await api("/api/admin/production/receipts?" + new URLSearchParams({ round, includeTest: includeTest ? "1" : "0" }));
+    receipt = { round, includeTest, lines: result.lines };
+    $("receiptRows").replaceChildren(...result.lines.map((line) => {
+      const detail = line.orderNo + " · " + line.product + " " + SL[line.sleeve] + " " + line.size;
+      const row = el("tr"), cell = el("td"), input = el("input");
+      input.type = "number";
+      input.min = 0;
+      input.max = line.qty - line.received;
+      input.step = 1;
+      input.setAttribute("aria-label", "รับเพิ่ม " + detail);
+      cell.append(input);
+      row.append(el("th", "", detail), el("td", "", line.received + " / " + line.qty), cell);
+      return row;
+    }));
+    notice($("receiptError"), "");
+    $("receiptTotal").textContent = result.lines.length ? "กำลังบันทึกรับเพิ่ม 0 ตัว" : "ไม่มีรายการรอรับ";
+    $("receiptSave").disabled = !result.lines.length;
+    $("receiptDialog").showModal();
+  } catch (error) { notice($("notice"), error.userMessage || error.message, true); }
+}
+$("receiptRows").oninput = () => {
+  $("receiptTotal").textContent = "กำลังบันทึกรับเพิ่ม " + receiptInputs().reduce((sum, input) => sum + (+input.value || 0), 0) + " ตัว";
+};
+$("receiptClose").onclick = () => $("receiptDialog").close();
+$("receiptForm").onsubmit = async (event) => {
+  event.preventDefault();
+  const lines = receiptInputs().flatMap((input, index) => {
+    const line = receipt.lines[index];
+    return +input.value > 0 ? [{ id: line.id, expected: line.received, add: +input.value }] : [];
+  });
+  if (!lines.length) { notice($("receiptError"), "ใส่จำนวนที่รับอย่างน้อยหนึ่งรายการ", true); return; }
+  $("receiptSave").disabled = true;
+  try {
+    const result = await api("/api/admin/production/receipts", { method: "POST", body: { round: receipt.round, includeTest: receipt.includeTest, lines } });
+    $("receiptDialog").close();
+    await load();
+    notice($("notice"), "บันทึกรับเพิ่ม " + result.pieces + " ตัวแล้ว");
+  } catch (error) { notice($("receiptError"), error.userMessage || error.message, true); }
+  finally { $("receiptSave").disabled = false; }
+};
 async function move(round, from, to, expected, row) {
   const name = { batched: "ส่งร้านแล้ว", produced: "ผลิตเสร็จ", received: "รับของแล้ว" };
   if (!(await ask("เปลี่ยนสถานะการผลิต", (row ? row.productName + " " + SL[row.sleeve] + " " + row.size + " · " : "ทั้งล็อต · ") + expected + " ชิ้น: " + name[from] + " → " + name[to]))) return;
-  try { await api("/api/admin/production/items-status", { method: "POST", body: { round, from, to, expected, ...(row ? { product: row.product, sleeve: row.sleeve, size: row.size } : {}) } }); await load(); }
+  try { await api("/api/admin/production/items-status", { method: "POST", body: { round, from, to, expected, includeTest: $("test").checked, ...(row ? { product: row.product, sleeve: row.sleeve, size: row.size } : {}) } }); await load(); }
   catch (e) { notice($("notice"), e.userMessage || "ทำรายการไม่ได้ (" + (e.code || e.message) + ")", true); await load({ quiet: true }); }
 }
-$("test").checked = store.get("norx-include-test") === "1";
+const includeTest = new URLSearchParams(location.search).get("includeTest");
+$("test").checked = (includeTest ?? store.get("norx-include-test")) === "1";
 $("test").onchange = () => { store.set("norx-include-test", $("test").checked ? "1" : "0"); load(); };
 $("round").onchange = () => { store.set("norx-prod-round", $("round").value); load(); };
 $("csv").onclick = () => { location.href = "/api/admin/production/summary.csv?" + q(); };
 $("print").onclick = () => window.print(); $("showFresh").onclick = () => load();
-const interacting = trackInteraction(() => $("dlg").open);
+const interacting = trackInteraction(() => $("dlg").open || $("receiptDialog").open);
 await load();
 refresher = startAutoRefresh({ pulse: () => api("/api/admin/pulse"), reload: load, interacting, onPending: (v) => { $("fresh").hidden = !v; }, onError: () => { $("live").textContent = "เชื่อมต่อไม่ได้ จะลองใหม่อัตโนมัติ"; } });

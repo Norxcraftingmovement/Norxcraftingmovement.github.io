@@ -1,10 +1,11 @@
-<!doctype html><html lang="th"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>NORX | จัดส่งและใบจ่าหน้า</title><link rel="stylesheet" href="/admin/assets/style.css"></head>
+<!doctype html><html lang="th"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>NORX | จัดส่งและใบจ่าหน้า</title><link rel="stylesheet" href="/admin/assets/style.css?v=batch-operations"></head>
 <body><a class="skip" href="#main">ข้ามไปเนื้อหา</a>
 <!--NAV-->
 <main id="main"><p class="eyebrow">SHIPPING</p><h1>ใบจ่าหน้าพัสดุ.</h1><p class="muted">การพิมพ์หรือส่งออกใบจ่าหน้า <b>ไม่เปลี่ยนสถานะ</b>ออเดอร์เป็นจัดส่งแล้ว</p>
 <div id="notice" class="notice" role="status" hidden></div>
 <div class="grid">
 <section class="panel" aria-labelledby="oh"><h2 id="oh">ออเดอร์ที่ต้องจัดส่ง</h2>
+<p id="readyQueue" hidden>เฉพาะพัสดุพร้อมจัดส่ง · <a href="/admin/shipping/">ดูรายการจัดส่งทั้งหมด</a></p>
 <div class="row"><input id="q" type="search" placeholder="ค้นหาเลขออเดอร์หรือชื่อผู้รับ" aria-label="ค้นหา"><select id="printed" aria-label="กรองสถานะการพิมพ์" class="auto"><option value="">ทั้งหมด</option><option value="0">ยังไม่พิมพ์</option><option value="1">พิมพ์แล้ว</option></select></div>
 <div class="row mt"><button type="button" class="secondary" id="all">เลือกทั้งหมด</button><button type="button" class="secondary" id="none">ล้างที่เลือก</button><span id="count" class="muted" role="status"></span></div>
 <ul class="list" id="list" aria-label="รายการออเดอร์"></ul></section>
@@ -13,7 +14,7 @@
 <div id="slotRow" hidden><label class="f" for="slot">เริ่มวางที่ช่อง (ใช้กระดาษที่เคยพิมพ์ไปบางช่องแล้ว)</label><select id="slot"><option value="0">ช่อง 1 (บนซ้าย)</option><option value="1">ช่อง 2 (บนขวา)</option><option value="2">ช่อง 3 (ล่างซ้าย)</option><option value="3">ช่อง 4 (ล่างขวา)</option></select></div>
 <div id="warn" class="notice err" role="alert" hidden></div>
 <canvas id="preview" width="10" height="10" aria-label="ตัวอย่างใบจ่าหน้า"></canvas>
-<div class="row"><button type="button" id="png" disabled>ส่งออก PNG 300 PPI</button><button type="button" id="pdf" disabled>ส่งออก PDF</button><button type="button" id="print" disabled>พิมพ์</button><button type="button" class="secondary" id="edit" disabled>แก้ที่อยู่</button><button type="button" class="secondary" id="ship" disabled>เลขพัสดุ</button></div>
+<div class="row"><button type="button" id="png" disabled>ส่งออก PNG 300 PPI</button><button type="button" id="pdf" disabled>ส่งออก PDF</button><button type="button" id="print" disabled>พิมพ์</button><button type="button" class="secondary" id="edit" disabled>แก้ที่อยู่</button><button type="button" class="secondary" id="ship" disabled>บันทึกข้อมูลจัดส่ง</button><button type="button" class="secondary" id="shipBatch" disabled>บันทึกจัดส่งหลายรายการ</button></div>
 <div id="afterPrint" class="notice" hidden>พิมพ์เรียบร้อยหรือไม่? <button type="button" class="secondary" id="markPrinted">บันทึกว่าพิมพ์แล้ว</button> <button type="button" class="secondary" id="dismissPrint">ไม่ต้องบันทึก</button></div>
 </section></div></main>
 <dialog id="addrDlg" aria-labelledby="addrH"><form method="dialog" id="addrForm" novalidate><h2 id="addrH">แก้ที่อยู่จัดส่ง</h2><p class="muted" id="addrOrder"></p>
@@ -21,8 +22,20 @@
 <label class="f" for="aAddr">ที่อยู่ (ต้องมีรหัสไปรษณีย์ 5 หลัก)</label><textarea id="aAddr" maxlength="500"></textarea><div id="aErr" class="notice err" hidden></div>
 <div class="row"><button type="submit" id="aSave" value="save">บันทึกและแก้ในใบจ่าหน้า</button><button type="button" class="secondary" id="aCancel">ยกเลิก</button></div></form></dialog>
 <dialog id="shipDlg" aria-labelledby="shipH"><form method="dialog" id="shipForm" novalidate><h2 id="shipH">เลขพัสดุและวันที่ส่ง</h2><p class="muted" id="shipOrder"></p>
-<label class="f" for="sProv">บริษัทขนส่ง</label><input id="sProv" maxlength="40"><label class="f" for="sTrack">เลขพัสดุ</label><input id="sTrack" maxlength="40" autocapitalize="characters">
-<label class="f" for="sDate">วันที่ส่ง</label><input id="sDate" type="date"><p class="muted">การบันทึกนี้ไม่เปลี่ยนสถานะออเดอร์</p><div id="sErr" class="notice err" hidden></div>
+<datalist id="carrierList"><option value="Flash Express"><option value="ไปรษณีย์ไทย"></datalist>
+<label class="f" for="sProv">บริษัทขนส่ง</label><input id="sProv" maxlength="40" list="carrierList" autocomplete="off"><label class="f" for="sTrack">เลขพัสดุ</label><input id="sTrack" maxlength="40" autocapitalize="characters">
+<label class="f" for="sDate">วันที่ส่ง</label><input id="sDate" type="date"><p class="muted">การบันทึกนี้ไม่เปลี่ยนสถานะออเดอร์ · ใส่ "วันที่ส่ง" เมื่อส่งของแล้วเท่านั้น: ถ้าใส่ ระบบจะถือว่าออเดอร์นี้ส่งแล้ว และรับของเพิ่มไม่ได้ (ยังไม่ส่ง = เว้นวันที่ว่าง)</p><div id="sErr" class="notice err" hidden></div>
 <div class="row"><button type="submit" value="save">บันทึก</button><button type="button" class="secondary" id="sCancel">ยกเลิก</button></div></form></dialog>
 <div id="printArea" aria-hidden="true"></div>
-<script type="module" src="/admin/assets/shipping-app.mjs"></script></body></html>
+<dialog id="batchDialog" aria-labelledby="batchTitle"><form id="batchForm">
+<h2 id="batchTitle">บันทึกพัสดุที่ส่งแล้ว</h2>
+<label class="f" for="batchCarrier">บริษัทขนส่งของชุดนี้</label><input id="batchCarrier" required maxlength="40" list="carrierList" autocomplete="off">
+<label class="f" for="batchDate">วันที่ส่ง</label><input id="batchDate" required type="date">
+<label class="f" for="batchPaste">วางเลขออเดอร์กับเลขพัสดุจากตาราง (ไม่บังคับ)</label>
+<textarea id="batchPaste" placeholder="NORX-XXXXXXXX&#9;TRACK-123"></textarea>
+<button type="button" class="secondary" id="applyTracking">จับคู่เลขพัสดุ</button>
+<div class="tablewrap"><table><thead><tr><th>ออเดอร์</th><th>ผู้รับ</th><th>เลขพัสดุ</th></tr></thead><tbody id="batchRows"></tbody></table></div>
+<div id="batchError" class="notice err" hidden></div>
+<div class="row"><button type="submit" id="batchSave">ยืนยันจัดส่ง</button><button type="button" class="secondary" id="batchClose">ปิด</button></div>
+</form></dialog>
+<script type="module" src="/admin/assets/shipping-app.mjs?v=batch-operations"></script></body></html>

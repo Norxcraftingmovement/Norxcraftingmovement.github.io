@@ -1,4 +1,4 @@
-<!doctype html><html lang="th"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>NORX | สรุปการผลิต</title><link rel="stylesheet" href="/admin/assets/style.css"></head>
+<!doctype html><html lang="th"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>NORX | สรุปการผลิต</title><link rel="stylesheet" href="/admin/assets/style.css?v=batch-operations"></head>
 <body><a class="skip" href="#main">ข้ามไปเนื้อหา</a><!--NAV-->
 <main id="main"><p class="eyebrow">PRODUCTION</p><h1>สรุปการผลิต.</h1>
 <p class="muted"><span id="live" role="status" aria-live="polite">กำลังโหลด…</span></p>
@@ -14,4 +14,11 @@
 <section class="panel mt2 noprint" aria-labelledby="bh"><h2 id="bh">อัปเดตสถานะการผลิตทั้งล็อต</h2><p class="muted" id="batchHint"></p><div class="stats" id="stats"></div><div class="acts" id="batch"></div></section>
 </main>
 <dialog id="dlg" aria-labelledby="dlgT"><form method="dialog" id="dlgForm"><h2 id="dlgT"></h2><p id="dlgP"></p><div class="row"><button type="submit">ยืนยัน</button><button type="button" class="secondary" id="dlgNo">ยกเลิก</button></div></form></dialog>
-<script type="module" src="/admin/assets/production-app.mjs"></script></body></html>
+<dialog id="receiptDialog" aria-labelledby="receiptTitle"><form id="receiptForm">
+<h2 id="receiptTitle">แบ่งของที่รับให้ออเดอร์</h2>
+<p>ใส่จำนวนที่ได้รับในรอบนี้เฉพาะแถวที่ต้องการบันทึก</p>
+<div class="tablewrap"><table><thead><tr><th>ออเดอร์ / รายการ</th><th>รับแล้ว / สั่ง</th><th>รับเพิ่ม</th></tr></thead><tbody id="receiptRows"></tbody></table></div>
+<p id="receiptTotal" role="status"></p><div id="receiptError" class="notice err" hidden></div>
+<div class="row"><button type="submit" id="receiptSave">บันทึกรับของ</button><button type="button" class="secondary" id="receiptClose">ปิด</button></div>
+</form></dialog>
+<script type="module" src="/admin/assets/production-app.mjs?v=batch-operations"></script></body></html>

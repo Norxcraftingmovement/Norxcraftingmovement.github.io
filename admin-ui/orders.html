@@ -9,10 +9,11 @@
 <label class="f" for="round">เลือกรอบ</label><select id="round"></select><div id="roundBox"></div></section>
 <section class="panel mt2" aria-labelledby="oh"><h2 id="oh">รายการออเดอร์</h2>
 <div class="row"><input id="q" type="search" placeholder="ค้นหาเลขออเดอร์ ชื่อ หรือเบอร์" aria-label="ค้นหา"><select id="status" class="auto" aria-label="กรองสถานะ"><option value="">ทุกสถานะ</option><option>รอโอน</option><option>ชำระแล้ว</option><option>จ่ายหน้างาน</option><option>ส่งร้านแล้ว</option><option>ส่งมอบแล้ว</option><option>ยกเลิก</option></select></div>
+<p id="reviewQueue" hidden><span id="reviewQueueText"></span> · <a href="/admin/orders/">ดูออเดอร์ทั้งหมด</a></p>
 <div class="row mt"><button type="button" class="secondary" id="csv">ส่งออก CSV</button></div><ul class="list" id="orders" aria-label="ออเดอร์"></ul></section>
 <section class="panel mt2" aria-labelledby="nh"><h2 id="nh">การแจ้งเตือนที่ยังไม่ส่ง</h2><p class="muted" id="nsum"></p><p class="muted" id="ready"></p><ul class="list" id="notifs" aria-label="คิวแจ้งเตือน"></ul></section>
 <section class="panel mt2" aria-labelledby="lh"><h2 id="lh">ความเร็วระบบ</h2><p class="muted" id="lat">—</p></section>
 </main>
 <dialog id="dlg" aria-labelledby="dlgT"><form method="dialog" id="dlgForm" novalidate><h2 id="dlgT"></h2><p id="dlgP"></p><div id="dlgIn" hidden><label class="f" for="dlgInput" id="dlgL"></label><input id="dlgInput" inputmode="numeric" autocomplete="off"></div><div id="dlgIn2" hidden><label class="f" for="dlgInput2" id="dlgL2"></label><input id="dlgInput2" autocomplete="off" maxlength="40"></div><div id="dlgErr" class="notice err" hidden></div>
 <div class="row"><button type="submit" id="dlgOk">ยืนยัน</button><button type="button" class="secondary" id="dlgNo">ยกเลิก</button></div></form></dialog>
-<script type="module" src="/admin/assets/orders-app.mjs"></script></body></html>
+<script type="module" src="/admin/assets/orders-app.mjs?v=batch-operations"></script></body></html>

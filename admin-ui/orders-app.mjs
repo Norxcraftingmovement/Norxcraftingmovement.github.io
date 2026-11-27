@@ -7,6 +7,18 @@ const baht = (n) => Number(n).toLocaleString("th-TH") + " บาท";
 const hhmm = () => new Date().toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
 let lastR = null, lastN = [], lastL = { order_creation: { count: 0 }, notification: { count: 0 } };
 let rounds = [], orders = [], current = "", busy = false, errs = 0;
+const filters = new URLSearchParams(location.search);
+const queue = filters.get("queue");
+const filteredQueue = ["review", "unpaid", "pickup"].includes(queue);
+function orderListUrl() {
+  const query = new URLSearchParams();
+  if (current) query.set("round", current);
+  if (filteredQueue) {
+    query.set("queue", queue);
+    query.set("includeTest", filters.get("includeTest") === "1" ? "1" : "0");
+  }
+  return "/api/admin/orders?" + query;
+}
 const msg = (e) => e.userMessage || (e.code === "USER_ERROR" ? e.message : "เกิดข้อผิดพลาด (" + (e.code || e.message) + ")");
 
 // One reusable confirm dialog; resolves with the typed value (or true) or null when cancelled.
@@ -23,9 +35,9 @@ function ask({ title, text, label, label2, validate }) {
 async function load({ quiet = false } = {}) {
   if (busy) return; busy = true;
   try {
-    const [r, o, n, l, p] = await Promise.all([api("/api/admin/rounds"), api("/api/admin/orders" + (current ? "?round=" + encodeURIComponent(current) : "")), api("/api/admin/notifications"), api("/api/admin/metrics/latency"), api("/api/admin/pulse")]);
+    const [r, o, n, l, p] = await Promise.all([api("/api/admin/rounds"), api(orderListUrl()), api("/api/admin/notifications"), api("/api/admin/metrics/latency"), api("/api/admin/pulse")]);
     rounds = r.rounds; orders = o.orders; errs = 0;
-    if (!current || !rounds.some((x) => x.id === current)) { current = (rounds.find((x) => x.phase === "accepting") || rounds.at(-1) || {}).id || ""; if (current) { orders = (await api("/api/admin/orders?round=" + encodeURIComponent(current))).orders; } }
+    if (!filteredQueue && (!current || !rounds.some((x) => x.id === current))) { current = (rounds.find((x) => x.phase === "accepting") || rounds.at(-1) || {}).id || ""; if (current) orders = (await api(orderListUrl())).orders; }
     draw(n.notifications, l.latency, n.readiness); refresher?.setToken(p.token); $("fresh").hidden = true; $("live").textContent = "อัปเดตล่าสุด " + hhmm() + " · รีเฟรชอัตโนมัติทุก 15 วินาที"; notice($("notice"), "");
   } catch (e) { errs++; if (!quiet) notice($("notice"), msg(e), true); $("live").textContent = "เชื่อมต่อไม่ได้ จะลองใหม่อัตโนมัติ"; }
   busy = false;
@@ -35,6 +47,12 @@ function draw(notifs, lat, ready = lastR) {
   lastN = notifs; lastL = lat; lastR = ready;
   $("ready").textContent = ready ? (ready.ready ? "ช่องทางแจ้งเตือน: พร้อม (" + ready.mode + ")" : "ช่องทางแจ้งเตือน: ยังไม่พร้อม — ขาด " + (ready.missing || []).join(", ")) : "";
   const sel = $("round"); sel.replaceChildren(...rounds.slice().reverse().map((r) => { const o = el("option", "", r.name + " (" + r.id + ") · " + TH_PHASE[r.phase]); o.value = r.id; return o; })); sel.value = current;
+  if (filteredQueue) {
+    const all = el("option", "", "ทุกรอบ");
+    all.value = "";
+    sel.prepend(all);
+    sel.value = current;
+  }
   const r = rounds.find((x) => x.id === current), box = $("roundBox"); box.replaceChildren();
   if (r) {
     const s = r.summary, st = el("div", "stats");
@@ -58,7 +76,10 @@ function draw(notifs, lat, ready = lastR) {
     g.append(el("br"), document.createTextNode(o.name + " · " + o.phone + " · " + ({ city: "นัดรับในเมือง", event: "รับที่งาน", ship: "จัดส่ง" }[o.delivery])), el("br"),
       el("small", "muted", o.items.map((i) => i.name + " " + (i.sleeve === "short" ? "แขนสั้น" : "แขนยาว") + " " + i.size + "×" + i.qty).join(", ")), el("br"), el("b", "", baht(o.total) + (o.shipping ? " (รวมส่ง " + baht(o.shipping) + ")" : "")));
     const acts = el("div", "acts");
-    for (const to of o.moves) { const bt = el("button", "secondary small", BTN[to] || to); bt.type = "button"; bt.onclick = () => move(o, to); acts.append(bt); }
+    for (const to of o.moves) {
+      if (queue === "pickup" && (o.paymentStatus === "deferred_on_site" ? to !== "ชำระแล้ว" : to !== "ส่งมอบแล้ว")) continue;
+      const bt = el("button", "secondary small", BTN[to] || to); bt.type = "button"; bt.onclick = () => move(o, to); acts.append(bt);
+    }
     g.append(acts); li.append(g); ul.append(li);
   }
   $("nsum").textContent = notifs.length ? notifs.length + " รายการ (รอส่ง/ล้มเหลว) · ส่งอัตโนมัติและลองใหม่เมื่อล้มเหลว" : "ไม่มีรายการค้าง";
@@ -93,6 +114,13 @@ $("refresh").onclick = () => load(); $("showFresh").onclick = () => load();
 $("round").onchange = async () => { current = $("round").value; await load(); };
 $("q").oninput = () => draw(lastN, lastL); $("status").onchange = () => draw(lastN, lastL);
 $("csv").onclick = () => { location.href = "/api/admin/orders/export.csv?" + new URLSearchParams({ round: current, status: $("status").value }); };
-{ const qs = new URLSearchParams(location.search); if (qs.get("status")) $("status").value = qs.get("status"); if (qs.get("round")) current = qs.get("round"); }
+if (!filteredQueue && filters.get("status")) $("status").value = filters.get("status");
+if (filters.get("round")) current = filters.get("round");
+if (filteredQueue) {
+  $("reviewQueue").hidden = false;
+  $("reviewQueueText").textContent = { review: "เฉพาะออเดอร์ที่ส่งหลักฐานแล้ว", unpaid: "ออเดอร์ที่ยังไม่ได้ยืนยันการชำระ", pickup: "เฉพาะออเดอร์ที่ของครบและรอลูกค้ามารับ" }[queue];
+  $("status").hidden = true;
+  $("csv").hidden = true;
+}
 await load();
 refresher = startAutoRefresh({ pulse: () => api("/api/admin/pulse"), reload: load, interacting, onPending: (v) => { $("fresh").hidden = !v; }, onError: () => { $("live").textContent = "เชื่อมต่อไม่ได้ จะลองใหม่อัตโนมัติ"; } });

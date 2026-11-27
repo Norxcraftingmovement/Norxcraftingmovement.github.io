@@ -1,5 +1,7 @@
 // Admin API handlers for Sender Settings and shipping labels. Called only after owner verification
 // and the environment guard (see orders-admin-worker.mjs). Printing never changes order status.
+import { READY_TO_SHIP } from "./orders-service.mjs";
+import { UserError } from "./orders-core.mjs";
 const headers = { "Cache-Control": "no-store", "X-Robots-Tag": "noindex, nofollow", "X-Content-Type-Options": "nosniff", "Referrer-Policy": "no-referrer" };
 export const json = (data, status = 200) => Response.json(data, { status, headers });
 const bad = (code, status = 400) => json({ ok: false, error: code }, status);
@@ -47,6 +49,8 @@ export async function senderResponse(env) { return json({ ok: true, sender: awai
 export async function labelOrders(url, env) {
   const q = clean(url.searchParams.get("q") ?? "", 60) ?? "", printed = url.searchParams.get("printed");
   const where = ["o.delivery='ship'", "o.fulfillment_status!='cancelled'"], args = [];
+  if (url.searchParams.get("queue") === "ready") where.push(READY_TO_SHIP);
+  if (url.searchParams.get("includeTest") === "0") where.push("o.is_test=0");
   if (q) { where.push("(o.order_no LIKE ? ESCAPE '\\' OR a.recipient LIKE ? ESCAPE '\\')"); args.push(like(q), like(q)); }
   if (printed === "0") where.push("COALESCE(s.label_printed_count,0)=0");
   if (printed === "1") where.push("COALESCE(s.label_printed_count,0)>0");
@@ -106,6 +110,55 @@ export async function putShipment(request, env, actor, orderId) {
     .bind(orderId, provider || null, tracking || null, date).run();
   await audit(env, actor, "shipment.update", "orders", orderId, before, { provider, tracking, date });
   return json({ ok: true });
+}
+
+export async function shipBatch(request, env, actor, now = Date.now()) {
+  const b = await body(request);
+  if (!Array.isArray(b?.rows) || !b.rows.length || b.rows.length > 50) throw new UserError("เลือกออเดอร์ 1–50 รายการ");
+  const rows = b.rows.map((r, i) => {
+    const order = clean(r?.orderNo, 65), carrier = clean(r?.provider, 40);
+    const tracking = clean(r?.trackingNo, 40)?.toUpperCase();
+    if (!order || !/^[A-Za-z0-9-]{1,65}$/.test(order) || !carrier || carrier.length > 40 || !/^[A-Z0-9-]{1,40}$/.test(tracking ?? "")) {
+      throw new UserError("แถว " + (i + 1) + " ต้องมีเลขออเดอร์ บริษัทขนส่ง และเลขพัสดุที่ถูกต้อง");
+    }
+    return { order, carrier, tracking };
+  });
+  if (new Set(rows.map(r => r.order)).size !== rows.length) throw new UserError("เลขออเดอร์ซ้ำในชุด");
+  if (new Set(rows.map(r => r.tracking)).size !== rows.length) throw new UserError("เลขพัสดุซ้ำในชุด");
+  const date = b.shippedAt;
+  const parsed = typeof date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(date) ? new Date(date + "T00:00:00Z") : null;
+  if (!parsed || !Number.isFinite(+parsed) || parsed.toISOString().slice(0, 10) !== date) throw new UserError("วันที่ส่งไม่ถูกต้อง");
+  const db = env.ORDERS_DB, input = JSON.stringify(rows), at = new Date(now).toISOString();
+  const requested = `SELECT json_extract(value,'$.order') AS order_no,
+    json_extract(value,'$.carrier') AS carrier,json_extract(value,'$.tracking') AS tracking FROM json_each(?1)`;
+  const invalid = `WITH requested AS (${requested})
+    SELECT q.order_no, CASE WHEN o.id IS NULL THEN 'order' ELSE 'tracking' END AS reason
+    FROM requested q LEFT JOIN orders o ON o.order_no=q.order_no AND o.delivery='ship'
+      AND o.payment_status='confirmed' AND o.fulfillment_status='ready_ship'
+      AND EXISTS (SELECT 1 FROM shipping_addresses a WHERE a.order_id=o.id)
+      AND NOT EXISTS (SELECT 1 FROM shipments s WHERE s.order_id=o.id AND s.shipped_at IS NOT NULL)
+    WHERE o.id IS NULL OR EXISTS (SELECT 1 FROM shipments s WHERE upper(s.tracking_no)=q.tracking AND s.order_id<>o.id)`;
+  const issue = await db.prepare(invalid + " LIMIT 1").bind(input).first();
+  if (issue) throw new UserError(issue.order_no + (issue.reason === "tracking" ? " ใช้เลขพัสดุที่ผูกกับออเดอร์อื่นแล้ว" : " ไม่อยู่ในคิวพร้อมจัดส่ง"));
+  // Keep what each order had BEFORE this batch overwrites it (a mistyped number must stay traceable).
+  const previous = (await db.prepare(`WITH requested AS (${requested}) SELECT o.order_no AS order_no, s.provider AS provider, s.tracking_no AS tracking FROM requested q JOIN orders o ON o.order_no=q.order_no JOIN shipments s ON s.order_id=o.id`).bind(input).all()).results ?? [];
+  try {
+    await db.batch([
+      db.prepare(`SELECT CASE WHEN NOT EXISTS (${invalid}) THEN 1 ELSE json('SHIPMENT BATCH CHANGED') END`).bind(input),
+      db.prepare(`WITH requested AS (${requested}) INSERT INTO shipments(order_id,provider,tracking_no,shipped_at)
+        SELECT o.id,q.carrier,q.tracking,?2 FROM requested q JOIN orders o USING(order_no) WHERE 1
+        ON CONFLICT(order_id) DO UPDATE SET provider=excluded.provider,tracking_no=excluded.tracking_no,shipped_at=excluded.shipped_at`).bind(input, date),
+      db.prepare(`WITH requested AS (${requested}) INSERT INTO order_status_history(order_id,kind,from_status,to_status,actor,at)
+        SELECT o.id,'fulfillment','ready_ship','shipped',?2,?3 FROM orders o JOIN requested q USING(order_no)`).bind(input, actor, at),
+      db.prepare(`UPDATE orders SET fulfillment_status='shipped',status_updated_at=?2,status_updated_by=?3,updated_at=?2
+        WHERE order_no IN (SELECT order_no FROM (${requested}))`).bind(input, at, actor),
+    ]);
+  } catch (error) {
+    if (/malformed JSON/i.test(String(error?.message))) throw new UserError("สถานะหรือเลขพัสดุเปลี่ยนระหว่างบันทึก กรุณาตรวจอีกครั้ง");
+    throw error;
+  }
+  await audit(env, actor, "shipment.batch", "orders", rows.map((r) => r.order).join(","), previous, rows.map((r) => ({ order: r.order, provider: r.carrier, tracking: r.tracking, date })));
+  return json({ ok: true, shipped: rows.length });
 }
 
 // ---- Storefront settings (bank account, links, live switch, weekly rolling, notification recipient). Never in the repo. ----

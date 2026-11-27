@@ -1,40 +1,142 @@
 import { $, api, notice, el } from "./common.mjs";
 import { startAutoRefresh, trackInteraction, store } from "./autorefresh.mjs";
-const baht = (n) => Number(n).toLocaleString("th-TH") + " บาท";
-const hhmm = () => new Date().toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
-const PH = { draft: "ฉบับร่าง", scheduled: "ตั้งเวลาเปิด", accepting: "กำลังเปิดรับ", closed: "ปิดรับแล้ว", sent: "ส่งร้านแล้ว" };
+
+const PHASE = { draft: "ฉบับร่าง", scheduled: "ตั้งเวลาเปิด", accepting: "เปิดรับ", closed: "ปิดรับแล้ว", sent: "ส่งร้านแล้ว" };
+const dateTime = new Intl.DateTimeFormat("th-TH", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Bangkok" });
+const time = new Intl.DateTimeFormat("th-TH", { timeStyle: "medium", timeZone: "Asia/Bangkok" });
+const number = new Intl.NumberFormat("th-TH");
 let busy = false;
-function card(title, big, sub, items, href, cta) {
-  const c = el("section", "card"); c.setAttribute("aria-label", title);
-  c.append(el("h2", "", title), el("div", "big", String(big)));
-  if (sub) c.append(el("p", "muted", sub));
-  if (items?.length) { const ul = el("ul", "mini"); for (const t of items) ul.append(el("li", "", t)); c.append(ul); }
-  if (href) { const a = el("a", "btn secondary", cta || "เปิด"); a.href = href; c.append(a); }
-  return c;
+let refresher;
+
+function link(label, url, style = "dashboard-link") {
+  const a = el("a", style, label);
+  a.href = url;
+  return a;
 }
+
+function roundPanel(title, theme = "") {
+  const panel = el("section", "dashboard-round " + theme);
+  panel.append(el("h2", "", title));
+  return panel;
+}
+
+function renderRounds(round, production, scope) {
+  const sales = roundPanel("รอบรับออเดอร์", "dashboard-sales");
+  if (round) {
+    const status = el("span", "dashboard-status", PHASE[round.phase]);
+    status.dataset.phase = round.phase;
+    sales.append(status, el("p", "dashboard-round-name", round.name));
+    if (round.phase === "scheduled") sales.append(el("p", "muted", "เปิดรับ " + dateTime.format(new Date(round.opensAt))));
+    if (round.phase === "accepting" || round.phase === "scheduled") {
+      sales.append(el("p", "muted", "ปิดรับ " + dateTime.format(new Date(round.closesAt))));
+    }
+    if (round.paymentDue && round.phase !== "sent") sales.append(el("p", "muted", "ชำระภายใน " + dateTime.format(new Date(round.paymentDue))));
+    sales.append(link("จัดการรอบ", "/admin/orders/?" + new URLSearchParams({ round: round.code })));
+  } else {
+    sales.append(el("p", "muted", "ยังไม่มีรอบรับออเดอร์"));
+  }
+
+  const batch = roundPanel("รอบที่พร้อมส่งร้าน");
+  if (production.length) {
+    const list = el("ul", "dashboard-round-list");
+    for (const r of production) {
+      const item = el("li");
+      item.append(link(r.name + " · " + number.format(r.pieces) + " ตัว", "/admin/production/?" + new URLSearchParams({ round: r.code, ...scope })));
+      list.append(item);
+    }
+    batch.append(list);
+  } else {
+    batch.append(el("p", "muted", "ยังไม่มีรอบที่ปิดรับและพร้อมส่งยอด"));
+  }
+  $("rounds").replaceChildren(sales, batch);
+}
+
+function queueCard(title, count, unit, detail, href, label) {
+  const section = el("section", "dashboard-queue");
+  section.dataset.hasWork = String(count > 0);
+  const card = href ? link("", href, "dashboard-queue-content") : el("div", "dashboard-queue-content");
+  const metric = el("p", "dashboard-count");
+  metric.append(el("strong", "", number.format(count)), el("span", "", unit));
+  card.append(el("h3", "", title), metric);
+  if (detail) card.append(el("p", "dashboard-detail", detail));
+  if (href) {
+    const action = el("span", "dashboard-action", label);
+    const arrow = el("span", "dashboard-arrow", "↗");
+    arrow.setAttribute("aria-hidden", "true");
+    action.append(arrow);
+    card.append(action);
+  }
+  section.append(card);
+  return section;
+}
+
+function renderDashboard(d, includeTest) {
+  const scope = { includeTest: includeTest ? "1" : "0" };
+  const { paymentReview, production, readyToShip, readyToPickUp } = d.work;
+  const pieces = production.reduce((total, r) => total + r.pieces, 0);
+  const pending = d.awaitingPayment.count - paymentReview;
+  const unpaidUrl = "/admin/orders/?" + new URLSearchParams({ queue: "unpaid", ...scope });
+  const reviewUrl = "/admin/orders/?" + new URLSearchParams({ queue: "review", ...scope });
+  const productionUrl = production.length === 1 ? "/admin/production/?" + new URLSearchParams({ round: production[0].code, ...scope }) : "";
+  const shipmentUrl = "/admin/shipping/?" + new URLSearchParams({ queue: "ready", ...scope });
+  renderRounds(d.round, production, scope);
+  $("cards").replaceChildren(
+    paymentReview
+      ? queueCard("ตรวจชำระ", paymentReview, "รายการ", "ออเดอร์ที่ส่งหลักฐานแล้ว", reviewUrl, "เปิดคิวตรวจชำระ")
+      : queueCard("รอโอน", pending, "รายการ", "ยังไม่มีหลักฐานชำระในระบบ", unpaidUrl, "ดูออเดอร์รอโอน"),
+    queueCard("ตรวจยอดก่อนส่งร้าน", pieces, "ตัว", pieces ? "จาก " + number.format(production.length) + " รอบที่ปิดรับ" : "ยังไม่มียอดพร้อมส่งร้าน", productionUrl || (pieces ? "#rounds" : ""), productionUrl ? "ดูยอดแยกไซส์" : "เลือกรอบที่พร้อมส่งร้าน"),
+    queueCard("เตรียมจัดส่ง", readyToShip, "พัสดุ", readyToShip ? "มีที่อยู่จัดส่งและพร้อมดำเนินการ" : "ยังไม่มีพัสดุพร้อมส่ง", shipmentUrl, "เปิดคิวจัดส่ง"),
+    queueCard("รอลูกค้ามารับ", readyToPickUp, "ออเดอร์", "นัดรับในเมืองหรือรับที่งาน", "/admin/orders/?" + new URLSearchParams({ queue: "pickup", ...scope }), "เปิดคิวนัดรับ"),
+  );
+  const alerts = $("alerts");
+  alerts.replaceChildren();
+  if (paymentReview && pending) {
+    const item = el("li");
+    item.append(el("span", "", "ลูกค้ายังรอโอน " + number.format(pending) + " รายการ · "), link("ดูรายการที่ยังไม่ยืนยันทั้งหมด", unpaidUrl));
+    alerts.append(item);
+  }
+  if (d.notifications.needsAttention) {
+    const item = el("li");
+    item.append(link("ตรวจการแจ้งเตือน " + number.format(d.notifications.needsAttention) + " รายการ", "/admin/orders/#notifs"));
+    alerts.append(item);
+  }
+  if (d.integrityViolations) alerts.append(el("li", "notice err", "ข้อมูลการชำระไม่สอดคล้อง " + number.format(d.integrityViolations) + " ออเดอร์ · แจ้งผู้ดูแลระบบ"));
+  $("follow-up").hidden = !alerts.childElementCount;
+  $("dashboard").hidden = false;
+}
+
 async function load({ quiet = false } = {}) {
-  if (busy) return; busy = true;
+  if (busy) return;
+  busy = true;
+  const includeTest = $("test").checked;
   try {
-    const [d, p] = await Promise.all([api("/api/admin/dashboard" + ($("test").checked ? "?includeTest=1" : "")), api("/api/admin/pulse")]);
-    const cards = $("cards"); cards.replaceChildren();
-    cards.append(
-      card("รอตรวจสอบการชำระเงิน", d.awaitingPayment.count, d.awaitingPayment.count ? "ยอดรวม " + baht(d.awaitingPayment.amount) : "ไม่มีรายการค้าง", d.awaitingPayment.oldest.map((o) => o.id + " · " + o.name + " · " + baht(o.total)), "/admin/orders/?status=" + encodeURIComponent("รอโอน"), "ไปตรวจสอบ"),
-      card("พร้อมส่งผลิต", d.readyForProduction.pieces + " ตัว", d.readyForProduction.orders + " ออเดอร์ (ชำระแล้ว/จ่ายหน้างาน ที่ยังไม่ตัดยอด)", d.readyForProduction.rounds.map((r) => r.name + " · " + r.pieces + " ตัว"), "/admin/production/", "ดูสรุปการผลิต"),
-      card("รอจัดส่ง", d.awaitingShipment.count, d.awaitingHandover.count ? "รอส่งมอบ (นัดรับ/รับที่งาน) " + d.awaitingHandover.count + " ออเดอร์" : "", d.awaitingShipment.orders.map((o) => o.id + " · " + (o.name || "—")), "/admin/shipping/", "ใบจ่าหน้า / จัดส่ง"),
-      card("กิจกรรมที่กำลังเปิดรับสมัคร", "—", "ระบบกิจกรรมแยกจากระบบสั่งซื้อ ดูสถานะและรายชื่อได้ใน Events Manager", [], "/admin/events/", "เปิด Events Manager"),
-    );
-    if (d.round) { const s = d.round.summary; cards.append(card("รอบสั่งซื้อ: " + d.round.name, PH[d.round.phase], "ชำระแล้ว " + s.paidOrders + " · รอโอน " + s.pendingOrders + " · จ่ายหน้างาน " + s.laterOrders + " ออเดอร์ · ยอดรับแล้ว " + baht(s.revenue), [], "/admin/orders/?round=" + d.round.code, "จัดการรอบ")); }
-    const al = $("alerts"); al.replaceChildren();
-    const n = d.notifications; if (n.failed || n.dead) { const a = el("div", "notice err", "การแจ้งเตือนส่งไม่สำเร็จ " + (n.failed + n.dead) + " รายการ "); const l = el("a", "", "ดูและส่งใหม่"); l.href = "/admin/orders/#notifs"; a.append(l); al.append(a); }
-    if (d.integrityViolations) al.append(el("div", "notice err", "พบข้อมูลการชำระเงินไม่สอดคล้อง " + d.integrityViolations + " ออเดอร์ — แจ้งผู้ดูแลระบบ (ดู /api/admin/integrity)"));
-    notice($("notice"), ""); $("live").textContent = "อัปเดตล่าสุด " + hhmm() + " · รีเฟรชอัตโนมัติทุก 15 วินาที"; refresher?.setToken(p.token);
-  } catch (e) { if (!quiet) notice($("notice"), e.userMessage || "โหลดข้อมูลไม่ได้ (" + (e.code || e.message) + ")", true); }
-  busy = false;
+    const [d, pulse] = await Promise.all([api("/api/admin/dashboard" + (includeTest ? "?includeTest=1" : "")), api("/api/admin/pulse")]);
+    if ($("test").checked !== includeTest) return;
+    renderDashboard(d, includeTest);
+    notice($("notice"), "");
+    $("fresh").hidden = true;
+    $("live").textContent = "อัปเดตล่าสุด " + time.format(new Date());
+    refresher?.setToken(pulse.token);
+  } catch (error) {
+    if (!quiet) notice($("notice"), error.userMessage || "โหลดข้อมูลไม่ได้ (" + (error.code || error.message) + ")", true);
+  } finally {
+    busy = false;
+    if ($("test").checked !== includeTest) void load();
+  }
 }
+
 $("test").checked = store.get("norx-include-test") === "1";
-$("test").onchange = () => { store.set("norx-include-test", $("test").checked ? "1" : "0"); load(); };
-$("refresh").onclick = () => load(); $("showFresh").onclick = () => load();
-const interacting = trackInteraction();
-let refresher = null;
+$("test").onchange = () => {
+  store.set("norx-include-test", $("test").checked ? "1" : "0");
+  load();
+};
+$("refresh").onclick = () => load();
+$("showFresh").onclick = () => load();
+refresher = startAutoRefresh({
+  pulse: () => api("/api/admin/pulse"),
+  reload: load,
+  interacting: trackInteraction(() => $("dashboard").contains(document.activeElement)),
+  onPending: (value) => { $("fresh").hidden = !value; },
+  onError: () => { $("live").textContent = "เชื่อมต่อไม่ได้ จะลองใหม่อัตโนมัติ"; },
+});
 await load();
-refresher = startAutoRefresh({ pulse: () => api("/api/admin/pulse"), reload: load, interacting, onPending: (v) => { $("fresh").hidden = !v; }, onError: () => { $("live").textContent = "เชื่อมต่อไม่ได้ จะลองใหม่อัตโนมัติ"; } });

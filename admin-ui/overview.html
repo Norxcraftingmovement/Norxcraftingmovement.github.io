@@ -1,9 +1,27 @@
-<!doctype html><html lang="th"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>NORX | ภาพรวม</title><link rel="stylesheet" href="/admin/assets/style.css"></head>
-<body><a class="skip" href="#main">ข้ามไปเนื้อหา</a><!--NAV-->
-<main id="main"><p class="eyebrow">OVERVIEW</p><h1>งานที่ต้องจัดการ.</h1>
-<p class="muted"><span id="live" role="status" aria-live="polite">กำลังโหลด…</span> <button type="button" class="secondary small" id="refresh">รีเฟรช</button>
-<label class="inline"><input type="checkbox" id="test"> รวมออเดอร์ทดสอบ</label></p>
+<!doctype html><html lang="th"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>NORX | ภาพรวม</title><link rel="stylesheet" href="/admin/assets/style.css?v=dashboard-v3"></head>
+<body class="overview-page"><a class="skip" href="#main">ข้ามไปเนื้อหา</a><!--NAV-->
+<main id="main" class="overview">
+<div class="dashboard-top">
+  <div><h1>ภาพรวมร้าน</h1><p id="live" class="muted" role="status" aria-live="polite">กำลังโหลด…</p></div>
+  <div class="dashboard-controls">
+    <label><input type="checkbox" id="test"> รวมออเดอร์ทดสอบ</label>
+    <button type="button" class="secondary" id="refresh">รีเฟรช</button>
+  </div>
+</div>
 <div id="notice" class="notice" role="status" hidden></div><div id="fresh" class="notice" hidden>มีการเปลี่ยนแปลงใหม่ <button type="button" class="secondary small" id="showFresh">แสดงเลย</button></div>
-<div id="alerts"></div>
-<div class="cards" id="cards" aria-live="polite"></div>
-</main><script type="module" src="/admin/assets/overview-app.mjs"></script></body></html>
+<div id="dashboard" hidden>
+  <div class="dashboard-layout">
+    <div>
+      <section class="dashboard-section" aria-labelledby="work-heading">
+        <h2 id="work-heading">งานที่ต้องทำวันนี้</h2>
+        <div id="cards" class="dashboard-queues"></div>
+      </section>
+      <section id="follow-up" class="dashboard-section" aria-labelledby="follow-heading" hidden>
+        <h2 id="follow-heading">เรื่องที่ต้องติดตาม</h2>
+        <ul id="alerts" class="dashboard-follow"></ul>
+      </section>
+    </div>
+    <aside id="rounds" class="dashboard-rounds" aria-label="สถานะรอบสั่งซื้อ"></aside>
+  </div>
+</div>
+</main><script type="module" src="/admin/assets/overview-app.mjs?v=dashboard-v3"></script></body></html>

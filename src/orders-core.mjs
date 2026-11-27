@@ -33,6 +33,7 @@ export const FROM_LEGACY = {
 export function toLegacy(payment, fulfillment) {
   if (fulfillment === "cancelled") return STATUS.CANCEL;
   if (fulfillment === "completed") return STATUS.DONE;
+  if (fulfillment === "ready_pickup" && payment === "deferred_on_site") return STATUS.LATER;
   if (["in_production", "qc", "ready_pickup", "ready_ship", "shipped"].includes(fulfillment)) return STATUS.SENT;
   return { pending: STATUS.PENDING, slip_received: STATUS.PENDING, confirmed: STATUS.PAID, deferred_on_site: STATUS.LATER, cancelled: STATUS.CANCEL, refunded: STATUS.CANCEL }[payment] ?? fail("สถานะไม่ถูกต้อง");
 }
@@ -157,10 +158,10 @@ export function shopText(s, round, config) {
  * V1 setOrderStatus rules (admin). `from` is the status the admin saw (optimistic concurrency);
  * throws the same Thai errors as V1. Returns nothing when the change is allowed.
  */
-export function checkTransition({ order, round, from, to, amount }) {
+export function checkTransition({ order, round, from, to, amount, collectingAtPickup = false }) {
   if (order.status !== from) fail("ออเดอร์ " + order.id + ' ถูกเปลี่ยนเป็น "' + order.status + '" แล้ว กรุณาโหลดใหม่');
   if (!canMove(from, to)) fail('เปลี่ยนจาก "' + from + '" เป็น "' + to + '" ไม่ได้');
-  if (round.state === "sent" && [STATUS.PENDING, STATUS.PAID, STATUS.CANCEL].includes(to)) fail("รอบนี้ส่งร้านแล้ว เปลี่ยนสถานะนี้ไม่ได้ กรุณาทักร้านเองถ้าต้องแก้ยอด");
+  if (round.state === "sent" && [STATUS.PENDING, STATUS.PAID, STATUS.CANCEL].includes(to) && !collectingAtPickup) fail("รอบนี้ส่งร้านแล้ว เปลี่ยนสถานะนี้ไม่ได้ กรุณาทักร้านเองถ้าต้องแก้ยอด");
   if (to === STATUS.DONE && from === STATUS.LATER && round.state !== "sent") fail('ยังไม่ได้ส่งร้าน ถ้าได้รับเงินแล้วให้กด "ได้รับเงินแล้ว"');
   if ([STATUS.PAID, STATUS.DONE].includes(to) && from !== STATUS.SENT && Number(amount) !== order.total) fail("ยอดเงินไม่ตรง กรุณาตรวจอีกครั้ง");
 }

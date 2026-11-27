@@ -151,8 +151,17 @@ export function legacyOrder(o, items) {
   return { id: o.order_no, roundId: o.round_code, status: core.toLegacy(o.payment_status, o.fulfillment_status), total: o.total_baht,
     items: items.map((i) => ({ product: i.slug, fit: i.fit, sleeve: i.sleeve, size: i.size, qty: i.qty })) };
 }
-export async function listOrders(env, { round, status, q, limit = 200 } = {}) {
+const PAYMENT_REVIEW = "o.payment_status='slip_received' AND o.fulfillment_status='received'";
+const PAYMENT_OUTSTANDING = "o.payment_status IN ('pending','slip_received') AND o.fulfillment_status='received'";
+export const READY_TO_SHIP = "o.delivery='ship' AND o.payment_status='confirmed' AND o.fulfillment_status='ready_ship' AND s.shipped_at IS NULL";
+const READY_TO_PICK_UP = "o.delivery IN ('city','event') AND o.fulfillment_status='ready_pickup' AND o.payment_status IN ('confirmed','deferred_on_site')";
+
+export async function listOrders(env, { round, status, q, queue, includeTest = true, limit = 200 } = {}) {
   const where = [], args = [];
+  if (queue === "review") where.push(PAYMENT_REVIEW);
+  if (queue === "unpaid") where.push(PAYMENT_OUTSTANDING);
+  if (queue === "pickup") where.push(READY_TO_PICK_UP);
+  if (!includeTest) where.push("o.is_test=0");
   if (round) { where.push("r.code=?"); args.push(round); }
   if (q) { where.push("(o.order_no LIKE ? ESCAPE '\\' OR o.customer_name LIKE ? ESCAPE '\\' OR o.customer_phone LIKE ? ESCAPE '\\')"); const l = "%" + q.replace(/[\\%_]/g, (c) => "\\" + c) + "%"; args.push(l, l, l); }
   const ppSettings = await env.ORDERS_DB.prepare("SELECT value FROM settings WHERE key='payment'").first().then((r) => (r ? JSON.parse(r.value) : null));
@@ -194,12 +203,19 @@ export async function changeStatus(env, actor, { orderNo, from, to, amount, bank
   const cur = core.toLegacy(o.payment_status, o.fulfillment_status);
   if (cur === to) return { changed: false }; // V1: same status is a no-op
   const round = (await loadConfig(env)).rounds.find((r) => r.id === o.round_code);
-  core.checkTransition({ order: { id: o.order_no, status: cur, total: o.total_baht }, round, from, to, amount });
+  const collectingAtPickup = o.fulfillment_status === "ready_pickup" && cur === STATUS.LATER && to === STATUS.PAID;
+  if (o.fulfillment_status === "ready_pickup" && cur === STATUS.LATER && to === STATUS.DONE) throw new UserError("บันทึกรับเงินก่อนส่งมอบ");
+  core.checkTransition({ order: { id: o.order_no, status: cur, total: o.total_baht }, round, from, to, amount, collectingAtPickup });
+  const isHandover = round.state === "sent" && to === STATUS.DONE;
+  if (isHandover && await db.prepare("SELECT 1 FROM order_items WHERE order_id=? AND production_status IN ('batched','produced') LIMIT 1").bind(o.id).first()) {
+    throw new UserError("ออเดอร์นี้รับเสื้อยังไม่ครบ");
+  }
   const txn = bankTxnRef === undefined || bankTxnRef === null || bankTxnRef === "" ? null : String(bankTxnRef).trim();
   if (txn !== null && !/^[A-Za-z0-9._-]{4,40}$/.test(txn)) throw new UserError("เลขอ้างอิงรายการโอนไม่ถูกต้อง (ใช้ A-Z 0-9 . _ - ความยาว 4–40)");
   if (txn !== null) { const used = await db.prepare("SELECT o.order_no n FROM payments y JOIN orders o ON o.id=y.order_id WHERE y.bank_txn_ref=?1 AND y.status='confirmed' AND y.order_id!=?2").bind(txn, o.id).first(); if (used) throw new UserError("รายการโอนนี้ถูกใช้ยืนยันออเดอร์อื่นแล้ว (" + used.n + ") ป้องกันการยืนยันซ้ำ"); }
   const m = core.FROM_LEGACY[to], at = iso(now), paidNow = core.PAID_LIKE.includes(to) && !core.PAID_LIKE.includes(cur), leavingPaid = core.PAID_LIKE.includes(cur) && !core.PAID_LIKE.includes(to);
-  const guard = "id=?1 AND payment_status=?2 AND fulfillment_status=?3 AND updated_at=?4"; // optimistic concurrency on the exact row version
+  const guard = "id=?1 AND payment_status=?2 AND fulfillment_status=?3 AND updated_at=?4" +
+    (isHandover ? " AND NOT EXISTS (SELECT 1 FROM order_items WHERE order_id=?1 AND production_status IN ('batched','produced'))" : "");
   const g = [o.id, o.payment_status, o.fulfillment_status, o.updated_at];
   const stmts = [
     db.prepare(`INSERT INTO order_status_history(order_id,kind,from_status,to_status,actor,at) SELECT id,'legacy',?5,?6,?7,?8 FROM orders WHERE ${guard}`).bind(...g, cur, to, actor, at),
@@ -209,8 +225,9 @@ export async function changeStatus(env, actor, { orderNo, from, to, amount, bank
   if (leavingPaid) stmts.push(db.prepare(`UPDATE payments SET status='void', voided_at=?5, void_reason=?6 WHERE status='confirmed' AND order_id IN (SELECT id FROM orders WHERE ${guard})`).bind(...g, at, cur + " → " + to));
   if (paidNow) stmts.push(db.prepare(`INSERT INTO payments(order_id,amount_baht,method,status,recorded_by,created_at,request_id,provider,bank_txn_ref,verified_at,verified_by) SELECT id,total_baht,?5,'confirmed',?6,?7,(SELECT id FROM payment_requests WHERE order_id=orders.id),COALESCE((SELECT provider FROM payment_requests WHERE order_id=orders.id),'manual'),?8,?7,?6 FROM orders WHERE ${guard}`).bind(...g, cur === STATUS.LATER ? "on_site" : "bank_transfer", actor, at, txn));
   const newUpdated = at > o.updated_at ? at : iso(Date.parse(o.updated_at) + 1);
+  const fulfillment = collectingAtPickup ? "ready_pickup" : m.fulfillment;
   stmts.push(db.prepare(`UPDATE orders SET payment_status=?5, fulfillment_status=?6, status_updated_at=?7, status_updated_by=?8, updated_at=?9,
-      paid_at=CASE WHEN ?10=1 THEN ?7 ELSE paid_at END, received_at=CASE WHEN ?6='completed' THEN ?7 ELSE received_at END WHERE ${guard}`).bind(...g, m.payment, m.fulfillment, at, actor, newUpdated, paidNow ? 1 : 0));
+      paid_at=CASE WHEN ?10=1 THEN ?7 ELSE paid_at END, received_at=CASE WHEN ?6='completed' THEN ?7 ELSE received_at END WHERE ${guard}`).bind(...g, m.payment, fulfillment, at, actor, newUpdated, paidNow ? 1 : 0));
   const ordersUpdateIdx = stmts.length - 1;
   // Keep the payment request in step with the order. A QR / slip never causes this; only the owner's status change does.
   const reqStatus = { confirmed: "verified", pending: "awaiting", deferred_on_site: "awaiting", cancelled: "cancelled" }[m.payment] ?? "awaiting", ver = reqStatus === "verified";
@@ -340,26 +357,34 @@ const PAIDLIKE_SQL = "(o.payment_status='confirmed' AND o.fulfillment_status!='c
 /** Overview: the work that needs the owner today. `includeTest` shows synthetic/test orders (staging). */
 export async function dashboard(env, { now = Date.now(), includeTest = false } = {}) {
   const db = env.ORDERS_DB, w = T(includeTest), one = (sql, ...a) => db.prepare(sql).bind(...a).first(), all = (sql, ...a) => rowsOf(db.prepare(sql).bind(...a));
-  const [pend, pendList, prod, prodByRound, ship, pickup, notif] = await Promise.all([
-    one(`SELECT COUNT(*) n, COALESCE(SUM(o.total_baht),0) amt FROM orders o WHERE ${w} AND o.payment_status IN ('pending','slip_received') AND o.fulfillment_status='received'`),
-    all(`SELECT o.order_no id, o.customer_name name, o.total_baht total, o.created_at createdAt, r.code round FROM orders o JOIN rounds r ON r.id=o.round_id WHERE ${w} AND o.payment_status IN ('pending','slip_received') AND o.fulfillment_status='received' ORDER BY o.created_at LIMIT 5`),
+  const [pend, pendList, prod, prodByRound, ship, pickup, notif, review, readyShip, readyPickup] = await Promise.all([
+    one(`SELECT COUNT(*) n, COALESCE(SUM(o.total_baht),0) amt FROM orders o WHERE ${w} AND ${PAYMENT_OUTSTANDING}`),
+    all(`SELECT o.order_no id, o.customer_name name, o.total_baht total, o.created_at createdAt, r.code round FROM orders o JOIN rounds r ON r.id=o.round_id WHERE ${w} AND ${PAYMENT_OUTSTANDING} ORDER BY o.created_at LIMIT 5`),
     one(`SELECT COUNT(DISTINCT o.id) orders, COALESCE(SUM(i.qty),0) pieces FROM orders o JOIN rounds r ON r.id=o.round_id JOIN order_items i ON i.order_id=o.id WHERE ${w} AND r.status!='sent' AND o.fulfillment_status='received' AND o.payment_status IN ('confirmed','deferred_on_site')`),
     all(`SELECT r.code, r.name, r.closes_at closesAt, COALESCE(SUM(i.qty),0) pieces, COUNT(DISTINCT o.id) orders FROM orders o JOIN rounds r ON r.id=o.round_id JOIN order_items i ON i.order_id=o.id WHERE ${w} AND r.status!='sent' AND o.fulfillment_status='received' AND o.payment_status IN ('confirmed','deferred_on_site') GROUP BY r.id ORDER BY r.id DESC`),
     one(`SELECT COUNT(*) n FROM orders o LEFT JOIN shipments s ON s.order_id=o.id WHERE ${w} AND o.delivery='ship' AND o.payment_status='confirmed' AND o.fulfillment_status IN ('in_production','qc','ready_ship') AND s.shipped_at IS NULL`),
     one(`SELECT COUNT(*) n FROM orders o WHERE ${w} AND o.delivery IN ('city','event') AND o.payment_status IN ('confirmed','deferred_on_site') AND o.fulfillment_status IN ('in_production','qc','ready_pickup')`),
-    one(`SELECT COALESCE(SUM(status='queued'),0) queued, COALESCE(SUM(status IN ('failed','sending')),0) failed, COALESCE(SUM(status='dead'),0) dead FROM notification_queue WHERE status!='sent'`),
+    one(`SELECT COALESCE(SUM(n.status='queued'),0) queued, COALESCE(SUM(n.status IN ('failed','sending')),0) failed, COALESCE(SUM(n.status='dead'),0) dead,
+                COALESCE(SUM(n.status IN ('failed','dead','unconfirmed')),0) needsAttention
+         FROM notification_queue n JOIN orders o ON o.id=n.order_id WHERE ${w} AND n.status!='sent'`),
+    one(`SELECT COUNT(*) n FROM orders o WHERE ${w} AND ${PAYMENT_REVIEW}`),
+    one(`SELECT COUNT(*) n FROM orders o JOIN shipping_addresses a ON a.order_id=o.id LEFT JOIN shipments s ON s.order_id=o.id WHERE ${w} AND ${READY_TO_SHIP}`),
+    one(`SELECT COUNT(*) n FROM orders o WHERE ${w} AND ${READY_TO_PICK_UP}`),
   ]);
   const shipList = await all(`SELECT o.order_no id, a.recipient name, o.total_baht total FROM orders o LEFT JOIN shipping_addresses a ON a.order_id=o.id LEFT JOIN shipments s ON s.order_id=o.id WHERE ${w} AND o.delivery='ship' AND o.payment_status='confirmed' AND o.fulfillment_status IN ('in_production','qc','ready_ship') AND s.shipped_at IS NULL ORDER BY o.created_at LIMIT 5`);
   const config = await loadConfig(env).catch(() => ({ rounds: [] }));
   const accepting = core.currentRound(config, now), live = accepting || config.rounds.filter((r) => r.state !== "draft").at(-1) || null;
   let round = null;
-  if (live) { const all2 = await roundsWithSummary(env, now); const r = all2.rounds.find((x) => x.id === live.id); round = { code: r.id, name: r.name, phase: r.phase, closesAt: r.closesAt, summary: r.summary }; }
+  if (live) { const all2 = await roundsWithSummary(env, now); const r = all2.rounds.find((x) => x.id === live.id); round = { code: r.id, name: r.name, phase: r.phase, opensAt: r.opensAt, closesAt: r.closesAt, paymentDue: r.paymentDue, summary: r.summary }; }
+  const closedRounds = new Set(config.rounds.filter((r) => core.phase(r, now) === "closed").map((r) => r.id));
+  const productionQueue = prodByRound.filter((r) => closedRounds.has(r.code));
   const violations = (await paymentIntegrity(env)).length;
   return {
     awaitingPayment: { count: pend.n, amount: pend.amt, oldest: pendList },
     readyForProduction: { orders: prod.orders, pieces: prod.pieces, rounds: prodByRound },
     awaitingShipment: { count: ship.n, orders: shipList }, awaitingHandover: { count: pickup.n },
-    notifications: { queued: notif.queued, failed: notif.failed, dead: notif.dead },
+    notifications: { queued: notif.queued, failed: notif.failed, dead: notif.dead, needsAttention: notif.needsAttention },
+    work: { paymentReview: review.n, production: productionQueue, readyToShip: readyShip.n, readyToPickUp: readyPickup.n },
     round, integrityViolations: violations, includeTest,
     events: null, // Events live in a separate system/DB (kept isolated); shown as a link, not read from here
   };
@@ -395,17 +420,73 @@ export function productionCsv(sum) {
 
 // Batch update of production status for a lot (V1 had none). Only after cut-off (round "sent"); atomic; guarded by the piece count the admin saw.
 export const ITEM_MOVES = { batched: ["produced"], produced: ["batched", "received"], received: ["produced"] };
-export async function setItemsStatus(env, actor, { round, from, to, product = null, sleeve = null, size = null, expected, now = Date.now() }) {
+const RECEIPT_ORDER = "(o.payment_status='confirmed' OR (o.payment_status='deferred_on_site' AND o.delivery IN ('city','event'))) AND o.fulfillment_status IN ('received','in_production','qc','ready_ship','ready_pickup') AND NOT EXISTS (SELECT 1 FROM shipments s WHERE s.order_id=o.id AND s.shipped_at IS NOT NULL)";
+
+function syncReceiptStatus(db, roundId, actor, at, undo = false) {
+  const complete = "NOT EXISTS (SELECT 1 FROM order_items i WHERE i.order_id=o.id AND i.production_status!='received')";
+  return db.prepare(`UPDATE orders AS o SET fulfillment_status=CASE
+      WHEN ${complete} THEN CASE WHEN o.delivery='ship' THEN 'ready_ship' ELSE 'ready_pickup' END
+      WHEN o.payment_status='deferred_on_site' THEN 'received' ELSE 'in_production' END,
+      status_updated_at=?2,status_updated_by=?3,updated_at=?2
+    WHERE o.round_id=?1 AND changes()>0 AND (${RECEIPT_ORDER})
+      AND EXISTS (SELECT 1 FROM order_items i WHERE i.order_id=o.id)
+      AND ((o.fulfillment_status NOT IN ('ready_ship','ready_pickup') AND ${complete})
+        OR (?4=1 AND o.fulfillment_status IN ('ready_ship','ready_pickup') AND NOT (${complete})))`).bind(roundId, at, actor, undo ? 1 : 0);
+}
+
+export async function receiptLines(env, code, includeTest) {
+  const r = roundOf(await loadConfig(env), code);
+  if (r.state !== "sent") throw new UserError("ต้องตัดยอดส่งร้านก่อน");
+  const lines = await rowsOf(env.ORDERS_DB.prepare(`SELECT i.id, o.order_no AS orderNo, i.product_name AS product,
+      i.sleeve, i.size, i.qty, i.received_qty AS received
+    FROM order_items i JOIN orders o ON o.id=i.order_id
+    WHERE o.round_id=?1 AND (${RECEIPT_ORDER}) AND i.production_status='produced'
+      AND i.received_qty<i.qty AND (?2=1 OR o.is_test=0)
+    ORDER BY i.product_name,i.sleeve,i.size,o.created_at,i.id`).bind(r.dbId, includeTest ? 1 : 0));
+  return { round: r.id, lines };
+}
+
+export async function receivePartial(env, actor, { round, lines, includeTest = false, now = Date.now() }) {
+  if (!Array.isArray(lines) || !lines.length || lines.length > 100 ||
+      lines.some(l => !l || ![l.id, l.expected, l.add].every(Number.isSafeInteger) || l.id < 1 || l.expected < 0 || l.add < 1 || l.expected + l.add > 99) ||
+      new Set(lines.map(l => l.id)).size !== lines.length) throw new UserError("ตรวจจำนวนที่รับและรายการที่เลือก (สูงสุด 100 แถว)");
+  const r = roundOf(await loadConfig(env), round);
+  if (r.state !== "sent") throw new UserError("ต้องตัดยอดส่งร้านก่อน");
+  const db = env.ORDERS_DB, input = J(lines.map(({ id, expected, add }) => ({ id, expected, add }))), at = iso(now);
+  const valid = `SELECT i.id FROM json_each(?1) x JOIN order_items i ON i.id=json_extract(x.value,'$.id')
+    JOIN orders o ON o.id=i.order_id JOIN rounds r ON r.id=o.round_id
+    WHERE r.id=?2 AND r.status='sent' AND (${RECEIPT_ORDER}) AND (?3=1 OR o.is_test=0)
+      AND i.production_status='produced' AND i.received_qty=json_extract(x.value,'$.expected')
+      AND i.received_qty+json_extract(x.value,'$.add')<=i.qty`;
+  const add = "(SELECT json_extract(value,'$.add') FROM json_each(?1) WHERE json_extract(value,'$.id')=order_items.id)";
+  const result = await db.batch([
+    db.prepare(`WITH eligible AS MATERIALIZED (${valid})
+      UPDATE order_items SET received_qty=received_qty+${add},
+      production_status=CASE WHEN received_qty+${add}=qty THEN 'received' ELSE 'produced' END
+      WHERE id IN (SELECT id FROM eligible) AND (SELECT COUNT(*) FROM eligible)=?4`).bind(input, r.dbId, includeTest ? 1 : 0, lines.length),
+    syncReceiptStatus(db, r.dbId, actor, at),
+  ]);
+  if (result[0].meta.changes !== lines.length) throw new UserError("รายการหรือยอดรับเปลี่ยนไปแล้ว กรุณาเปิดคิวรับของใหม่ก่อนบันทึก");
+  const pieces = lines.reduce((sum, line) => sum + line.add, 0);
+  await audit(env, actor, "production.partial_receipt", round, null, { lines: JSON.parse(input), pieces });
+  return { pieces };
+}
+
+export async function setItemsStatus(env, actor, { round, from, to, product = null, sleeve = null, size = null, expected, includeTest = true, now = Date.now() }) {
   if (!(ITEM_MOVES[from] || []).includes(to)) throw new UserError("เปลี่ยนสถานะการผลิตจาก " + from + " เป็น " + to + " ไม่ได้");
   if (sleeve && !["short", "long"].includes(sleeve)) throw new UserError("แขนไม่ถูกต้อง");
   if (!Number.isSafeInteger(expected) || expected < 1) throw new UserError("จำนวนที่คาดหวังไม่ถูกต้อง");
   const r = roundOf(await loadConfig(env), round);
   if (r.state !== "sent") throw new UserError("ต้องตัดยอดส่งร้านก่อน จึงจะอัปเดตสถานะการผลิตได้");
   const db = env.ORDERS_DB, at = iso(now);
-  const cond = `i.production_status=?2 AND o.round_id=?1 AND o.payment_status IN ('confirmed','deferred_on_site') AND o.fulfillment_status!='cancelled' AND (?4 IS NULL OR i.sleeve=?4) AND (?5 IS NULL OR i.size=?5) AND (?6 IS NULL OR i.product_id=(SELECT id FROM products WHERE slug=?6))`;
-  const piecesSql = `(SELECT COALESCE(SUM(i.qty),0) FROM order_items i JOIN orders o ON o.id=i.order_id WHERE ${cond})`;
+  const receiving = to === "received" || from === "received";
+  const receiptGuard = receiving ? RECEIPT_ORDER : "o.payment_status IN ('confirmed','deferred_on_site') AND o.fulfillment_status!='cancelled' AND i.received_qty=0";
+  const cond = `i.production_status=?2 AND o.round_id=?1 AND (${receiptGuard}) AND (?4 IS NULL OR i.sleeve=?4) AND (?5 IS NULL OR i.size=?5) AND (?6 IS NULL OR i.product_id=(SELECT id FROM products WHERE slug=?6)) AND (?8=1 OR o.is_test=0)`;
   const res = await db.batch([
-    db.prepare(`UPDATE order_items SET production_status=?3 WHERE id IN (SELECT i.id FROM order_items i JOIN orders o ON o.id=i.order_id WHERE ${cond}) AND ${piecesSql}=?7`).bind(r.dbId, from, to, sleeve, size, product, expected),
+    db.prepare(`WITH eligible AS MATERIALIZED (SELECT i.id,i.qty FROM order_items i JOIN orders o ON o.id=i.order_id WHERE ${cond})
+      UPDATE order_items SET production_status=?3, received_qty=CASE WHEN ?3='received' THEN qty ELSE 0 END
+      WHERE id IN (SELECT id FROM eligible) AND (SELECT COALESCE(SUM(qty),0) FROM eligible)=?7`).bind(r.dbId, from, to, sleeve, size, product, expected, includeTest ? 1 : 0),
+    ...(receiving ? [syncReceiptStatus(db, r.dbId, actor, at, from === "received")] : []),
   ]);
   if (res[0].meta.changes < 1) throw new UserError("จำนวนชิ้นเปลี่ยนไปจากที่เห็น กรุณาโหลดใหม่");
   await audit(env, actor, "production.items_status", round, { from, product, sleeve, size }, { to, pieces: expected, rows: res[0].meta.changes });
