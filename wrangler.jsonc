@@ -9,6 +9,8 @@
     "binding": "ASSETS",
     "run_worker_first": [
       "/api/events/*",
+      "/admin",
+      "/admin/",
       "/admin/media",
       "/admin/media/*",
       "/media/events/*",

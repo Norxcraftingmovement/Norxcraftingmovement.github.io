@@ -26,3 +26,27 @@ test('only exact admin routes and production host allowed; no writes without aut
  assert.equal((await worker.fetch(req('/admin/media/'),env,context())).status,200);
  assert.equal((await worker.fetch(req('/admin/events/qr'),env,context())).headers.get('content-type'),'image/png');
 });
+test('unified console requires verified owner and uses read-only aggregates',async()=>{
+  const {adminEntry}=await import('../src/admin-console.mjs');
+  const entry=adminEntry(req('/admin/'));
+  assert.equal(entry.status,302);
+  assert.equal(entry.headers.get('location'),origin+'/admin/events/console');
+  assert.equal(await entry.text(),'');
+  assert.equal(adminEntry(req('/admin/',{method:'POST'})).status,405);
+  assert.equal(adminEntry(req('/admin/',{},'https://example.com')).status,404);
+  assert.equal((await worker.fetch(req('/admin/events/console'),env,{})).status,403);
+  assert.equal((await worker.fetch(req('/admin/events/console'),env,context('other@example.com'))).status,403);
+  const fakeDB={prepare(sql){assert.match(sql,/^SELECT /);return {bind(){return this},async first(){return sql.includes('COUNT')?{total:17,checked:3}:{registration_open:0}}}}};
+  const r=await worker.fetch(req('/admin/events/console'),{...env,EVENTS_REGISTRATION_OPEN:'admin',EVENTS_DB:fakeDB},context());
+  assert.equal(r.status,200);assert.equal(r.headers.get('X-NORX-Admin-Auth'),'access-context');
+  assert.equal(r.headers.get('cache-control'),'no-store');
+  const html=await r.text();assert.match(html,/ADMIN CONSOLE/);assert.match(html,/ปิดรับสมัคร/);assert.match(html,/>17</);assert.match(html,/>3</);assert.match(html,/href="\/admin\/media\//);
+  assert.equal((await worker.fetch(req('/admin/events/console',{method:'POST'}),env,context())).status,405);
+});
+test('public worker entry redirects but never serves the private console',async()=>{
+  const {default:publicWorker}=await import('../src/events-worker.mjs');
+  const r=await publicWorker.fetch(req('/admin'),{});
+  assert.equal(r.status,302);assert.equal(r.headers.get('location'),origin+'/admin/events/console');
+  assert.equal((await publicWorker.fetch(req('/admin/events/console'),{})).status,403);
+  assert.equal((await publicWorker.fetch(req('/admin/events/console',{},'https://preview.example.com'),{})).status,403);
+});

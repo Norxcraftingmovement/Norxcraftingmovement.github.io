@@ -1,6 +1,7 @@
 import { registrationState, slug } from "./event-registration-control.mjs";
 import { eventAdminFetch } from "./event-admin-worker.mjs";
 import { mediaFetch } from "./media-worker.mjs";
+import { adminEntry, consolePath } from "./admin-console.mjs";
 const route = "/api/events/move-kids-2026/registration";
 const qaRoute = "/api/events/move-kids-2026/qa";
 const qaOrigin = "https://feature-move-kids-qa-norx-crafting-movement.norx-craftingmovement.workers.dev";
@@ -144,6 +145,9 @@ async function runQA(request, env, url) {
 
 export default {
   async fetch(request, env) {
+    const entry = adminEntry(request);
+    if (entry) return entry;
+    if (new URL(request.url).pathname === consolePath) return reply({error:"ACCESS_REQUIRED"},403);
     const eventAdmin = await eventAdminFetch(request, env);
     if (eventAdmin) return eventAdmin;
     const media = await mediaFetch(request, env);

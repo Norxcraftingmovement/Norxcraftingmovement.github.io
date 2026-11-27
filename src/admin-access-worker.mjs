@@ -1,5 +1,6 @@
 import {eventAdminFetch} from "./event-admin-worker.mjs";
 import {mediaFetch} from "./media-worker.mjs";
+import {adminConsole, consolePath} from "./admin-console.mjs";
 
 // Only trust Cloudflare-provided invocation identity, never user-supplied headers.
 // This Worker must be deployed without Static Assets, which strip ctx.access.
@@ -19,7 +20,7 @@ export default {
     if(u.origin!=="https://norxcraftingmovement.com"||!/^\/admin\/(?:events|media)(?:\/|$)/.test(u.pathname))return reply("NOT_FOUND",404);
     if(!(await verifiedOwner(ctx,env)))return reply("ACCESS_REQUIRED",403);
     const allow=async()=>true; // owner identity verified above by trusted runtime context
-    const response=await eventAdminFetch(request,env,allow)??await mediaFetch(request,env,allow);
+    const response=u.pathname===consolePath ? await adminConsole(env,request.method) : await eventAdminFetch(request,env,allow)??await mediaFetch(request,env,allow);
     if(!response)return reply("NOT_FOUND",404);
     const headers=new Headers(response.headers);
     headers.set("X-NORX-Admin-Auth","access-context");
