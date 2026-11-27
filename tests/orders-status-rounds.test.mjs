@@ -31,7 +31,7 @@ test("stale admin view and illegal moves are refused; concurrent identical click
   assert.equal(sqlite.prepare("SELECT COUNT(*) n FROM payments").get().n,2,"one payment per paid order, none duplicated");
   await rejects(svc.changeStatus(env,"a",{orderNo:"NORX-NOPE0000",from:S.PENDING,to:S.PAID,now:NOW}),/ไม่พบออเดอร์/);
 });
-test("จ่ายหน้างาน is NOT paid: no payment/paid_at, counted in production, excluded from revenue; later becomes paid on delivery",async()=>{
+test("จ่ายหน้างาน is NOT paid: no payment/paid_at, counted in production, excluded from revenue; at pickup the money is collected (on_site) before hand-over",async()=>{
   const {env,sqlite}=await setupV1();
   const a=await mk(env,{delivery:"event"}),b=await mk(env,{items:[{product:"drop02",fit:"regular",sleeve:"long",size:"M",qty:1}]},590);
   await svc.changeStatus(env,"adm",{orderNo:a.id,from:S.PENDING,to:S.LATER,now:NOW});
@@ -47,7 +47,16 @@ test("จ่ายหน้างาน is NOT paid: no payment/paid_at, counted
   const sent=await svc.sendToShop(env,"adm","ROUND-001",3,CLOSED);assert.deepEqual(sent,{sent:1,pieces:3});
   assert.deepEqual({...st(sqlite,b.id)},{p:"confirmed",f:"in_production"});assert.deepEqual({...st(sqlite,a.id)},{p:"deferred_on_site",f:"received"});
   assert.equal(sqlite.prepare("SELECT COUNT(*) n FROM order_items WHERE production_status='batched'").get().n,2,"both orders' items batched");
-  await svc.changeStatus(env,"adm",{orderNo:a.id,from:S.LATER,to:S.DONE,amount:980,now:CLOSED});
+  // Partial receipts (0002, recovered from staging Admin 589b707d): nothing is handed over before the shirts are back from the factory
+  await rejects(svc.changeStatus(env,"adm",{orderNo:a.id,from:S.LATER,to:S.DONE,amount:980,now:CLOSED}),/รับเสื้อยังไม่ครบ/);
+  await svc.setItemsStatus(env,"adm",{round:"ROUND-001",from:"batched",to:"produced",expected:3,now:CLOSED});
+  await svc.setItemsStatus(env,"adm",{round:"ROUND-001",from:"produced",to:"received",expected:3,now:CLOSED});
+  assert.deepEqual({...st(sqlite,a.id)},{p:"deferred_on_site",f:"ready_pickup"},"received → waiting for pickup, still unpaid");
+  // At pickup the money is recorded first (method on_site), then the hand-over
+  await rejects(svc.changeStatus(env,"adm",{orderNo:a.id,from:S.LATER,to:S.DONE,amount:980,now:CLOSED}),/บันทึกรับเงินก่อนส่งมอบ/);
+  await svc.changeStatus(env,"adm",{orderNo:a.id,from:S.LATER,to:S.PAID,amount:980,now:CLOSED});
+  assert.deepEqual({...st(sqlite,a.id)},{p:"confirmed",f:"ready_pickup"});
+  await svc.changeStatus(env,"adm",{orderNo:a.id,from:S.SENT,to:S.DONE,now:CLOSED});
   assert.deepEqual({...st(sqlite,a.id)},{p:"confirmed",f:"completed"});
   assert.equal(sqlite.prepare("SELECT method m FROM payments WHERE order_id=(SELECT id FROM orders WHERE order_no=?)").get(a.id).m,"on_site");
   assert.ok(sqlite.prepare("SELECT received_at r FROM orders WHERE order_no=?").get(a.id).r);
@@ -62,6 +71,10 @@ test("V1 rule: after cut-off ('sent') pending/paid/cancel changes are blocked; o
   await svc.sendToShop(env,"x","ROUND-001",4,CLOSED);
   await rejects(svc.changeStatus(env,"x",{orderNo:a.id,from:S.SENT,to:S.PENDING,now:CLOSED}),/ไม่ได้/);
   await rejects(svc.changeStatus(env,"x",{orderNo:b.id,from:S.LATER,to:S.CANCEL,now:CLOSED}),/รอบนี้ส่งร้านแล้ว/);
+  // Partial receipts (recovered from staging 589b707d): hand-over waits until the order's shirts are received
+  await rejects(svc.changeStatus(env,"x",{orderNo:a.id,from:S.SENT,to:S.DONE,now:CLOSED}),/รับเสื้อยังไม่ครบ/);
+  await svc.setItemsStatus(env,"x",{round:"ROUND-001",from:"batched",to:"produced",expected:4,now:CLOSED});
+  await svc.setItemsStatus(env,"x",{round:"ROUND-001",from:"produced",to:"received",expected:4,now:CLOSED});
   assert.deepEqual(await svc.changeStatus(env,"x",{orderNo:a.id,from:S.SENT,to:S.DONE,now:CLOSED}),{changed:true,status:S.DONE});
 });
 test("cutoff preconditions: must be closed, no unpaid, pieces match; whole thing is atomic",async()=>{

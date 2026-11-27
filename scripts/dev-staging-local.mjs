@@ -3,7 +3,7 @@
 // In-memory SQLite, SYNTHETIC catalog/bank/PromptPay data, mock e-mail binding. Requests carrying "x-dev-anon: 1" are treated
 // as unauthenticated (what Cloudflare Access would stop at the edge). Never touches Cloudflare or any real data.
 import http from "node:http";
-import { readFileSync, existsSync, statSync } from "node:fs";
+import { readFileSync, existsSync, statSync, readdirSync } from "node:fs";
 import { join, extname } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { fileURLToPath } from "node:url";
@@ -13,7 +13,9 @@ import { putPaymentSettings, verifyPaymentSettings } from "../src/payments.mjs";
 const root = fileURLToPath(new URL("../", import.meta.url)), read = (p) => readFileSync(join(root, p), "utf8");
 const types = { ".html": "text/html; charset=utf-8", ".js": "text/javascript", ".css": "text/css", ".jpg": "image/jpeg", ".png": "image/png", ".svg": "image/svg+xml", ".json": "application/json", ".woff2": "font/woff2", ".txt": "text/plain" };
 export async function start(port = 0, { emailFails = false, staticDir = join(root, "dist-staging"), rateLimit = null, edgeAccess = true } = {}) {
-  const sqlite = new DatabaseSync(":memory:"); sqlite.exec("PRAGMA foreign_keys=ON"); sqlite.exec(read("migrations/orders/0001_core.sql")); sqlite.exec("INSERT INTO meta(key,value) VALUES ('environment','staging')");
+  const sqlite = new DatabaseSync(":memory:"); sqlite.exec("PRAGMA foreign_keys=ON");
+  for (const f of readdirSync(join(root, "migrations/orders")).filter((f) => f.endsWith(".sql")).sort()) sqlite.exec(read("migrations/orders/" + f)); // all migrations, in order
+  sqlite.exec("INSERT INTO meta(key,value) VALUES ('environment','staging')");
   const stmt = (sql, args = []) => ({ bind: (...a) => stmt(sql, a), first: async () => sqlite.prepare(sql).get(...args) ?? null, all: async () => ({ results: sqlite.prepare(sql).all(...args) }), run: async () => ({ success: true, meta: { changes: sqlite.prepare(sql).run(...args).changes } }), _run: () => ({ success: true, meta: { changes: sqlite.prepare(sql).run(...args).changes } }) });
   const db = { prepare: (s) => stmt(s), batch: async (l) => { sqlite.exec("BEGIN"); try { const o = l.map((s) => s._run()); sqlite.exec("COMMIT"); return o; } catch (e) { sqlite.exec("ROLLBACK"); throw e; } } };
   sqlite.exec(`INSERT INTO products(id,slug,name,short_name,fit,fit_name,status,sort) VALUES (1,'drop03','HOME TERRAIN EDITION','DROP 03','boxy','ทรง Boxy','active',0),(2,'drop02','WOVEN STRIDE EDITION','DROP 02','regular','ทรงปกติ','active',1);

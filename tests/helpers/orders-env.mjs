@@ -1,6 +1,8 @@
 import {DatabaseSync} from "node:sqlite";
-import {readFileSync} from "node:fs";
+import {readFileSync,readdirSync} from "node:fs";
 const read=p=>readFileSync(new URL("../../"+p,import.meta.url),"utf8");
+// All Orders migrations in order (0001_core, 0002_partial_receipts, ...), exactly as D1 applies them.
+export const migrate=sqlite=>{for(const f of readdirSync(new URL("../../migrations/orders/",import.meta.url)).filter(f=>f.endsWith(".sql")).sort())sqlite.exec(read("migrations/orders/"+f));};
 export const origin="https://orders.test";
 // Minimal D1 emulation (prepare/bind/first/all/run/batch) over node:sqlite.
 export function d1(sqlite,hooks={}){
@@ -15,7 +17,7 @@ export function d1(sqlite,hooks={}){
 }
 export async function setup({seed=true}={}){
   const sqlite=new DatabaseSync(":memory:");sqlite.exec("PRAGMA foreign_keys=ON");
-  sqlite.exec(read("migrations/orders/0001_core.sql"));
+  migrate(sqlite);
   if(seed)sqlite.exec(read("seeds/orders-staging-synthetic.sql"));
   const h=await crypto.subtle.digest("SHA-256",new TextEncoder().encode("owner@example.test"));
   const env={ENVIRONMENT:"staging",ORDERS_DB_LABEL:"staging",ORDERS_ALLOWED_ORIGIN:origin,ORDERS_DB:d1(sqlite),MEDIA_ADMIN_ENABLED:"1",MEDIA_ACCESS_AUD:"aud",
@@ -30,7 +32,7 @@ export const T0=Date.parse("2026-12-01T00:00:00+07:00"),DAY=864e5;
 export const NOW=T0+2*DAY; // inside ROUND-001
 export async function setupV1({live=true,rolling=false,rounds=true}={}){
   const sqlite=new DatabaseSync(":memory:");sqlite.exec("PRAGMA foreign_keys=ON");
-  sqlite.exec(read("migrations/orders/0001_core.sql"));
+  migrate(sqlite);
   sqlite.exec("INSERT INTO meta(key,value) VALUES ('environment','staging')");
   sqlite.exec(`INSERT INTO products(id,slug,name,short_name,fit,fit_name,status,sort) VALUES
     (1,'drop03','HOME TERRAIN EDITION','DROP 03','boxy','ทรง Boxy','active',0),(2,'drop02','WOVEN STRIDE EDITION','DROP 02','regular','ทรงปกติ','active',1);

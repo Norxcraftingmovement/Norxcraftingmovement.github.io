@@ -2,13 +2,14 @@
 // The "owner" is faked locally; this never touches Cloudflare, production data or any real credentials.
 import http from "node:http";
 import {DatabaseSync} from "node:sqlite";
-import {readFileSync} from "node:fs";
+import {readFileSync,readdirSync} from "node:fs";
 import worker from "../src/orders-admin-worker.mjs";
 import * as svc from "../src/orders-service.mjs";
 const read=p=>readFileSync(new URL("../"+p,import.meta.url),"utf8");
 export async function start(port=0){
   const sqlite=new DatabaseSync(":memory:");sqlite.exec("PRAGMA foreign_keys=ON");
-  sqlite.exec(read("migrations/orders/0001_core.sql"));sqlite.exec(read("seeds/orders-staging-synthetic.sql"));
+  for(const f of readdirSync(new URL("../migrations/orders/",import.meta.url)).filter(f=>f.endsWith(".sql")).sort())sqlite.exec(read("migrations/orders/"+f));
+  sqlite.exec(read("seeds/orders-staging-synthetic.sql"));
   const stmt=(sql,args=[])=>({bind:(...a)=>stmt(sql,a),first:async()=>sqlite.prepare(sql).get(...args)??null,all:async()=>({results:sqlite.prepare(sql).all(...args)}),
     run:async()=>({success:true,meta:{changes:sqlite.prepare(sql).run(...args).changes}}),_run:()=>({success:true,meta:{changes:sqlite.prepare(sql).run(...args).changes}})});
   // D1 semantics: batch = one transaction returning per-statement results (meta.changes)
