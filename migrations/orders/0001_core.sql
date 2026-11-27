@@ -63,7 +63,7 @@ CREATE TABLE notification_queue (id INTEGER PRIMARY KEY, order_id INTEGER REFERE
   payload TEXT NOT NULL CHECK (json_valid(payload)),
   status TEXT NOT NULL DEFAULT 'queued' CHECK (status IN ('queued','sending','sent','failed','dead')),
   attempts INTEGER NOT NULL DEFAULT 0, max_attempts INTEGER NOT NULL DEFAULT 5, next_attempt_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
-  locked_at TEXT, last_error TEXT, created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')), sent_at TEXT,
+  locked_at TEXT, provider_called_at TEXT, possible_duplicate INTEGER NOT NULL DEFAULT 0 CHECK (possible_duplicate IN (0,1)), last_error TEXT, created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')), sent_at TEXT,
   UNIQUE (order_id, channel, template)) STRICT;
 CREATE INDEX idx_notif_due ON notification_queue(status, next_attempt_at);
 CREATE TABLE notification_failures (id INTEGER PRIMARY KEY, queue_id INTEGER NOT NULL REFERENCES notification_queue(id), at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),

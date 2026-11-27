@@ -88,5 +88,6 @@ test("both Orders Workers: staging fully isolated from production (DB, rate-limi
   assert.notEqual(ns(pubCfg.env.staging),String(prod.ratelimits[0].namespace_id),"does not share the events rate-limit namespace");
   assert.ok(pubCfg.env.staging.triggers.crons.length===1,"notification cron on public worker");
   assert.ok(!("triggers" in cfg.env.staging),"admin worker has no cron");
-  assert.ok(!JSON.stringify(pubCfg.env.staging.vars).includes("norxcraftingmovement.com"),"staging public worker does not allow the production storefront origin");
+  assert.ok(!/https:\/\/norxcraftingmovement\.com(?![.\w])/.test(JSON.stringify(pubCfg.env.staging.vars)+JSON.stringify(cfg.env.staging.vars)),"staging workers do not allow the production apex origin");
+  assert.equal(pubCfg.env.staging.vars.ORDERS_PUBLIC_ORIGINS,"https://staging.norxcraftingmovement.com");assert.equal(cfg.env.staging.vars.ORDERS_ALLOWED_ORIGIN,"https://staging.norxcraftingmovement.com");
 });

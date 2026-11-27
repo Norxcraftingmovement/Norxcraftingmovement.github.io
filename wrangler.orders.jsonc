@@ -7,7 +7,7 @@
     "staging": {
       "name": "norx-orders-staging",
       "workers_dev": false,
-      "vars": { "ENVIRONMENT": "staging", "ORDERS_DB_LABEL": "staging", "ORDERS_ALLOWED_ORIGIN": "https://REPLACE-STAGING-HOST" },
+      "vars": { "ENVIRONMENT": "staging", "ORDERS_DB_LABEL": "staging", "ORDERS_ALLOWED_ORIGIN": "https://staging.norxcraftingmovement.com" },
       "d1_databases": [
         { "binding": "ORDERS_DB", "database_name": "norx-orders-staging", "database_id": "REPLACE_WITH_STAGING_DB_ID", "migrations_dir": "migrations/orders" }
       ]

@@ -7,7 +7,7 @@
     "staging": {
       "name": "norx-orders-public-staging",
       "workers_dev": false,
-      "vars": { "ENVIRONMENT": "staging", "ORDERS_DB_LABEL": "staging", "ORDERS_PUBLIC_ORIGINS": "https://REPLACE-STAGING-STOREFRONT-ORIGIN" },
+      "vars": { "ENVIRONMENT": "staging", "ORDERS_DB_LABEL": "staging", "ORDERS_PUBLIC_ORIGINS": "https://staging.norxcraftingmovement.com" },
       "triggers": { "crons": ["* * * * *"] },
       "d1_databases": [
         { "binding": "ORDERS_DB", "database_name": "norx-orders-staging", "database_id": "REPLACE_WITH_STAGING_DB_ID" }
