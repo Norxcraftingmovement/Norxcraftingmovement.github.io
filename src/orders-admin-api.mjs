@@ -89,6 +89,7 @@ export async function putAddress(request, env, actor, orderId) {
   if (!before) return bad("NOT_FOUND", 404);
   await env.ORDERS_DB.prepare("UPDATE shipping_addresses SET recipient=?2,phone=?3,address=?4,postal_code=?5,edited_at=?6 WHERE order_id=?1")
     .bind(orderId, a.recipient, a.phone, a.address, zip, new Date().toISOString()).run();
+  await env.ORDERS_DB.prepare("UPDATE orders SET updated_at=?2 WHERE id=?1").bind(orderId, new Date().toISOString()).run(); // keeps admin auto-refresh and sync guards honest
   await audit(env, actor, "address.update", "orders", orderId, before, { ...a, postal_code: zip });
   return json({ ok: true });
 }

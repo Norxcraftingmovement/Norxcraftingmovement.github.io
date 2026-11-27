@@ -19,7 +19,7 @@ CREATE TABLE rounds (id INTEGER PRIMARY KEY, code TEXT NOT NULL UNIQUE, name TEX
   shipping_baht INTEGER NOT NULL DEFAULT 0 CHECK (shipping_baht >= 0), supplier_shipping_baht INTEGER NOT NULL DEFAULT 0 CHECK (supplier_shipping_baht >= 0),
   deliveries TEXT NOT NULL CHECK (json_valid(deliveries)), ready_text TEXT NOT NULL DEFAULT '',
   status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft','open','closed','sent')), sent_at TEXT,
-  successor_of INTEGER UNIQUE REFERENCES rounds(id), created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))) STRICT;
+  successor_of INTEGER UNIQUE REFERENCES rounds(id), import_hash TEXT, created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))) STRICT;
 -- Payment and fulfillment are separate axes. V1's single status maps onto both (see src/orders-core.mjs LEGACY).
 -- 'deferred_on_site' = จ่ายหน้างาน: NOT paid; counted for production, excluded from received revenue.
 CREATE TABLE orders (id INTEGER PRIMARY KEY, order_no TEXT NOT NULL UNIQUE, request_key TEXT UNIQUE, fingerprint TEXT,
@@ -31,7 +31,7 @@ CREATE TABLE orders (id INTEGER PRIMARY KEY, order_no TEXT NOT NULL UNIQUE, requ
   payment_status TEXT NOT NULL DEFAULT 'pending' CHECK (payment_status IN ('pending','deferred_on_site','slip_received','confirmed','refunded','cancelled')),
   fulfillment_status TEXT NOT NULL DEFAULT 'received' CHECK (fulfillment_status IN ('received','in_production','qc','ready_pickup','ready_ship','shipped','completed','cancelled')),
   payment_due_at TEXT, paid_at TEXT, received_at TEXT, note TEXT NOT NULL DEFAULT '', round_snapshot TEXT CHECK (round_snapshot IS NULL OR json_valid(round_snapshot)),
-  tracking_token_hash TEXT UNIQUE, is_test INTEGER NOT NULL DEFAULT 0 CHECK (is_test IN (0,1)), legacy_ref TEXT UNIQUE,
+  tracking_token_hash TEXT UNIQUE, import_hash TEXT, is_test INTEGER NOT NULL DEFAULT 0 CHECK (is_test IN (0,1)), legacy_ref TEXT UNIQUE,
   status_updated_at TEXT, status_updated_by TEXT,
   created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')), updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))) STRICT;
 -- Snapshot columns keep the name/fit/price shown at order time (V1 behaviour), unaffected by later catalog edits.
@@ -48,7 +48,9 @@ CREATE TABLE shipments (id INTEGER PRIMARY KEY, order_id INTEGER NOT NULL REFERE
   label_printed_count INTEGER NOT NULL DEFAULT 0, last_label_at TEXT) STRICT;
 CREATE TABLE payments (id INTEGER PRIMARY KEY, order_id INTEGER NOT NULL REFERENCES orders(id), amount_baht INTEGER NOT NULL CHECK (amount_baht > 0),
   method TEXT, reference TEXT, slip_key TEXT, status TEXT NOT NULL DEFAULT 'recorded' CHECK (status IN ('recorded','confirmed','void')),
-  recorded_by TEXT, created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))) STRICT;
+  recorded_by TEXT, created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')), voided_at TEXT, void_reason TEXT) STRICT;
+-- Payment integrity: an order can have at most ONE confirmed payment (undo voids it; re-confirm records a new one).
+CREATE UNIQUE INDEX uq_payment_confirmed ON payments(order_id) WHERE status='confirmed';
 CREATE TABLE order_status_history (id INTEGER PRIMARY KEY, order_id INTEGER NOT NULL REFERENCES orders(id),
   kind TEXT NOT NULL CHECK (kind IN ('payment','fulfillment','legacy')), from_status TEXT, to_status TEXT NOT NULL, actor TEXT,
   at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')), note TEXT) STRICT;

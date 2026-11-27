@@ -37,7 +37,7 @@ const routes = [
   ["PUT", /^\/api\/admin\/orders\/(\d{1,12})\/address$/, "write", (r, env, a, m) => api.putAddress(r, env, a, +m[1])],
   ["PUT", /^\/api\/admin\/orders\/(\d{1,12})\/shipment$/, "write", (r, env, a, m) => api.putShipment(r, env, a, +m[1])],
   ["GET", /^\/api\/admin\/orders$/, "api", async (r, env) => { const q = new URL(r.url).searchParams; return api.json({ ok: true, orders: await svc.listOrders(env, { round: q.get("round") || undefined, status: q.get("status") || undefined, q: (q.get("q") || "").slice(0, 60) || undefined }) }); }],
-  ["POST", /^\/api\/admin\/orders\/(NORX-[A-Za-z0-9]{1,40})\/status$/, "write", async (r, env, a, m) => { const b = await r.json().catch(() => null); if (!b || typeof b.from !== "string" || typeof b.to !== "string") return api.json({ ok: false, error: "BAD_REQUEST" }, 400); return api.json({ ok: true, ...(await svc.changeStatus(env, a, { orderNo: m[1], from: b.from, to: b.to, amount: b.amount })) }); }],
+  ["POST", /^\/api\/admin\/orders\/(NORX-[A-Za-z0-9-]{1,60})\/status$/, "write", async (r, env, a, m) => { const b = await r.json().catch(() => null); if (!b || typeof b.from !== "string" || typeof b.to !== "string") return api.json({ ok: false, error: "BAD_REQUEST" }, 400); return api.json({ ok: true, ...(await svc.changeStatus(env, a, { orderNo: m[1], from: b.from, to: b.to, amount: b.amount })) }); }],
   ["GET", /^\/api\/admin\/rounds$/, "api", async (r, env) => api.json({ ok: true, ...(await svc.roundsWithSummary(env, Date.now())) })],
   ["POST", /^\/api\/admin\/rounds$/, "write", async (r, env, a) => api.json({ ok: true, ...(await svc.saveRound(env, a, await r.json().catch(() => ({})))) })],
   ["POST", /^\/api\/admin\/rounds\/(ROUND-\d{3,})\/(open|close|cancel-unpaid|send-to-shop)$/, "write", async (r, env, a, m) => {
@@ -45,6 +45,7 @@ const routes = [
     const out = m[2] === "open" ? await svc.openRound(env, a, m[1]) : m[2] === "close" ? await svc.closeRound(env, a, m[1]) : m[2] === "cancel-unpaid" ? await svc.cancelUnpaid(env, a, m[1], b.expected) : await svc.sendToShop(env, a, m[1], b.expectedPieces);
     return api.json({ ok: true, ...(out ?? {}) });
   }],
+  ["GET", /^\/api\/admin\/integrity$/, "api", async (r, env) => api.json({ ok: true, violations: await svc.paymentIntegrity(env) })],
   ["GET", /^\/api\/admin\/pulse$/, "api", async (r, env) => api.json({ ok: true, ...(await svc.pulse(env)) })],
   ["GET", /^\/api\/admin\/notifications$/, "api", async (r, env) => api.json({ ok: true, notifications: await listNotifications(env) })],
   ["POST", /^\/api\/admin\/notifications\/(\d{1,12})\/retry$/, "write", async (r, env, a, m) => api.json({ ok: true, retried: await retryNotification(env, +m[1]) })],

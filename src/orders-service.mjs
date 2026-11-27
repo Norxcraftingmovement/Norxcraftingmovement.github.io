@@ -182,17 +182,23 @@ export async function changeStatus(env, actor, { orderNo, from, to, amount, now 
   if (cur === to) return { changed: false }; // V1: same status is a no-op
   const round = (await loadConfig(env)).rounds.find((r) => r.id === o.round_code);
   core.checkTransition({ order: { id: o.order_no, status: cur, total: o.total_baht }, round, from, to, amount });
-  const m = core.FROM_LEGACY[to], at = iso(now), paidNow = core.PAID_LIKE.includes(to) && !core.PAID_LIKE.includes(cur);
+  const m = core.FROM_LEGACY[to], at = iso(now), paidNow = core.PAID_LIKE.includes(to) && !core.PAID_LIKE.includes(cur), leavingPaid = core.PAID_LIKE.includes(cur) && !core.PAID_LIKE.includes(to);
   const guard = "id=?1 AND payment_status=?2 AND fulfillment_status=?3 AND updated_at=?4"; // optimistic concurrency on the exact row version
   const g = [o.id, o.payment_status, o.fulfillment_status, o.updated_at];
   const stmts = [
     db.prepare(`INSERT INTO order_status_history(order_id,kind,from_status,to_status,actor,at) SELECT id,'legacy',?5,?6,?7,?8 FROM orders WHERE ${guard}`).bind(...g, cur, to, actor, at),
     db.prepare(`INSERT INTO audit_log(actor_hash,action,entity,entity_id,before,after) SELECT ?5,'order.status','orders',?6,?7,?8 FROM orders WHERE ${guard}`).bind(...g, actor, o.order_no, J({ status: cur }), J({ status: to, amount: amount ?? null })),
   ];
+  // Undo / cancel of a paid order VOIDS its confirmed payment (kept for history), so a later re-confirm records exactly one new payment.
+  if (leavingPaid) stmts.push(db.prepare(`UPDATE payments SET status='void', voided_at=?5, void_reason=?6 WHERE status='confirmed' AND order_id IN (SELECT id FROM orders WHERE ${guard})`).bind(...g, at, cur + " → " + to));
   if (paidNow) stmts.push(db.prepare(`INSERT INTO payments(order_id,amount_baht,method,status,recorded_by,created_at) SELECT id,total_baht,?5,'confirmed',?6,?7 FROM orders WHERE ${guard}`).bind(...g, cur === STATUS.LATER ? "on_site" : "bank_transfer", actor, at));
   stmts.push(db.prepare(`UPDATE orders SET payment_status=?5, fulfillment_status=?6, status_updated_at=?7, status_updated_by=?8, updated_at=?9,
       paid_at=CASE WHEN ?10=1 THEN ?7 ELSE paid_at END, received_at=CASE WHEN ?6='completed' THEN ?7 ELSE received_at END WHERE ${guard}`).bind(...g, m.payment, m.fulfillment, at, actor, at > o.updated_at ? at : iso(Date.parse(o.updated_at) + 1), paidNow ? 1 : 0));
-  const res = await db.batch(stmts);
+  let res;
+  try { res = await db.batch(stmts); } catch (e) {
+    if (/UNIQUE constraint failed: payments\.order_id/.test(String(e?.message))) throw new UserError("ข้อมูลการชำระเงินของออเดอร์นี้ไม่สอดคล้อง กรุณาตรวจที่หน้าความถูกต้องของข้อมูล");
+    throw e;
+  }
   if (res[res.length - 1].meta.changes !== 1) throw new UserError("ออเดอร์ " + orderNo + " ถูกแก้ไขโดยคนอื่นแล้ว กรุณาโหลดใหม่");
   return { changed: true, status: to };
 }
@@ -282,4 +288,22 @@ export async function sendToShop(env, actor, code, expectedPieces, now = Date.no
   if (res[0].meta.changes !== 1) throw new UserError("ยอดตัวหรือสถานะรอบเปลี่ยนไป กรุณาโหลดใหม่");
   await audit(env, actor, "round.send_to_shop", code, { state: r.state }, { state: "sent", pieces: s.pieces });
   return { sent: res[3].meta.changes, pieces: s.pieces };
+}
+
+/**
+ * Payment integrity audit: every paid-like order (ชำระแล้ว/ส่งร้านแล้ว/ส่งมอบแล้ว) has exactly one confirmed payment
+ * equal to its total; every other order has none. Returns violations (empty = healthy).
+ */
+export async function paymentIntegrity(env) {
+  const rows = await rowsOf(env.ORDERS_DB.prepare(
+    `SELECT o.order_no, o.total_baht, o.payment_status, o.fulfillment_status,
+            (SELECT COUNT(*) FROM payments p WHERE p.order_id=o.id AND p.status='confirmed') AS n,
+            (SELECT COALESCE(SUM(amount_baht),0) FROM payments p WHERE p.order_id=o.id AND p.status='confirmed') AS amt FROM orders o`));
+  const out = [];
+  for (const r of rows) {
+    const paid = core.PAID_LIKE.includes(core.toLegacy(r.payment_status, r.fulfillment_status));
+    if (paid && (r.n !== 1 || r.amt !== r.total_baht)) out.push({ order: r.order_no, problem: "paid order must have exactly one confirmed payment equal to total", confirmed: r.n, amount: r.amt, total: r.total_baht });
+    if (!paid && r.n > 0) out.push({ order: r.order_no, problem: "unpaid order has a confirmed payment", confirmed: r.n, amount: r.amt });
+  }
+  return out;
 }
