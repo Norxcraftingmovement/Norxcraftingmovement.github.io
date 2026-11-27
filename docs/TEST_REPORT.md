@@ -157,3 +157,18 @@ NOT TESTED: e-mail to an inbox, cron, PromptPay scan with a banking app, paper l
 - After `9aa87251`: security gate 16/16 PASS (exit 0); Admin routes retained; 20 served Admin files identical to the GitHub-generated assets (hash-compared), `Cache-Control: private, no-cache`; shipping page: script loads, 5 orders listed with the new tags ("ยังไม่ชำระ" on the unpaid ones), dialog titled "เลขพัสดุ" with no date field; production page: API returns `partial` on rows and totals, summary boxes read "ผลิตเสร็จ (รอรับของ)" / "รับของแล้ว"; status route: a `TEST-…` id is routed (400 validation, not 404) and an unknown prefix still 404; no console errors on the six Admin pages after the fix.
 - NOT TESTED on staging: the one-button "รับเงินและส่งมอบ" (needs a จ่ายหน้างาน order at pickup — covered by unit tests only), the partial-receipt numbers with real data (the staging rounds have no sent items right now), batch shipping with a tracking number through the UI.
 - Suite at `e91df42`: **206 tests, 205 pass, 0 fail, 1 skipped**.
+
+
+## Staging rollout — 27 Nov 2026 (Codex)
+
+Owner approved updating staging Public and Admin in chat. Source: bc2b4d1 (PRs #5/#6); no application edits during deployment. These are Codex solo post-deploy checks, not independent QA.
+
+- Identity: one authenticated Cloudflare account; live Worker names, staging markers and D1 id matched norx-orders-staging. Pre-existing versions matched the handover: Public 26439a64, Admin 9aa87251.
+- Backed up D1 to a local private SQL file outside the repository (80,468 bytes); no backup/private configuration committed.
+- Pinned Wrangler 4.168.0; account pinning; flat staging-only configs reconstructed from live bindings; dry-runs; deployment-head lease. Uploaded versions, compared bindings/runtime, activated Public first and Admin after the natural cron report appeared. Versions upload/deploy left routes, DNS, cron schedules and storefront unchanged. No migration.
+- Verified 100% active: Public e1cabdf2; Admin 27b04360. All 12 Public and 7 Admin bindings, plus runtime settings, unchanged. Admin has no email-send binding.
+- D1 before/after: staging marker; 25 orders / 29 items; active notification queue 0; recipient unset. Orders/items were not written. A fresh sanitized channel report appeared from the actual cron (email mode, sender configured).
+- Existing owner Chrome session worked. Deployed Orders shows the specific missing recipient setting. Inspected loaded Overview, Orders, Production, Shipping, Settings and Products; no console errors observed. Mobile Orders had no page overflow; viewed readiness section. Settings screenshot cropped to avoid field data.
+- Anonymous Access gate: all 16 probes returned 302 to Access login, including APIs/assets. No credentials sent to the probe.
+- No real email was sent by this work; no notification retry, recipient change, payment, V1, production, DNS or Access-policy action. Service/destination/domain/inbox verification remains open. A2 deployed end-to-end handover/partial-receipt tests remain open; page checks do not replace them. Local functional evidence and 242-test suite are in PR #6.
+- Rollback: restore predecessor Public 26439a64 / Admin 9aa87251 using privately saved full version IDs; keep D1. Report row is inert for older code. Older known-safe Admin fallback 589b707d remains available; never restore defective eed44c52.
