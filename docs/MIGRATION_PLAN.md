@@ -70,3 +70,8 @@ node scripts/export-v2-to-v1.mjs --orders private/orders.json --rounds private/r
 
 **What V1 cannot hold (stays in D1 — keep the snapshot):** carrier / tracking number / shipped date, partial-receipt progress, payment method / bank reference / QR requests, status history, audit log, notifications, customer tracking tokens. Finer fulfillment states (qc, ready pickup, ready ship, shipped) collapse to V1's ส่งร้านแล้ว; test orders are marked by the note "ทดสอบ" (V1's convention). The manifest counts these.
 **Not verified (needs the owner):** how the real V1 Sheet stores phone numbers and dates and whether its Apps Script reads pasted rows correctly. Rehearse on a COPY of the real Sheet (GO_LIVE_CHECKLIST A6) before any cutover; the tool's job is to make that rehearsal possible and the result checkable.
+
+
+---
+## Update 2026-11-27 (night) — first import into a real D1 (staging)
+Ran the offline procedure above for real with `scripts/import-v1-to-d1.mjs` (print-sql → wrangler state reads → plan → guarded SQL → apply → state again → verify) on the masked V1 export; result and caveats are in GO_LIVE_CHECKLIST "G". Findings that change the procedure: (1) call wrangler through `node …/wrangler.js`, not `npx.cmd` (cmd.exe mangles the SQL of `--command`); (2) take a `wrangler d1 export` backup before the apply; (3) a target that already holds rounds with the same codes yields a conflict and the tool writes nothing — for a rehearsal use `--round-prefix`, for production the target is empty; (4) imported "ส่งร้านแล้ว" orders need their receipt recorded in V2 before hand-over (A38).
