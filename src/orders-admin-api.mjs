@@ -98,17 +98,20 @@ export async function putAddress(request, env, actor, orderId) {
   return json({ ok: true });
 }
 
-// Provider / tracking number / shipped date only. Changing fulfillment to "shipped" is a separate explicit action.
+// Provider and tracking number only (R5 fix). The shipped DATE is not set here: an order counts as shipped, and leaves the
+// ready-to-ship queue, only through the batch "บันทึกจัดส่ง", which also moves its status to shipped. A stored date is never
+// changed or cleared from this form, so correcting a tracking number after shipping still works (send no date, or the same one).
 export async function putShipment(request, env, actor, orderId) {
   const b = await body(request); if (!b) return bad("BAD_REQUEST");
   const provider = clean(b.provider ?? "", 40) ?? "", tracking = clean(b.trackingNo ?? "", 40) ?? "", date = b.shippedAt ?? null;
   if (provider.length > 40 || !/^[A-Za-z0-9-]{0,40}$/.test(tracking) || (date !== null && !/^\d{4}-\d{2}-\d{2}$/.test(date))) return bad("INVALID_SHIPMENT");
   if (!(await env.ORDERS_DB.prepare("SELECT 1 AS x FROM orders WHERE id=?1").bind(orderId).first())) return bad("NOT_FOUND", 404);
   const before = await env.ORDERS_DB.prepare("SELECT provider,tracking_no,shipped_at FROM shipments WHERE order_id=?1").bind(orderId).first();
-  await env.ORDERS_DB.prepare(`INSERT INTO shipments(order_id,provider,tracking_no,shipped_at) VALUES (?1,?2,?3,?4)
-     ON CONFLICT(order_id) DO UPDATE SET provider=excluded.provider, tracking_no=excluded.tracking_no, shipped_at=excluded.shipped_at`)
-    .bind(orderId, provider || null, tracking || null, date).run();
-  await audit(env, actor, "shipment.update", "orders", orderId, before, { provider, tracking, date });
+  if (date !== null && date !== (before?.shipped_at ?? null)) throw new UserError('วันที่ส่งกำหนดได้เฉพาะตอนกด "บันทึกจัดส่ง" (หลายรายการ) เพราะต้องเปลี่ยนสถานะออเดอร์เป็นจัดส่งแล้วพร้อมกัน');
+  await env.ORDERS_DB.prepare(`INSERT INTO shipments(order_id,provider,tracking_no) VALUES (?1,?2,?3)
+     ON CONFLICT(order_id) DO UPDATE SET provider=excluded.provider, tracking_no=excluded.tracking_no`)
+    .bind(orderId, provider || null, tracking || null).run();
+  await audit(env, actor, "shipment.update", "orders", orderId, before, { provider, tracking });
   return json({ ok: true });
 }
 

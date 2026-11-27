@@ -15,9 +15,10 @@ async function load({ quiet = false } = {}) {
     if (!d.rows.length) { const tr = el("tr"), td = el("td", "muted", "ยังไม่มีรายการ"); td.colSpan = 11; tr.append(td); tb.append(tr); }
     for (const r of d.rows) {
       const tr = el("tr"); tr.append(el("td", "", r.round), el("td", "", r.collection), el("td", "", r.productName + " · " + r.fitName), el("td", "", SL[r.sleeve]), el("td", "", r.size), num(r.production, "strong"), num(r.paid), num(r.deferred), num(r.pending, "muted"));
-      const st = r.status, td = el("td", "num noprint", "ส่งร้าน " + st.batched + " · ผลิตเสร็จ " + st.produced + " · รับแล้ว " + st.received); tr.append(td);
+      // st.produced counts every piece on lines still "produced" (the bulk actions guard on that number); r.partial = pieces of those lines already received.
+      const st = r.status, waiting = st.produced - r.partial, td = el("td", "num noprint", "ส่งร้าน " + st.batched + " · ผลิตเสร็จ (รอรับ) " + waiting + " · รับแล้ว " + (st.received + r.partial)); tr.append(td);
       const act = el("td", "noprint"), rd = rounds.find((x) => x.id === r.round);
-      if (rd && rd.state === "sent") { if (st.batched) act.append(btn("ผลิตเสร็จ " + st.batched, () => move(r.round, "batched", "produced", st.batched, r))); if (st.produced) act.append(btn("รับของ " + st.produced, () => move(r.round, "produced", "received", st.produced, r))); }
+      if (rd && rd.state === "sent") { if (st.batched) act.append(btn("ผลิตเสร็จ " + st.batched, () => move(r.round, "batched", "produced", st.batched, r))); if (st.produced) act.append(btn("รับของ " + waiting, () => move(r.round, "produced", "received", st.produced, r))); }
       tr.append(act); tb.append(tr);
     }
     const t = d.totals, f = $("foot"); f.replaceChildren(); const tr = el("tr", "total"), c = el("th", "", "รวม"); c.colSpan = 5; c.scope = "row"; tr.append(c, num(t.production, "strong"), num(t.paid), num(t.deferred), num(t.pending, "muted"), el("td", "noprint"), el("td", "noprint")); f.append(tr);
@@ -28,8 +29,8 @@ async function load({ quiet = false } = {}) {
 }
 const btn = (t, f) => { const b = el("button", "secondary small", t); b.type = "button"; b.onclick = f; return b; };
 function drawBatch(d) {
-  const r = rounds.find((x) => x.id === $("round").value), s = d.totals.status, box = $("batch"), st = $("stats"); box.replaceChildren(); st.replaceChildren();
-  for (const [k, v] of [["รอตัดยอด", s.pending], ["ส่งร้านแล้ว", s.batched], ["ผลิตเสร็จ", s.produced], ["รับของแล้ว", s.received]]) { const x = el("div", "stat", k); x.append(el("b", "", String(v))); st.append(x); }
+  const r = rounds.find((x) => x.id === $("round").value), s = d.totals.status, partial = d.totals.partial ?? 0, box = $("batch"), st = $("stats"); box.replaceChildren(); st.replaceChildren();
+  for (const [k, v] of [["รอตัดยอด", s.pending], ["ส่งร้านแล้ว", s.batched], ["ผลิตเสร็จ (รอรับของ)", s.produced - partial], ["รับของแล้ว", s.received + partial]]) { const x = el("div", "stat", k); x.append(el("b", "", String(v))); st.append(x); }
   if (!r) { $("batchHint").textContent = "เลือกรอบเดียวเพื่ออัปเดตสถานะการผลิตทั้งล็อต"; return; }
   if (r.state !== "sent") {
     $("batchHint").textContent = "รอบนี้ยังไม่ได้ตัดยอดส่งร้าน";

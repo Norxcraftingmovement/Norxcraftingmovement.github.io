@@ -28,6 +28,8 @@ async function loadOrders() {
     cb.addEventListener("change", () => { cb.checked ? sel.add(o.id) : sel.delete(o.id); changed(); });
     const lab = el("label", "grow"); lab.htmlFor = cb.id;
     const t = el("strong", "", o.orderNo); if (o.isTest) t.append(el("span", "tag", "ทดสอบ")); if (o.printedCount) t.append(el("span", "tag", "พิมพ์แล้ว ×" + o.printedCount));
+    // The unfiltered list shows every shipping order (labels can be prepared early); the tag keeps unpaid / not-yet-received ones from being mistaken for "ready to ship".
+    if (o.paymentStatus !== "confirmed") t.append(el("span", "tag", "ยังไม่ชำระ")); else if (["received", "in_production", "qc"].includes(o.fulfillmentStatus)) t.append(el("span", "tag", "รอรับของจากโรงงาน"));
     lab.append(t, el("br"), document.createTextNode(o.recipient), el("br"), el("small", "muted", [o.provider, o.trackingNo].filter(Boolean).join(" ") || "ยังไม่มีเลขพัสดุ"));
     li.append(cb, lab); ul.append(li);
   }
@@ -86,7 +88,7 @@ $("addrForm").addEventListener("submit", async (ev) => {
   try { await api(`/api/admin/orders/${id}/address`, { method: "PUT", body: { recipient: $("aName").value, phone: $("aPhone").value, address: $("aAddr").value } }); data.delete(id); $("addrDlg").close(); await loadOrders(); } catch (e) { notice($("aErr"), errText(e), true); }
 });
 // Shipment details (does not change order status)
-$("ship").addEventListener("click", () => { const o = orders.find((x) => x.id === ids()[0]); $("shipOrder").textContent = o.orderNo; $("sProv").value = o.provider ?? ""; $("sTrack").value = o.trackingNo ?? ""; $("sDate").value = o.shippedAt ?? ""; notice($("sErr"), ""); $("shipDlg").showModal(); });
+$("ship").addEventListener("click", () => { const o = orders.find((x) => x.id === ids()[0]); $("shipOrder").textContent = o.orderNo; $("sProv").value = o.provider ?? ""; $("sTrack").value = o.trackingNo ?? ""; notice($("sErr"), ""); $("shipDlg").showModal(); });
 $("sCancel").addEventListener("click", () => $("shipDlg").close());
 $("shipForm").addEventListener("submit", async (ev) => {
   ev.preventDefault(); const id = ids()[0];
@@ -94,7 +96,7 @@ $("shipForm").addEventListener("submit", async (ev) => {
   $("sProv").value = provider; $("sTrack").value = trackingNo;
   const check = checkTracking(provider, trackingNo);
   if (needsAck(["one", id, provider, trackingNo].join("|"), check.warnings)) { notice($("sErr"), "⚠ " + check.warnings[0] + " — ตรวจกับฉลากอีกครั้ง ถ้าถูกต้องแล้วกด \"บันทึก\" อีกครั้งเพื่อยืนยัน", true); return; }
-  try { await api(`/api/admin/orders/${id}/shipment`, { method: "PUT", body: { provider, trackingNo, shippedAt: $("sDate").value || null } }); data.delete(id); $("shipDlg").close(); await loadOrders(); } catch (e) { notice($("sErr"), errText(e), true); }
+  try { await api(`/api/admin/orders/${id}/shipment`, { method: "PUT", body: { provider, trackingNo } }); // no date here: "shipped" is only recorded by the batch save (R5) data.delete(id); $("shipDlg").close(); await loadOrders(); } catch (e) { notice($("sErr"), errText(e), true); }
 });
 
 let batchInputs = new Map();

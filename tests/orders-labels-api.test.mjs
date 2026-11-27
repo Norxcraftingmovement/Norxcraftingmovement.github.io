@@ -87,13 +87,22 @@ test("edit address: validates, derives postal code, audits before/after; 404 for
   assert.equal(row.phone,"0800000009");assert.equal(row.postal_code,"50000");assert.ok(row.edited_at);
   const a=sqlite.prepare("SELECT before,after FROM audit_log WHERE action='address.update'").get();assert.match(a.before,/57000/);assert.match(a.after,/50000/);
 });
-test("shipment: provider/tracking/date saved without touching status; validation",async()=>{
+test("shipment: provider/tracking saved without touching status or the shipped date (R5: a date typed here used to drop the order from the queue); validation",async()=>{
   const {env,ctx,sqlite}=await setup();
-  const put=(b)=>call(worker,env,ctx,"/api/admin/orders/2/shipment",{method:"PUT",body:b});
+  const put=(b)=>call(worker,env,ctx,"/api/admin/orders/2/shipment",{method:"PUT",body:b}),row=()=>({...sqlite.prepare("SELECT provider,tracking_no,shipped_at FROM shipments WHERE order_id=2").get()});
   for(const bad of [{trackingNo:"AB 12"},{trackingNo:"x".repeat(41)},{shippedAt:"27/11/2026"},{provider:"x".repeat(41)}])assert.equal((await put(bad)).status,400);
-  assert.equal((await put({provider:"TEST Express",trackingNo:"TST123-9",shippedAt:"2026-11-27"})).status,200);
-  assert.deepEqual({...sqlite.prepare("SELECT provider,tracking_no,shipped_at FROM shipments WHERE order_id=2").get()},{provider:"TEST Express",tracking_no:"TST123-9",shipped_at:"2026-11-27"});
+  assert.equal((await put({provider:"TEST Express",trackingNo:"TST123-9"})).status,200);
+  assert.deepEqual(row(),{provider:"TEST Express",tracking_no:"TST123-9",shipped_at:null});
   assert.equal(sqlite.prepare("SELECT fulfillment_status s FROM orders WHERE id=2").get().s,"ready_ship");
+  // a date can no longer be set here: that is the batch "บันทึกจัดส่ง" (it also moves the status to shipped)
+  const refused=await put({provider:"TEST Express",trackingNo:"TST123-9",shippedAt:"2026-11-27"});assert.equal(refused.status,400);assert.match((await refused.json()).message,/บันทึกจัดส่ง/);
+  assert.deepEqual(row(),{provider:"TEST Express",tracking_no:"TST123-9",shipped_at:null},"refused request changed nothing");
+  // after shipping, the number can still be corrected and the stored date is neither cleared nor changed
+  sqlite.prepare("UPDATE shipments SET shipped_at='2026-11-27' WHERE order_id=2").run();
+  assert.equal((await put({provider:"TEST Express",trackingNo:"TST123-8"})).status,200);assert.deepEqual(row(),{provider:"TEST Express",tracking_no:"TST123-8",shipped_at:"2026-11-27"});
+  assert.equal((await put({provider:"TEST Express",trackingNo:"TST123-7",shippedAt:"2026-11-27"})).status,200,"same date is accepted");
+  assert.equal((await put({provider:"TEST Express",trackingNo:"TST123-7",shippedAt:"2026-12-01"})).status,400,"a different date is not");
+  assert.equal(row().shipped_at,"2026-11-27");
   assert.equal((await call(worker,env,ctx,"/api/admin/orders/999/shipment",{method:"PUT",body:{}})).status,404);
 });
 test("schema: deferred on-site status is distinct from paid; completed status; queue dedupe; latency kinds",async()=>{

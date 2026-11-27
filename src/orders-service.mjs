@@ -401,21 +401,24 @@ export async function productionSummary(env, { round = "", includeTest = false }
         (SELECT sort FROM product_sizes ps WHERE ps.product_id=p.id AND ps.size=i.size) ssort,
         ${sum("o.payment_status='confirmed'")} paid, ${sum("o.payment_status='deferred_on_site'")} deferred, ${sum("o.payment_status IN ('pending','slip_received')")} pending,
         ${sum(live + " AND i.production_status='pending'")} s_pending, ${sum(live + " AND i.production_status='batched'")} s_batched,
-        ${sum(live + " AND i.production_status='produced'")} s_produced, ${sum(live + " AND i.production_status='received'")} s_received
+        ${sum(live + " AND i.production_status='produced'")} s_produced, ${sum(live + " AND i.production_status='received'")} s_received,
+        COALESCE(SUM(CASE WHEN ${live} AND i.production_status='produced' THEN i.received_qty END),0) s_partial
      FROM order_items i JOIN orders o ON o.id=i.order_id JOIN rounds r ON r.id=o.round_id JOIN products p ON p.id=i.product_id LEFT JOIN collections c ON c.id=p.collection_id
      WHERE ${where.join(" AND ")} AND o.fulfillment_status!='cancelled' AND o.payment_status!='cancelled' GROUP BY r.id, p.id, i.sleeve, i.size`).bind(...args));
   const rows = raw.map((r) => ({ round: r.round, collection: r.collection, product: r.product, productName: r.productName, fitName: r.fitName, sleeve: r.sleeve, size: r.size, production: r.paid + r.deferred, paid: r.paid, deferred: r.deferred, pending: r.pending,
-      status: { pending: r.s_pending, batched: r.s_batched, produced: r.s_produced, received: r.s_received }, _k: [r.round, r.psort, r.sleeve === "short" ? 0 : 1, r.ssort ?? 99] }))
+      status: { pending: r.s_pending, batched: r.s_batched, produced: r.s_produced, received: r.s_received },
+      partial: r.s_partial, // pieces already received on lines still counted as "produced" (R5: the table showed รับแล้ว 0 during a partial receipt)
+      _k: [r.round, r.psort, r.sleeve === "short" ? 0 : 1, r.ssort ?? 99] }))
     .filter((r) => r.production + r.pending > 0).sort((a, b) => { for (let i = 0; i < 4; i++) { if (a._k[i] < b._k[i]) return -1; if (a._k[i] > b._k[i]) return 1; } return 0; });
   for (const r of rows) delete r._k;
-  const t = rows.reduce((n, r) => ({ production: n.production + r.production, paid: n.paid + r.paid, deferred: n.deferred + r.deferred, pending: n.pending + r.pending,
-    status: Object.fromEntries(["pending", "batched", "produced", "received"].map((k) => [k, n.status[k] + r.status[k]])) }), { production: 0, paid: 0, deferred: 0, pending: 0, status: { pending: 0, batched: 0, produced: 0, received: 0 } });
+  const t = rows.reduce((n, r) => ({ production: n.production + r.production, paid: n.paid + r.paid, deferred: n.deferred + r.deferred, pending: n.pending + r.pending, partial: n.partial + r.partial,
+    status: Object.fromEntries(["pending", "batched", "produced", "received"].map((k) => [k, n.status[k] + r.status[k]])) }), { production: 0, paid: 0, deferred: 0, pending: 0, partial: 0, status: { pending: 0, batched: 0, produced: 0, received: 0 } });
   return { round: round || "all", rows, totals: t };
 }
 export function productionCsv(sum) {
-  return toCsv([["รอบ", "Collection", "รุ่น", "ทรง", "แขน", "ไซส์", "ผลิต (ชำระแล้ว+จ่ายหน้างาน)", "ชำระแล้ว", "จ่ายหน้างาน (ยังไม่ชำระ)", "รอโอน (ไม่นับผลิต)", "รอส่งร้าน", "ส่งร้านแล้ว", "ผลิตเสร็จ", "รับของแล้ว"],
-    ...sum.rows.map((r) => [r.round, r.collection, r.productName, r.fitName, core.sleeveName(r.sleeve), r.size, r.production, r.paid, r.deferred, r.pending, r.status.pending, r.status.batched, r.status.produced, r.status.received]),
-    ["", "", "", "", "", "รวม", sum.totals.production, sum.totals.paid, sum.totals.deferred, sum.totals.pending, sum.totals.status.pending, sum.totals.status.batched, sum.totals.status.produced, sum.totals.status.received]]);
+  return toCsv([["รอบ", "Collection", "รุ่น", "ทรง", "แขน", "ไซส์", "ผลิต (ชำระแล้ว+จ่ายหน้างาน)", "ชำระแล้ว", "จ่ายหน้างาน (ยังไม่ชำระ)", "รอโอน (ไม่นับผลิต)", "รอส่งร้าน", "ส่งร้านแล้ว", "ผลิตเสร็จ (รอรับของ)", "รับของแล้ว (รวมรับบางส่วน)"],
+    ...sum.rows.map((r) => [r.round, r.collection, r.productName, r.fitName, core.sleeveName(r.sleeve), r.size, r.production, r.paid, r.deferred, r.pending, r.status.pending, r.status.batched, r.status.produced - r.partial, r.status.received + r.partial]),
+    ["", "", "", "", "", "รวม", sum.totals.production, sum.totals.paid, sum.totals.deferred, sum.totals.pending, sum.totals.status.pending, sum.totals.status.batched, sum.totals.status.produced - sum.totals.partial, sum.totals.status.received + sum.totals.partial]]);
 }
 
 // Batch update of production status for a lot (V1 had none). Only after cut-off (round "sent"); atomic; guarded by the piece count the admin saw.

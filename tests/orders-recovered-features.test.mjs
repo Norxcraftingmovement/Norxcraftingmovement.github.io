@@ -4,7 +4,7 @@ import * as svc from "../src/orders-service.mjs";
 import * as core from "../src/orders-core.mjs";
 import worker from "../src/orders-admin-worker.mjs";
 import {s10CheckDigit,checkTracking,canonicalCarrier,CARRIERS,OTHER} from "../admin-ui/carriers.mjs";
-import {setupV1,orderInput,call,NOW,T0,DAY} from "./helpers/orders-env.mjs";
+import {setup,setupV1,orderInput,call,NOW,T0,DAY} from "./helpers/orders-env.mjs";
 // Features restored from staging Admin 589b707d (Recovery R2). Their original tests were lost with 7b20b5f; these are new.
 // All data is SYNTHETIC; tracking numbers are made up (the Thailand Post one only has a computed check digit).
 const S=core.STATUS,CLOSED=T0+8*DAY;
@@ -57,11 +57,16 @@ test("partial receipts: per-line receipts with the count the admin saw; stale or
   await rejects(svc.receivePartial(env,"adm",{round:"ROUND-001",lines:[{id,expected:0,add:1},{id,expected:0,add:1}],includeTest:true,now:CLOSED}),/ตรวจจำนวนที่รับ/);
   assert.deepEqual(await recv(0,1),{pieces:1});
   assert.deepEqual(item(),{r:1,s:"produced"});assert.deepEqual(st(sqlite,o.id),{p:"confirmed",f:"in_production"});
+  // R5: the production table showed "รับแล้ว 0" during a partial receipt; the received pieces are now reported (the bulk-action counts stay as they were)
+  const mid=await svc.productionSummary(env,{round:"ROUND-001"});
+  assert.deepEqual([mid.rows[0].status.produced,mid.rows[0].status.received,mid.rows[0].partial,mid.totals.partial],[2,0,1,1]);
+  const midCsv=svc.productionCsv(mid);assert.match(midCsv,/"ผลิตเสร็จ \(รอรับของ\)","รับของแล้ว \(รวมรับบางส่วน\)"/);assert.match(midCsv.trimEnd().split("\r\n").at(-1),/"รวม","2","2","0","0","0","0","1","1"$/);
   await rejects(recv(0,1),/เปลี่ยนไปแล้ว/);await rejects(recv(1,2),/เปลี่ยนไปแล้ว/);
   assert.deepEqual(item(),{r:1,s:"produced"},"refused receipts change nothing");
   await rejects(svc.changeStatus(env,"adm",{orderNo:o.id,from:S.SENT,to:S.DONE,now:CLOSED}),/รับเสื้อยังไม่ครบ/);
   assert.deepEqual(await recv(1,1),{pieces:1});
   assert.deepEqual(item(),{r:2,s:"received"});assert.deepEqual(st(sqlite,o.id),{p:"confirmed",f:"ready_pickup"});
+  const done=await svc.productionSummary(env,{round:"ROUND-001"});assert.deepEqual([done.totals.status.produced,done.totals.status.received,done.totals.partial],[0,2,0]);
   assert.deepEqual((await svc.receiptLines(env,"ROUND-001",true)).lines,[]);
   assert.equal(sqlite.prepare("SELECT COUNT(*) n FROM audit_log WHERE action='production.partial_receipt'").get().n,2);
   assert.deepEqual(await svc.changeStatus(env,"adm",{orderNo:o.id,from:S.SENT,to:S.DONE,now:CLOSED}),{changed:true,status:S.DONE});
@@ -103,6 +108,16 @@ test("batch shipping: only ready-to-ship orders, real date, unique numbers; mark
   assert.match((await post({rows:[row(a,"TH0123456789AC")],shippedAt:"2026-12-12"})).message,/ไม่อยู่ในคิวพร้อมจัดส่ง/,"already shipped");
   assert.match((await post({rows:[row(b,"TH0123456789AA")],shippedAt:"2026-12-12"})).message,/ผูกกับออเดอร์อื่นแล้ว/);
   assert.equal(st(sqlite,b.id).f,"ready_ship");
+});
+
+test("synthetic seed orders (TEST- ids) can be handled from the Admin; other id shapes are still not routed (R5)",async()=>{
+  const {env,ctx}=await setup();
+  const list=await (await call(worker,env,ctx,"/api/admin/orders")).json(),t=list.orders.find(o=>o.id.startsWith("TEST-")&&o.status===S.PENDING);
+  assert.ok(t,"the seed has a pending TEST- order");
+  const r=await call(worker,env,ctx,"/api/admin/orders/"+t.id+"/status",{method:"POST",body:{from:S.PENDING,to:S.CANCEL}});
+  assert.equal(r.status,200);assert.equal((await r.json()).changed,true);
+  assert.equal((await call(worker,env,ctx,"/api/admin/orders/XYZ-0001/status",{method:"POST",body:{from:S.PENDING,to:S.CANCEL}})).status,404);
+  assert.equal((await call(worker,env,ctx,"/api/admin/orders/TEST-%2e%2e/status",{method:"POST",body:{from:S.PENDING,to:S.CANCEL}})).status,404);
 });
 
 test("admin assets: scripts and styles are re-validated on every load (no-cache); fonts and images stay cached",async()=>{

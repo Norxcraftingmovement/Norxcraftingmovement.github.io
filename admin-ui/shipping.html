@@ -21,10 +21,10 @@
 <label class="f" for="aName">ชื่อผู้รับ</label><input id="aName" maxlength="100"><label class="f" for="aPhone">เบอร์โทร</label><input id="aPhone" inputmode="tel" maxlength="20">
 <label class="f" for="aAddr">ที่อยู่ (ต้องมีรหัสไปรษณีย์ 5 หลัก)</label><textarea id="aAddr" maxlength="500"></textarea><div id="aErr" class="notice err" hidden></div>
 <div class="row"><button type="submit" id="aSave" value="save">บันทึกและแก้ในใบจ่าหน้า</button><button type="button" class="secondary" id="aCancel">ยกเลิก</button></div></form></dialog>
-<dialog id="shipDlg" aria-labelledby="shipH"><form method="dialog" id="shipForm" novalidate><h2 id="shipH">เลขพัสดุและวันที่ส่ง</h2><p class="muted" id="shipOrder"></p>
+<dialog id="shipDlg" aria-labelledby="shipH"><form method="dialog" id="shipForm" novalidate><h2 id="shipH">เลขพัสดุ</h2><p class="muted" id="shipOrder"></p>
 <datalist id="carrierList"><option value="Flash Express"><option value="ไปรษณีย์ไทย"></datalist>
 <label class="f" for="sProv">บริษัทขนส่ง</label><input id="sProv" maxlength="40" list="carrierList" autocomplete="off"><label class="f" for="sTrack">เลขพัสดุ</label><input id="sTrack" maxlength="40" autocapitalize="characters">
-<label class="f" for="sDate">วันที่ส่ง</label><input id="sDate" type="date"><p class="muted">การบันทึกนี้ไม่เปลี่ยนสถานะออเดอร์ · ใส่ "วันที่ส่ง" เมื่อส่งของแล้วเท่านั้น: ถ้าใส่ ระบบจะถือว่าออเดอร์นี้ส่งแล้ว และรับของเพิ่มไม่ได้ (ยังไม่ส่ง = เว้นวันที่ว่าง)</p><div id="sErr" class="notice err" hidden></div>
+<p class="muted">บันทึกเฉพาะบริษัทขนส่งและเลขพัสดุ ไม่เปลี่ยนสถานะออเดอร์และไม่ถือว่าส่งแล้ว · เมื่อส่งของแล้วให้ใช้ปุ่ม "บันทึกจัดส่งหลายรายการ" เพื่อระบุวันที่ส่งและเปลี่ยนสถานะเป็นจัดส่งแล้ว</p><div id="sErr" class="notice err" hidden></div>
 <div class="row"><button type="submit" value="save">บันทึก</button><button type="button" class="secondary" id="sCancel">ยกเลิก</button></div></form></dialog>
 <div id="printArea" aria-hidden="true"></div>
 <dialog id="batchDialog" aria-labelledby="batchTitle"><form id="batchForm">

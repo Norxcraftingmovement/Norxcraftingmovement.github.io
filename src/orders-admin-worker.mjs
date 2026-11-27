@@ -61,7 +61,7 @@ const routes = [
       includeTest: q.get("includeTest") !== "0",
     }) });
   }],
-  ["POST", /^\/api\/admin\/orders\/(NORX-[A-Za-z0-9-]{1,60})\/status$/, "write", async (r, env, a, m) => { const b = await r.json().catch(() => null); if (!b || typeof b.from !== "string" || typeof b.to !== "string") return api.json({ ok: false, error: "BAD_REQUEST" }, 400); return api.json({ ok: true, ...(await svc.changeStatus(env, a, { orderNo: m[1], from: b.from, to: b.to, amount: b.amount, bankTxnRef: b.bankTxnRef })) }); }],
+  ["POST", /^\/api\/admin\/orders\/((?:NORX|TEST)-[A-Za-z0-9-]{1,60})\/status$/, "write", async (r, env, a, m) => { const b = await r.json().catch(() => null); if (!b || typeof b.from !== "string" || typeof b.to !== "string") return api.json({ ok: false, error: "BAD_REQUEST" }, 400); return api.json({ ok: true, ...(await svc.changeStatus(env, a, { orderNo: m[1], from: b.from, to: b.to, amount: b.amount, bankTxnRef: b.bankTxnRef })) }); }],
   ["GET", /^\/api\/admin\/rounds$/, "api", async (r, env) => api.json({ ok: true, ...(await svc.roundsWithSummary(env, Date.now())) })],
   ["POST", /^\/api\/admin\/rounds$/, "write", async (r, env, a) => api.json({ ok: true, ...(await svc.saveRound(env, a, await r.json().catch(() => ({})))) })],
   ["POST", /^\/api\/admin\/rounds\/(ROUND-\d{3,})\/(open|close|cancel-unpaid|send-to-shop)$/, "write", async (r, env, a, m) => {
