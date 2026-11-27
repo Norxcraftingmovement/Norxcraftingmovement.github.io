@@ -23,10 +23,13 @@ Rollback ก่อนรอบนี้: Public 26439a64, Admin 9aa87251; เก
 Shared sidebar/mobile menu + compact Orders, refined to owner black/white references with warm off-white/frosted Overview per 28 Nov clarification; opaque operational data. Orders, Production, Settings and Shipping now share warm/frosted layers and compact actions. Shipping separates labels/downloads/tracking/actual shipment; versioned selection prevents late label results re-enabling stale actions. Production counts/receipt actions precede table; Settings grouped. Production rejection notice persists through quiet reload; scoped print rule restored main/table visibility. Existing confirmations/guards retained. Typography remains readable with 44px action targets. See DESIGN.md; orange remains experimental. Overview work list, Settings section anchors, notification deep-link reveal; not deployed. Local 8/8 workflow + 24 viewport checks pass; full 242: 241 pass / 1 skip / 0 fail. See TEST_REPORT: Monochrome reference refinement. Events/Media destinations retained; separate consoles unchanged.
 
 ## Products draft preparation — development only
-Products แสดงแคตตาล็อก/ค้นหา/กรอง สร้างและแก้ร่าง ดูตัวอย่างข้อมูลได้; active/archived/มีออเดอร์อ่านอย่างเดียว. CAS revision + atomic audit/child writes; ไม่เปลี่ยนแคตตาล็อกสาธารณะหรือออเดอร์เก่า. ไม่มี migration/deploy. ดู TEST_REPORT: Products draft preparation. ยังไม่มีอัปโหลดรูป/สร้าง Collection ใหม่/เผยแพร่หรือหน้าเว็บสินค้าอัตโนมัติ
+Products แสดงแคตตาล็อก/ค้นหา/กรอง สร้างและแก้ร่าง ดูตัวอย่างข้อมูลได้; active/archived/มีออเดอร์อ่านอย่างเดียว. CAS revision + atomic audit/child writes; ไม่เปลี่ยนแคตตาล็อกสาธารณะหรือออเดอร์เก่า. ไม่มี migration/deploy. ดู TEST_REPORT: Products draft preparation. ต่อยอดรูปปกและพรีวิวแล้วตามหัวข้อถัดไป; ยังไม่มีสร้าง Collection ใหม่/เผยแพร่หรือหน้าเว็บสินค้าอัตโนมัติ
+
+## Products cover + template preview — development only
+เลือก/เปลี่ยน/นำรูปปกออก และพรีวิวมือถือ/คอมพิวเตอร์ก่อนบันทึก; แก้ข้อมูลแล้วต้องพรีวิวใหม่. ใช้ CSS จาก Home Terrain ที่ตรงกับเว็บออนไลน์ แต่ markup preview ใหม่ ยังไม่ใช่หน้าเผยแพร่/checkout. อัปโหลดตอนบันทึกร่างเท่านั้น; private cover uses existing image_key/CAS/audit, no migration. Browser 16/16; full 259:258 pass/1skip/0fail; solo self-review. PRODUCT_MEDIA เป็น binding ที่เสนอ ยังไม่เชื่อม Cloudflare; local storage จำลอง. ดู docs/PRODUCTS_MEDIA.md และ TEST_REPORT. รูปเก่าเก็บเพื่อ rollback แต่ URL ถูกเพิกถอนเมื่อไม่มี current reference
 
 ## Next exact action
-ต่อ A2 รับบางส่วน/รับเงินพร้อมส่งมอบบน staging ด้วยข้อมูลสมมติ และ A4/A6 ก่อน production/cutover. คำอนุมัติเมลรอบนี้ไม่ครอบคลุมส่งเมลลูกค้าจริง
+Products: เตรียม dedicated private storage/binding + staging Admin deploy ให้เจ้าของอนุมัติตาม CRITICAL ก่อนเปิดอัปโหลดจริง; แล้วตรวจ deployed preview/access/rollback. Gallery/Collection/size chart/Publish ยังเป็นรอบถัดไป. ต่อ A2 รับบางส่วน/รับเงินพร้อมส่งมอบบน staging ด้วยข้อมูลสมมติ และ A4/A6 ก่อน production/cutover. คำอนุมัติเมลรอบนี้ไม่ครอบคลุมส่งเมลลูกค้าจริง
 งานปกติ/ทดสอบ/รวมกิ่งพัฒนาทำต่อเอง ใช้ Single Writer; ถามเรื่องสำคัญต่อระบบ/ข้อมูล/วิธีใช้งาน. Claude ติดลิมิต ให้ Codex solo self-review และรายงานตามจริง
 
 ## ทิศทางระยะถัดไป

@@ -1,5 +1,7 @@
 import { $, api, notice, el } from "./common.mjs";
+import { productTemplate } from "./product-template.mjs";
 const statusText = { draft: "ฉบับร่าง", active: "เปิดขาย", archived: "เก็บไว้" };
+let mediaReady = false, coverFile = null, coverUrl = "", coverRemoved = false, imageBusy = false, imageVersion = 0, reviewed = "";
 let products = [], collections = [], current = null, dirty = false, busy = false, ready = false;
 const message = error => error.userMessage || "โหลดหรือบันทึกไม่ได้ กรุณาลองใหม่อีกครั้ง";
 const leave = async () => {
@@ -20,13 +22,19 @@ function preview() {
   for (const [sleeve, value] of Object.entries(p.prices)) if (Number.isFinite(value) && value > 0) prices.append(el("dt", "", sleeve === "short" ? "แขนสั้น" : "แขนยาว"), el("dd", "", value.toLocaleString("th-TH") + " บาท"));
   $("previewSizes").replaceChildren(...p.sizes.map(size => el("li", "", size.toUpperCase())));
 }
+const fingerprint = () => JSON.stringify([input(), coverUrl, coverRemoved]);
 function controls() {
   $("productFields").disabled = busy || !ready || (!!current && !current.editable);
-  $("saveDraft").disabled = busy || !ready || (!!current && !current.editable);
+  $("saveDraft").disabled = busy || imageBusy || !ready || reviewed !== fingerprint() || (!!current && !current.editable);
+  $("showProductPreview").disabled = busy || imageBusy || !ready;
+  $("productCover").disabled = busy || !mediaReady || (!!current && !current.editable);
+  $("removeCover").disabled = busy || imageBusy || (!!current && !current.editable);
   for (const id of ["newDraft", "reloadProducts", "productSearch", "productStatus"]) $(id).disabled = busy || !ready;
   $("saveDraft").textContent = busy ? "กำลังบันทึก…" : "บันทึกฉบับร่าง";
 }
 function selectProduct(product) {
+  ++imageVersion; if (coverUrl.startsWith("blob:")) URL.revokeObjectURL(coverUrl);
+  coverFile = null; coverUrl = product?.coverUrl || ""; coverRemoved = false; imageBusy = false; reviewed = ""; $("productCover").value = ""; showCover();
   current = product; dirty = false; notice($("productError"), "");
   const fit = product?.fit || "boxy";
   $("productFit").replaceChildren(...[["boxy", "Boxy"], ["regular", "ทรงปกติ"], ...(!["boxy", "regular"].includes(fit) ? [[fit, product.fitName]] : [])].map(([value, label]) => { const o = el("option", "", label); o.value = value; return o; }));
@@ -51,20 +59,28 @@ function renderList() {
   if (!shown.length) list.append(el("li", "muted", products.length ? "ไม่พบสินค้าที่ตรงกับตัวกรอง" : "ยังไม่มีสินค้า เริ่มจากสร้างฉบับร่างใหม่"));
 }
 async function load(selectId = current?.id) {
-  const result = await api("/api/admin/products"); products = result.products; collections = result.collections;
+  const result = await api("/api/admin/products"); products = result.products; collections = result.collections; mediaReady = result.mediaReady;
+  $("mediaState").textContent = mediaReady ? "รูปปกเก็บเป็นส่วนตัวพร้อมฉบับร่าง ยังไม่แสดงบนเว็บลูกค้า" : "ยังไม่ได้เชื่อมพื้นที่เก็บรูปสินค้า · เตรียมข้อมูลและพรีวิวแบบไม่มีรูปได้";
   $("productCollection").replaceChildren(...[["", "ไม่ระบุ Collection"], ...collections.map(c => [String(c.id), c.name + (c.status === "archived" ? " (เก็บไว้)" : "")])].map(([value, label]) => { const o = el("option", "", label); o.value = value; return o; }));
   ready = true; selectProduct(products.find(p => p.id === selectId) || null);
 }
-$("productForm").addEventListener("input", () => { dirty = true; $("editState").textContent = "มีการแก้ไขที่ยังไม่บันทึก"; preview(); });
-$("productFit").addEventListener("change", () => { $("productFitName").value = $("productFit").value === "regular" ? "ทรงปกติ" : "ทรง Boxy"; dirty = true; preview(); });
+$("productForm").addEventListener("input", () => { reviewed = ""; dirty = true; controls(); $("editState").textContent = "มีการแก้ไขที่ยังไม่บันทึก"; preview(); });
+$("productFit").addEventListener("change", () => { $("productFitName").value = $("productFit").value === "regular" ? "ทรงปกติ" : "ทรง Boxy"; dirty = true; reviewed = ""; controls(); preview(); });
 $("productForm").onsubmit = async event => {
   event.preventDefault(); if (busy || !ready || (current && !current.editable)) return;
   if (!$("productForm").reportValidity()) return;
-  const body = input(); if (!Object.keys(body.prices).length) { notice($("productError"), "ใส่ราคาแขนสั้นหรือแขนยาวอย่างน้อยหนึ่งแบบ", true); return; }
+  if (reviewed !== fingerprint()) { notice($("productError"), "ดูพรีวิวข้อมูลล่าสุดก่อนบันทึก", true); return; }
+  const body = input(); if (coverRemoved) body.coverRemove = true; if (!Object.keys(body.prices).length) { notice($("productError"), "ใส่ราคาแขนสั้นหรือแขนยาวอย่างน้อยหนึ่งแบบ", true); return; }
   if (current) body.expectedRevision = current.revision;
   busy = true; controls(); renderList(); notice($("productError"), ""); notice($("notice"), "");
   try {
-    const result = await api("/api/admin/products" + (current ? "/" + current.id : ""), { method: current ? "PUT" : "POST", body });
+    const path = "/api/admin/products" + (current ? "/" + current.id : ""), method = current ? "PUT" : "POST";
+    let result;
+    if (coverFile) {
+      const form = new FormData(); form.set("data", JSON.stringify(body)); form.set("cover", coverFile);
+      const response = await fetch(path, { method, body: form, credentials: "same-origin" }); result = await response.json();
+      if (!response.ok || result.ok === false) { const error = new Error("UPLOAD_FAILED"); error.userMessage = result.message || "อัปโหลดไม่ได้ กรุณาลองใหม่ รูปที่เลือกยังอยู่"; throw error; }
+    } else result = await api(path, { method, body });
     dirty = false; $("productStatus").value = "draft";
     // Keep the accepted revision even if the subsequent catalog refresh fails.
     current = result.product; selectProduct(current);
@@ -76,7 +92,33 @@ $("productForm").onsubmit = async event => {
 $("newDraft").onclick = async () => { if (!busy && await leave()) { selectProduct(null); $("productName").focus(); } };
 $("reloadProducts").onclick = async () => { if (busy || !(await leave())) return; busy = true; controls(); try { await load(); notice($("notice"), "โหลดข้อมูลล่าสุดแล้ว"); } catch (error) { notice($("notice"), message(error), true); } finally { busy = false; controls(); renderList(); } };
 $("productSearch").oninput = renderList; $("productStatus").onchange = renderList;
-$("showProductPreview").onclick = () => { preview(); $("productPreview").open = true; $("productPreview").scrollIntoView({ block: "start" }); };
+function showCover() { $("coverThumb").hidden = !coverUrl; $("removeCover").hidden = !coverUrl; if (coverUrl) $("coverThumb").src = coverUrl; else $("coverThumb").removeAttribute("src"); }
+$("productCover").onchange = async () => {
+  const file = $("productCover").files[0], version = ++imageVersion; if (!file) return;
+  reviewed = ""; imageBusy = true; controls(); notice($("productError"), "");
+  let url = "";
+  try {
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type) || !file.size || file.size > 4194304) throw Error("ใช้ JPG, PNG หรือ WebP ขนาดไม่เกิน 4 MB");
+    url = URL.createObjectURL(file); const image = new Image(); image.src = url; await image.decode();
+    if (!image.naturalWidth || image.naturalWidth * image.naturalHeight > 40000000) throw Error("รูปมีขนาดพิกเซลใหญ่เกินไป กรุณาย่อรูปก่อน");
+    if (version !== imageVersion) { URL.revokeObjectURL(url); return; }
+    if (coverUrl.startsWith("blob:")) URL.revokeObjectURL(coverUrl);
+    coverFile = file; coverUrl = url; coverRemoved = false; dirty = true; showCover();
+    $("editState").textContent = "เลือกรูปแล้ว · ดูพรีวิวก่อนบันทึก รูปยังไม่อัปโหลด";
+  } catch (error) { if (url) URL.revokeObjectURL(url); if (version === imageVersion) { $("productCover").value = ""; notice($("productError"), error.message === "The source image cannot be decoded." ? "เปิดรูปไม่ได้ กรุณาเลือกรูปใหม่" : error.message, true); } }
+  finally { if (version === imageVersion) { imageBusy = false; controls(); } }
+};
+$("removeCover").onclick = () => { ++imageVersion; imageBusy = false; if (coverUrl.startsWith("blob:")) URL.revokeObjectURL(coverUrl); coverFile = null; coverUrl = ""; coverRemoved = true; reviewed = ""; dirty = true; $("productCover").value = ""; showCover(); controls(); };
+const viewport = mode => { $("storeFrame").parentElement.classList.toggle("desktop", mode === "desktop"); $("previewPhone").setAttribute("aria-pressed", String(mode === "phone")); $("previewDesktop").setAttribute("aria-pressed", String(mode === "desktop")); };
+$("previewPhone").onclick = () => viewport("phone"); $("previewDesktop").onclick = () => viewport("desktop");
+$("closeStorePreview").onclick = () => $("storePreview").close();
+$("showProductPreview").onclick = () => {
+  if (busy || imageBusy || !$("productForm").reportValidity()) return;
+  if (!Object.keys(input().prices).length) { notice($("productError"), "ใส่ราคาอย่างน้อยหนึ่งแบบก่อนดูพรีวิว", true); return; }
+  reviewed = ""; controls(); const snapshot = fingerprint();
+  $("storeFrame").onload = () => { if (snapshot === fingerprint()) { reviewed = snapshot; controls(); } };
+  $("storeFrame").srcdoc = productTemplate(input(), coverUrl); viewport("phone"); $("storePreview").showModal();
+};
 window.addEventListener("beforeunload", event => { if (dirty) { event.preventDefault(); event.returnValue = ""; } });
 controls();
 try { await load(); } catch (error) { notice($("notice"), message(error) + " · รีเฟรชหน้านี้เพื่อลองใหม่", true); }
