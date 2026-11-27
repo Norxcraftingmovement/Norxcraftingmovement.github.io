@@ -96,7 +96,8 @@ $("shipForm").addEventListener("submit", async (ev) => {
   $("sProv").value = provider; $("sTrack").value = trackingNo;
   const check = checkTracking(provider, trackingNo);
   if (needsAck(["one", id, provider, trackingNo].join("|"), check.warnings)) { notice($("sErr"), "⚠ " + check.warnings[0] + " — ตรวจกับฉลากอีกครั้ง ถ้าถูกต้องแล้วกด \"บันทึก\" อีกครั้งเพื่อยืนยัน", true); return; }
-  try { await api(`/api/admin/orders/${id}/shipment`, { method: "PUT", body: { provider, trackingNo } }); // no date here: "shipped" is only recorded by the batch save (R5) data.delete(id); $("shipDlg").close(); await loadOrders(); } catch (e) { notice($("sErr"), errText(e), true); }
+  // No date here (R5): "shipped" is only recorded by the batch save.
+  try { await api(`/api/admin/orders/${id}/shipment`, { method: "PUT", body: { provider, trackingNo } }); data.delete(id); $("shipDlg").close(); await loadOrders(); } catch (e) { notice($("sErr"), errText(e), true); }
 });
 
 let batchInputs = new Map();
