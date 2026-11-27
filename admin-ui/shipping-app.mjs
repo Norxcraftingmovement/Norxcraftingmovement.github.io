@@ -36,35 +36,48 @@ async function loadOrders() {
   changed();
 }
 
-async function fetchLabels() {
+async function fetchLabels(version) {
   const want = ids().filter((i) => !data.has(i));
   if (want.length) {
-    const r = await api("/api/admin/labels/data", { method: "POST", body: { ids: want } }); sender = r.sender;
+    const r = await api("/api/admin/labels/data", { method: "POST", body: { ids: want } });
+    if (version !== selectionVersion) return [];
+    sender = r.sender;
     for (const l of r.labels) data.set(l.id, l);
-  } else if (!sender) sender = (await api("/api/admin/settings/sender")).sender;
+  } else if (!sender) {
+    const r = await api("/api/admin/settings/sender");
+    if (version !== selectionVersion) return [];
+    sender = r.sender;
+  }
   return ids().map((i) => data.get(i)).filter(Boolean);
 }
 
-let layouts = [];
+let layouts = [], selectionVersion = 0;
 async function refresh() {
+  const version = selectionVersion;
   $("count").textContent = "เลือก " + sel.size + " รายการ";
   const has = sel.size > 0; $("slotRow").hidden = fmt() !== "A4";
-  for (const b of ["edit", "ship"]) $(b).disabled = sel.size !== 1;
   const selected = orders.filter((o) => sel.has(o.id));
-  $("shipBatch").disabled = !selected.length || selected.length > 50 || !selected.every(readyForBatch);
+  $("selectionHint").textContent = !selected.length ? "เลือกออเดอร์เพื่อดูตัวอย่างใบจ่าหน้า" : selected.length > 50 ? "เลือกได้สูงสุด 50 ออเดอร์ต่อการบันทึกจัดส่งหนึ่งครั้ง" : !selected.every(readyForBatch) ? "เตรียมใบจ่าหน้าได้ แต่ยังบันทึกส่งไม่ได้: ต้องชำระแล้ว รับสินค้าครบ และยังไม่ส่ง" : selected.length > 1 ? "พร้อมจัดส่ง " + selected.length + " ออเดอร์ · แก้ที่อยู่หรือกรอกเลขพัสดุแยกทีละออเดอร์ได้" : "พร้อมจัดส่ง · ตรวจที่อยู่และใบจ่าหน้าก่อนพิมพ์";
   const c = $("preview"); c.getContext("2d").clearRect(0, 0, c.width, c.height);
   if (!has) { layouts = []; for (const b of ["png", "pdf", "print"]) $(b).disabled = true; notice($("warn"), ""); return; }
-  let labels; try { labels = await fetchLabels(); } catch (e) { notice($("notice"), errText(e), true); return; }
+  let labels; try { labels = await fetchLabels(version); } catch (e) { if (version === selectionVersion) notice($("notice"), errText(e), true); return; }
+  if (version !== selectionVersion) return;
   layouts = labels.map((l) => buildLabel(l, sender));
   const problems = [];
   if (!sender) problems.push("ยังไม่ได้ตั้งค่าผู้ส่ง — ไปที่ “ตั้งค่า” ก่อนพิมพ์");
   layouts.forEach((l, i) => { if (l.warnings.some((w) => w !== "SENDER_MISSING")) problems.push(labels[i].orderNo + ": ข้อความยาวเกินพื้นที่ (" + l.warnings.filter((w) => w !== "SENDER_MISSING").join(", ") + ") แก้ที่อยู่ให้สั้นลงก่อน"); });
   notice($("warn"), problems.join("\n"), true);
   for (const b of ["png", "pdf", "print"]) $(b).disabled = problems.length > 0;
+  for (const b of ["edit", "ship"]) $(b).disabled = sel.size !== 1;
+  $("shipBatch").disabled = !selected.length || selected.length > 50 || !selected.every(readyForBatch);
   const ppi = 110, prev = fmt() === "A4" ? renderA4Sheets(layouts, ppi, { startSlot: +$("slot").value })[0] : renderA6(layouts[0], ppi);
   c.width = prev.width; c.height = prev.height; c.getContext("2d").drawImage(prev, 0, 0);
 }
-const changed = () => { clearTimeout(timer); timer = setTimeout(refresh, 80); };
+const changed = () => {
+  selectionVersion++;
+  for (const b of ["edit", "ship", "shipBatch", "png", "pdf", "print"]) $(b).disabled = true;
+  clearTimeout(timer); timer = setTimeout(refresh, 80);
+};
 
 const pages = () => fmt() === "A4" ? { canv: renderA4Sheets(layouts, 300, { startSlot: +$("slot").value }), ...SIZES.A4, name: "A4" } : { canv: layouts.map((l) => renderA6(l, 300)), ...SIZES.A6, name: "A6" };
 const stamp = () => new Date().toISOString().slice(0, 10);
