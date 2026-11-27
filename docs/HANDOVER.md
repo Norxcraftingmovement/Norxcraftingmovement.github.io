@@ -65,4 +65,15 @@ Run from the cloud session against Cloudflare (staging only):
 - **`norx-orders-public-staging`** deployed, version `26439a64-5d0f-4c87-a59c-44948ac0e651`; D1, rate limiter, email binding, cron `* * * * *`, `STAGING_REQUIRE_ACCESS=1`; no routes.
 - **`norx-staging-storefront` NOT deployed:** build OK (155 files, 5 rewrites) but the static-asset upload failed twice with `401 Unauthorized` (`POST /workers/assets/upload`). The upload uses a short-lived token that the cloud credential proxy does not pass through. No bypass attempted. Resolution approved (Option A): owner deploys the storefront only from a local Windows machine — `docs/STAGING_STOREFRONT_DEPLOY_WINDOWS.md`.
 - No DNS record, routes, Access change, billing change, or Production/Events/Media/Orders V1 change was made. Do not re-run migrations or redeploy the two Workers.
-**Next:** owner storefront deploy → Access re-check → DNS `staging` + 3 routes → gate → integration tests (runbook §3 steps 6–9).
+**Next:** owner storefront deploy → Access re-check → DNS `staging` + 4 route patterns → gate → integration tests (runbook §3 steps 6–9).
+
+
+## Codex Desktop Windows continuation (2026-11-27)
+Operator: Codex Desktop. Read Trello card 2imGq33Y and all four linked guides; card activity showed no competing operator. Local clean checkout at `e8d941147fea6ec1cb2cbf03a350ff15685415bd` (before this documentation update), Windows, Node v22.11.0, Git 2.56.0.
+- Independently verified: storefront build succeeds (155 files, 5 rewrites); committed config is assets-only, correct name, no routes/bindings, workers.dev and previews disabled.
+- NOT verified: Wrangler dry-run/deploy, Cloudflare account/resource state, Access, DNS/routes, security gate, integration, email/cron, latency.
+- Local blockers: Wrangler 4.168.0 requires Node >=22.12.0; npm installation failed at child-process spawn with EPERM even using a workspace cache. Node test runner also failed spawn EPERM; direct execution exposed Windows-incompatible URL.pathname handling (`C:\\C:\\...`) in staging-storefront.test.mjs. These are environment/harness failures, not passing tests or evidence of an application regression.
+- No Cloudflare credentials found in the two standard Wrangler config locations or CLOUDFLARE_* environment names; account identity not established. No credential contents read or recorded.
+- No deployment, migration, seed, DNS/routes, Access, production or customer-data change by this session. Existing cloud deployment results above remain developer-reported, not independently retested.
+- Reconciled stale runbook status and route count: FOUR patterns are required (public API, admin API, admin UI, storefront). Earlier references to three routes are stale.
+Next exact action: use a local execution environment permitting npm/child-process launch, Node >=22.12.0; authenticate owner to the NORX Cloudflare account; run pinned Wrangler dry-run and storefront-only deployment from the Windows guide. Verify Version ID and disabled public targets/bindings; re-check owner-only Access before staging DNS + four routes; then gate and owner-session integration. Do not repeat D1 migration/seed or deploy the other Workers. Staging-only authorization remains; production cutover is not approved.
