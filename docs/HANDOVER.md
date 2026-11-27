@@ -56,3 +56,13 @@ Phase 02 (สร้างออเดอร์/ราคา/เลขออเ�
 All six review items fixed and tested (see TEST_REPORT "Final staging review fixes"); runbook rewritten (`STAGING_RUNBOOK.md`: exact resources, order, owner-session testing, rate-limit/failure-drill/payment-safety procedures, non-destructive rollback). No unrelated features added.
 **Owner prerequisites (in order):** Access application (owner-only, whole hostname) → D1 `norx-orders-staging` → new rate-limit namespace → verified destination address → export the five `NORX_*` variables. Then `.staging/deploy.sh` steps 0–5, owner steps 6–7 (Access re-check, DNS `staging` record + routes), **gate (step 8) must pass**, then tests with the owner session.
 **Still open:** nothing run on Cloudflare (no latency figures, D1/Cron/Email behaviour unproven); QR never scanned by a banking app (D23); sending domain/DNS for e-mail (D24); deployed-V1 version unconfirmed; real V1 export never read; batch actions, round editor, `/track/`, Products, Events metrics pending.
+
+
+## Staging deployment (2026-11-27) — actual results
+Run from the cloud session against Cloudflare (staging only):
+- **D1** `norx-orders-staging`: identity verified (name AND id), migration `0001_core.sql` applied, marker `environment=staging` set, guarded synthetic seed applied (5 orders, 1 round).
+- **`norx-orders-staging` (Admin)** deployed, version `ab7af428-5ac7-40d2-b56b-104635835b61`; D1 + vars only; no routes, workers.dev/previews off.
+- **`norx-orders-public-staging`** deployed, version `26439a64-5d0f-4c87-a59c-44948ac0e651`; D1, rate limiter, email binding, cron `* * * * *`, `STAGING_REQUIRE_ACCESS=1`; no routes.
+- **`norx-staging-storefront` NOT deployed:** build OK (155 files, 5 rewrites) but the static-asset upload failed twice with `401 Unauthorized` (`POST /workers/assets/upload`). The upload uses a short-lived token that the cloud credential proxy does not pass through. No bypass attempted. Resolution approved (Option A): owner deploys the storefront only from a local Windows machine — `docs/STAGING_STOREFRONT_DEPLOY_WINDOWS.md`.
+- No DNS record, routes, Access change, billing change, or Production/Events/Media/Orders V1 change was made. Do not re-run migrations or redeploy the two Workers.
+**Next:** owner storefront deploy → Access re-check → DNS `staging` + 3 routes → gate → integration tests (runbook §3 steps 6–9).

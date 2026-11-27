@@ -76,3 +76,16 @@ New/changed: `orders-review-fixes` (7: **Confirm→Undo→Confirm ×3 = one conf
 **Rehearsal (local simulation, synthetic):** smoke 12/12 incl. rate-limit phase, cut-off, QR page, notifications; `staging-ui-check` 15/15 in Chromium; `wrangler deploy --dry-run` of the three rendered configs OK (316 KiB / 104 KiB / 0.35 KiB).
 **Found during this round:** the harness itself briefly exceeded the limiter because burst tokens were reserved before sending (fixed: tokens recorded at send time); a test file initially hung because a suite with default 60 s pacing was run in a unit test (fixed: windows scaled in tests).
 **Not measured / not tested:** anything on Cloudflare (D1/Workers/Cron/Email, all latency), the staging host, scanning a QR with a banking app, paper printing.
+
+
+## Staging deployment results (2026-11-27) — first run on Cloudflare
+| Step | Result |
+|---|---|
+| D1 identity (name + id), isolation (id not a production id; rate-limit namespace differs from Events) | pass |
+| Migration `0001_core.sql` on remote D1 | pass (35 commands) |
+| Environment marker `staging` written and read back | pass |
+| Guarded synthetic seed | pass; read-back: 5 orders, 1 round, env `staging` |
+| Deploy `norx-orders-staging` | pass (version `ab7af428-5ac7-40d2-b56b-104635835b61`) — D1 + vars only, no targets |
+| Deploy `norx-orders-public-staging` | pass (version `26439a64-5d0f-4c87-a59c-44948ac0e651`) — D1, rate limiter, email, cron registered, no routes |
+| Deploy `norx-staging-storefront` | **FAIL — `401 Unauthorized` on `POST /workers/assets/upload`** (retried twice, identical). Cause: asset upload uses a short-lived token the cloud credential proxy replaces; not an invalid API token (`whoami` and all other calls succeeded). No bypass attempted. Not deployed; no partial Worker. Plan: local Windows deploy (`STAGING_STOREFRONT_DEPLOY_WINDOWS.md`). |
+**Still untested:** gate, Access behaviour, any HTTP request to the Workers, cron/notification behaviour, email, all latency figures (staging host does not exist yet). Code/test suite unchanged this round (188 tests, 187 pass, 1 skipped).

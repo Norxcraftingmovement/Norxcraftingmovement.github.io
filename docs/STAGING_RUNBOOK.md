@@ -38,6 +38,8 @@ Cloudflare Service Auth tokens have a different identity shape and are **not** g
 ```
 Steps 2–4 are tested **exactly as listed** (SQL extracted from the generated script and executed twice on SQLite: second and third runs change nothing; a database marked `production` or unmarked refuses the seed and writes nothing; a failing file is rolled back whole; the marker command never overwrites an existing environment). Every remote D1 command has `--remote` and a config binding only the staging database. **Gate (step 8)** probes 16 paths with no credentials; each must end at Cloudflare Access (redirect to `*.cloudflareaccess.com` or content-free 401/403); any 200, application 404/body or foreign redirect fails. **If the gate fails: remove the three routes (and nothing else), fix the policy, run it again.**
 
+> **Status 2026-11-27:** steps 0–4 done; step 5 done for the Admin and Public Workers; the storefront Worker failed with a 401 on asset upload and is deployed by the owner locally: `STAGING_STOREFRONT_DEPLOY_WINDOWS.md`. Do not repeat steps 2–4 or redeploy the two Workers.
+
 ## 4. Integration test plan (synthetic data only; owner session; ~10 minutes of pacing)
 | # | Run | Pass criterion |
 |---|---|---|
