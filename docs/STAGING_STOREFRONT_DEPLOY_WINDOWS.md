@@ -26,7 +26,8 @@ npx --yes wrangler@4.168.0 --version
 ```powershell
 # 3. Build the standalone staging storefront into dist-staging\ (fails if any production reference remains)
 node scripts/build-staging-storefront.mjs
-# expected: staging storefront built: { rewrites: 5, files: 155 }
+# expected: staging storefront built: { rewrites: 5, qrRemoved: 1, files: 154 }
+# (qrRemoved: the static QR of the real receiving account is replaced by a STAGING notice and assets/qr.jpg is not uploaded)
 ```
 
 ```powershell
