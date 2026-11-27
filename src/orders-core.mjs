@@ -158,10 +158,10 @@ export function shopText(s, round, config) {
  * V1 setOrderStatus rules (admin). `from` is the status the admin saw (optimistic concurrency);
  * throws the same Thai errors as V1. Returns nothing when the change is allowed.
  */
-export function checkTransition({ order, round, from, to, amount, collectingAtPickup = false }) {
+export function checkTransition({ order, round, from, to, amount }) {
   if (order.status !== from) fail("ออเดอร์ " + order.id + ' ถูกเปลี่ยนเป็น "' + order.status + '" แล้ว กรุณาโหลดใหม่');
   if (!canMove(from, to)) fail('เปลี่ยนจาก "' + from + '" เป็น "' + to + '" ไม่ได้');
-  if (round.state === "sent" && [STATUS.PENDING, STATUS.PAID, STATUS.CANCEL].includes(to) && !collectingAtPickup) fail("รอบนี้ส่งร้านแล้ว เปลี่ยนสถานะนี้ไม่ได้ กรุณาทักร้านเองถ้าต้องแก้ยอด");
+  if (round.state === "sent" && [STATUS.PENDING, STATUS.PAID, STATUS.CANCEL].includes(to)) fail("รอบนี้ส่งร้านแล้ว เปลี่ยนสถานะนี้ไม่ได้ กรุณาทักร้านเองถ้าต้องแก้ยอด");
   if (to === STATUS.DONE && from === STATUS.LATER && round.state !== "sent") fail('ยังไม่ได้ส่งร้าน ถ้าได้รับเงินแล้วให้กด "ได้รับเงินแล้ว"');
   if ([STATUS.PAID, STATUS.DONE].includes(to) && from !== STATUS.SENT && Number(amount) !== order.total) fail("ยอดเงินไม่ตรง กรุณาตรวจอีกครั้ง");
 }

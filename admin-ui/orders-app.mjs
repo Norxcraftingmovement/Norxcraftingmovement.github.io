@@ -2,6 +2,8 @@ import { $, api, notice, el } from "./common.mjs";
 import { startAutoRefresh, trackInteraction } from "./autorefresh.mjs";
 const TH_PHASE = { draft: "ฉบับร่าง", scheduled: "ตั้งเวลาเปิด", accepting: "กำลังเปิดรับ", closed: "ปิดรับแล้ว", sent: "ส่งร้านแล้ว" };
 const BTN = { "ชำระแล้ว": "ยืนยันรับเงิน", "จ่ายหน้างาน": "จ่ายหน้างาน", "รอโอน": "กลับเป็นรอโอน", "ยกเลิก": "ยกเลิก", "ส่งมอบแล้ว": "ส่งมอบแล้ว", "ส่งร้านแล้ว": "ย้อนเป็นส่งร้านแล้ว" };
+// A39: an on-site order is paid AT the hand-over — one button records the money (on_site) and the delivery together.
+const btnLabel = (o, to) => (o.status === "จ่ายหน้างาน" && to === "ส่งมอบแล้ว" ? "รับเงินและส่งมอบ" : BTN[to] || to);
 const CLS = { "รอโอน": "pending", "ชำระแล้ว": "paid", "ส่งร้านแล้ว": "paid", "ส่งมอบแล้ว": "paid", "จ่ายหน้างาน": "later", "ยกเลิก": "cancel" };
 const baht = (n) => Number(n).toLocaleString("th-TH") + " บาท";
 const hhmm = () => new Date().toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
@@ -77,8 +79,8 @@ function draw(notifs, lat, ready = lastR) {
       el("small", "muted", o.items.map((i) => i.name + " " + (i.sleeve === "short" ? "แขนสั้น" : "แขนยาว") + " " + i.size + "×" + i.qty).join(", ")), el("br"), el("b", "", baht(o.total) + (o.shipping ? " (รวมส่ง " + baht(o.shipping) + ")" : "")));
     const acts = el("div", "acts");
     for (const to of o.moves) {
-      if (queue === "pickup" && (o.paymentStatus === "deferred_on_site" ? to !== "ชำระแล้ว" : to !== "ส่งมอบแล้ว")) continue;
-      const bt = el("button", "secondary small", BTN[to] || to); bt.type = "button"; bt.onclick = () => move(o, to); acts.append(bt);
+      if (queue === "pickup" && to !== "ส่งมอบแล้ว") continue; // pickup queue: one hand-over button (paid, or รับเงินและส่งมอบ)
+      const bt = el("button", "secondary small", btnLabel(o, to)); bt.type = "button"; bt.onclick = () => move(o, to); acts.append(bt);
     }
     g.append(acts); li.append(g); ul.append(li);
   }
@@ -97,9 +99,9 @@ function draw(notifs, lat, ready = lastR) {
 async function move(o, to) {
   let amount;
   if ((to === "ชำระแล้ว" || to === "ส่งมอบแล้ว") && o.status !== "ส่งร้านแล้ว") {
-    amount = await ask({ title: BTN[to] + " " + o.id, text: "ยอดที่ต้องได้รับ " + baht(o.total) + " — พิมพ์ยอดที่ได้รับจริงเพื่อยืนยัน" + (o.payment?.legacyPayee ? "  ⚠ QR ของออเดอร์นี้ออกให้บัญชีผู้รับเดิม (" + (o.payment.payeeMasked || "") + " · " + (o.payment.payeeName || "") + ") — ตรวจเงินเข้าบัญชีนั้น ไม่ใช่บัญชีปัจจุบัน" : ""), label: "ยอดที่ได้รับ (บาท)", label2: to === "ชำระแล้ว" ? "เลขอ้างอิงรายการโอนจากรายการเดินบัญชี (ไม่บังคับ — ใช้กันยืนยันซ้ำ)" : "", validate: (v) => (Number(v) === o.total ? "" : "ยอดไม่ตรงกับยอดออเดอร์") });
+    amount = await ask({ title: btnLabel(o, to) + " " + o.id, text: "ยอดที่ต้องได้รับ " + baht(o.total) + " — พิมพ์ยอดที่ได้รับจริงเพื่อยืนยัน" + (o.payment?.legacyPayee ? "  ⚠ QR ของออเดอร์นี้ออกให้บัญชีผู้รับเดิม (" + (o.payment.payeeMasked || "") + " · " + (o.payment.payeeName || "") + ") — ตรวจเงินเข้าบัญชีนั้น ไม่ใช่บัญชีปัจจุบัน" : ""), label: "ยอดที่ได้รับ (บาท)", label2: to === "ชำระแล้ว" ? "เลขอ้างอิงรายการโอนจากรายการเดินบัญชี (ไม่บังคับ — ใช้กันยืนยันซ้ำ)" : "", validate: (v) => (Number(v) === o.total ? "" : "ยอดไม่ตรงกับยอดออเดอร์") });
     if (amount === null) return; amount = Number(amount);
-  } else if (!(await ask({ title: BTN[to] + " " + o.id + "?", text: o.status + " → " + to }))) return;
+  } else if (!(await ask({ title: btnLabel(o, to) + " " + o.id + "?", text: o.status + " → " + to }))) return;
   try { await api("/api/admin/orders/" + encodeURIComponent(o.id) + "/status", { method: "POST", body: { from: o.status, to, amount, ...(askExtra ? { bankTxnRef: askExtra } : {}) } }); await load(); } catch (e) { notice($("notice"), msg(e), true); await load({ quiet: true }); }
 }
 async function roundOp(r, op, text, body = {}) {

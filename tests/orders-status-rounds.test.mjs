@@ -31,7 +31,7 @@ test("stale admin view and illegal moves are refused; concurrent identical click
   assert.equal(sqlite.prepare("SELECT COUNT(*) n FROM payments").get().n,2,"one payment per paid order, none duplicated");
   await rejects(svc.changeStatus(env,"a",{orderNo:"NORX-NOPE0000",from:S.PENDING,to:S.PAID,now:NOW}),/ไม่พบออเดอร์/);
 });
-test("จ่ายหน้างาน is NOT paid: no payment/paid_at, counted in production, excluded from revenue; at pickup the money is collected (on_site) before hand-over",async()=>{
+test("จ่ายหน้างาน is NOT paid: no payment/paid_at, counted in production, excluded from revenue; paid AT the hand-over in one step (A39)",async()=>{
   const {env,sqlite}=await setupV1();
   const a=await mk(env,{delivery:"event"}),b=await mk(env,{items:[{product:"drop02",fit:"regular",sleeve:"long",size:"M",qty:1}]},590);
   await svc.changeStatus(env,"adm",{orderNo:a.id,from:S.PENDING,to:S.LATER,now:NOW});
@@ -52,11 +52,12 @@ test("จ่ายหน้างาน is NOT paid: no payment/paid_at, counted
   await svc.setItemsStatus(env,"adm",{round:"ROUND-001",from:"batched",to:"produced",expected:3,now:CLOSED});
   await svc.setItemsStatus(env,"adm",{round:"ROUND-001",from:"produced",to:"received",expected:3,now:CLOSED});
   assert.deepEqual({...st(sqlite,a.id)},{p:"deferred_on_site",f:"ready_pickup"},"received → waiting for pickup, still unpaid");
-  // At pickup the money is recorded first (method on_site), then the hand-over
-  await rejects(svc.changeStatus(env,"adm",{orderNo:a.id,from:S.LATER,to:S.DONE,amount:980,now:CLOSED}),/บันทึกรับเงินก่อนส่งมอบ/);
-  await svc.changeStatus(env,"adm",{orderNo:a.id,from:S.LATER,to:S.PAID,amount:980,now:CLOSED});
-  assert.deepEqual({...st(sqlite,a.id)},{p:"confirmed",f:"ready_pickup"});
-  await svc.changeStatus(env,"adm",{orderNo:a.id,from:S.SENT,to:S.DONE,now:CLOSED});
+  // A39: at pickup the money and the shirts change hands together — one step, amount checked, recorded as on_site.
+  // There is no separate "collect first" step after cut-off (V1 rule: จ่ายหน้างาน → ชำระแล้ว is blocked once sent).
+  await rejects(svc.changeStatus(env,"adm",{orderNo:a.id,from:S.LATER,to:S.PAID,amount:980,now:CLOSED}),/รอบนี้ส่งร้านแล้ว/);
+  await rejects(svc.changeStatus(env,"adm",{orderNo:a.id,from:S.LATER,to:S.DONE,amount:979,now:CLOSED}),/ยอดเงินไม่ตรง/);
+  assert.deepEqual({...st(sqlite,a.id)},{p:"deferred_on_site",f:"ready_pickup"},"nothing changed by the refused attempts");
+  assert.deepEqual(await svc.changeStatus(env,"adm",{orderNo:a.id,from:S.LATER,to:S.DONE,amount:980,now:CLOSED}),{changed:true,status:S.DONE});
   assert.deepEqual({...st(sqlite,a.id)},{p:"confirmed",f:"completed"});
   assert.equal(sqlite.prepare("SELECT method m FROM payments WHERE order_id=(SELECT id FROM orders WHERE order_no=?)").get(a.id).m,"on_site");
   assert.ok(sqlite.prepare("SELECT received_at r FROM orders WHERE order_no=?").get(a.id).r);

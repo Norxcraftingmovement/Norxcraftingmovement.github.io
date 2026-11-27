@@ -203,9 +203,9 @@ export async function changeStatus(env, actor, { orderNo, from, to, amount, bank
   const cur = core.toLegacy(o.payment_status, o.fulfillment_status);
   if (cur === to) return { changed: false }; // V1: same status is a no-op
   const round = (await loadConfig(env)).rounds.find((r) => r.id === o.round_code);
-  const collectingAtPickup = o.fulfillment_status === "ready_pickup" && cur === STATUS.LATER && to === STATUS.PAID;
-  if (o.fulfillment_status === "ready_pickup" && cur === STATUS.LATER && to === STATUS.DONE) throw new UserError("บันทึกรับเงินก่อนส่งมอบ");
-  core.checkTransition({ order: { id: o.order_no, status: cur, total: o.total_baht }, round, from, to, amount, collectingAtPickup });
+  // A39 (owner, 2026-11-27): จ่ายหน้างาน is collected AT the hand-over — one step จ่ายหน้างาน → ส่งมอบแล้ว (amount must match,
+  // payment recorded as on_site), as in V1. A38: the hand-over itself still waits until every item is received (below).
+  core.checkTransition({ order: { id: o.order_no, status: cur, total: o.total_baht }, round, from, to, amount });
   const isHandover = round.state === "sent" && to === STATUS.DONE;
   if (isHandover && await db.prepare("SELECT 1 FROM order_items WHERE order_id=? AND production_status IN ('batched','produced') LIMIT 1").bind(o.id).first()) {
     throw new UserError("ออเดอร์นี้รับเสื้อยังไม่ครบ");
@@ -225,7 +225,7 @@ export async function changeStatus(env, actor, { orderNo, from, to, amount, bank
   if (leavingPaid) stmts.push(db.prepare(`UPDATE payments SET status='void', voided_at=?5, void_reason=?6 WHERE status='confirmed' AND order_id IN (SELECT id FROM orders WHERE ${guard})`).bind(...g, at, cur + " → " + to));
   if (paidNow) stmts.push(db.prepare(`INSERT INTO payments(order_id,amount_baht,method,status,recorded_by,created_at,request_id,provider,bank_txn_ref,verified_at,verified_by) SELECT id,total_baht,?5,'confirmed',?6,?7,(SELECT id FROM payment_requests WHERE order_id=orders.id),COALESCE((SELECT provider FROM payment_requests WHERE order_id=orders.id),'manual'),?8,?7,?6 FROM orders WHERE ${guard}`).bind(...g, cur === STATUS.LATER ? "on_site" : "bank_transfer", actor, at, txn));
   const newUpdated = at > o.updated_at ? at : iso(Date.parse(o.updated_at) + 1);
-  const fulfillment = collectingAtPickup ? "ready_pickup" : m.fulfillment;
+  const fulfillment = m.fulfillment;
   stmts.push(db.prepare(`UPDATE orders SET payment_status=?5, fulfillment_status=?6, status_updated_at=?7, status_updated_by=?8, updated_at=?9,
       paid_at=CASE WHEN ?10=1 THEN ?7 ELSE paid_at END, received_at=CASE WHEN ?6='completed' THEN ?7 ELSE received_at END WHERE ${guard}`).bind(...g, m.payment, fulfillment, at, actor, newUpdated, paidNow ? 1 : 0));
   const ordersUpdateIdx = stmts.length - 1;
