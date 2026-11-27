@@ -106,7 +106,7 @@ a.dashboard-queue-content:hover .dashboard-arrow{background:transparent}
   .dashboard-round{padding:22px}.section-nav{gap:8px;margin-block:20px 28px}
 }
 /* Orders material study: beige canvas, frosted layers, restrained solid ink. */
-.orders-surface{min-height:100dvh;background-color:#e1d6c8;background-image:radial-gradient(circle 230px at 92% 310px,#f6f1e91a 64%,#ffffffa1 65%,#b7a99866 66%,transparent 68%),radial-gradient(ellipse 360px 300px at 95% 720px,#e88e4d77,transparent 78%),radial-gradient(ellipse 640px 500px at 8% 60px,#faf7f0,transparent 90%);background-repeat:no-repeat}
+.orders-surface{min-height:100dvh;background-color:#e1d6c8;background-image:radial-gradient(ellipse 360px 300px at 95% 720px,#e88e4d77,transparent 78%),radial-gradient(ellipse 640px 500px at 8% 60px,#faf7f0,transparent 90%);background-repeat:no-repeat}
 .orders-page .panel{background:#f8f4ed;border:1px solid #ffffffbd;box-shadow:none;border-radius:22px}
 .orders-page .round-selector{background:#f1e9de}
 .orders-page .section-details.panel{background:#eee5d9}
