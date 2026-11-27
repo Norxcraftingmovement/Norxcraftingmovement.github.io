@@ -24,7 +24,7 @@ async function load({ quiet = false } = {}) {
   if (busy) return; busy = true;
   try {
     const [r, o, n, l, p] = await Promise.all([api("/api/admin/rounds"), api("/api/admin/orders" + (current ? "?round=" + encodeURIComponent(current) : "")), api("/api/admin/notifications"), api("/api/admin/metrics/latency"), api("/api/admin/pulse")]);
-    rounds = r.rounds; orders = o.orders; token = p.token; errs = 0;
+    rounds = r.rounds; orders = o.orders; errs = 0;
     if (!current || !rounds.some((x) => x.id === current)) { current = (rounds.find((x) => x.phase === "accepting") || rounds.at(-1) || {}).id || ""; if (current) { orders = (await api("/api/admin/orders?round=" + encodeURIComponent(current))).orders; } }
     draw(n.notifications, l.latency, n.readiness); refresher?.setToken(p.token); $("fresh").hidden = true; $("live").textContent = "อัปเดตล่าสุด " + hhmm() + " · รีเฟรชอัตโนมัติทุก 15 วินาที"; notice($("notice"), "");
   } catch (e) { errs++; if (!quiet) notice($("notice"), msg(e), true); $("live").textContent = "เชื่อมต่อไม่ได้ จะลองใหม่อัตโนมัติ"; }
@@ -96,3 +96,4 @@ $("csv").onclick = () => { location.href = "/api/admin/orders/export.csv?" + new
 { const qs = new URLSearchParams(location.search); if (qs.get("status")) $("status").value = qs.get("status"); if (qs.get("round")) current = qs.get("round"); }
 await load();
 refresher = startAutoRefresh({ pulse: () => api("/api/admin/pulse"), reload: load, interacting, onPending: (v) => { $("fresh").hidden = !v; }, onError: () => { $("live").textContent = "เชื่อมต่อไม่ได้ จะลองใหม่อัตโนมัติ"; } });
+
