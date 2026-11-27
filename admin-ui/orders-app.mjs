@@ -40,7 +40,10 @@ async function load({ quiet = false } = {}) {
     const [r, o, n, l, p] = await Promise.all([api("/api/admin/rounds"), api(orderListUrl()), api("/api/admin/notifications"), api("/api/admin/metrics/latency"), api("/api/admin/pulse")]);
     rounds = r.rounds; orders = o.orders; errs = 0;
     if (!filteredQueue && (!current || !rounds.some((x) => x.id === current))) { current = (rounds.find((x) => x.phase === "accepting") || rounds.at(-1) || {}).id || ""; if (current) orders = (await api(orderListUrl())).orders; }
-    draw(n.notifications, l.latency, n.readiness); refresher?.setToken(p.token); $("fresh").hidden = true; $("live").textContent = "อัปเดตล่าสุด " + hhmm() + " · รีเฟรชอัตโนมัติทุก 15 วินาที"; notice($("notice"), "");
+    draw(n.notifications, l.latency, n.readiness); refresher?.setToken(p.token); $("fresh").hidden = true; $("live").textContent = "อัปเดตล่าสุด " + hhmm() + " · รีเฟรชอัตโนมัติทุก 15 วินาที";
+    // A quiet reconciliation must not erase the reason an action was rejected.
+    // Explicit refresh or a successful action clears it through the normal load.
+    if (!quiet) notice($("notice"), "");
   } catch (e) { errs++; if (!quiet) notice($("notice"), msg(e), true); $("live").textContent = "เชื่อมต่อไม่ได้ จะลองใหม่อัตโนมัติ"; }
   busy = false;
 }
