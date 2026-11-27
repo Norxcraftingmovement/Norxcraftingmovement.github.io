@@ -23,3 +23,10 @@ test("line numbers follow the hunk header", () => {
 });
 
 test("every rule has a pattern", () => { assert.ok(Object.values(RULES).every((r) => r instanceof RegExp)); });
+
+test("plus-prefixed content is scanned without losing the next file header", () => {
+  const d = `diff --git a/a.txt b/a.txt\n+++ b/a.txt\n@@ -0,0 +1,2 @@\n+++ token = "${"synthetic".repeat(4)}"\n++++${mail}\ndiff --git a/b.txt b/b.txt\n+++ b/b.txt\n@@ -0,0 +1 @@\n+${mail}`;
+  assert.deepEqual(scanDiff(d).map(h => [h.file, h.line, h.rule]), [
+    ["a.txt", 1, "secretAssignment"], ["a.txt", 2, "email"], ["b.txt", 1, "email"]
+  ]);
+});

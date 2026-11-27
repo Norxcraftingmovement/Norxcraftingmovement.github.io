@@ -19,6 +19,12 @@ The owner speaks Thai and is not a coder: answer in plain Thai. Code and docs ma
 - UI/UX changes are at least STANDARD and need visual + functional QA (look at the real pages and flows). Console-error checks are an extra, never a substitute.
 - Label results "developer-reported" or "independent retest".
 
+## Owner direction (2026-11-27)
+- Carry authorized routine fixes, tests and merges into development branches through without asking at every step. Ask for decisions with material risk to availability, real data, security, cost or how the owner uses the app. Do not infer production/cutover authorization from routine development approval.
+- Keep the Cloudflare scope approval boundary above; do not ask again for steps already authorized inside that scope.
+- The owner assigned Codex to work solo while Claude is rate-limited. For this workflow fix, do a separate self-review and label it "solo self-review", not "independent QA"; do not block on Claude. Other go-live gates remain in place.
+- Explain outcomes, impact and next actions in plain Thai for a non-coder. Update Trello for material milestones and changed decisions, linking GitHub evidence.
+
 ## Reporting without duplicates
 GitHub = technical evidence. Trello = status only (state, next action, approvals needed, links). Write a result once and link to it; do not copy it into Trello + HANDOVER + GO_LIVE + TEST_REPORT. `docs/HANDOVER.md` is append-only history: grep it, do not read it whole. At the end of a session replace `STATE.md`.
 
