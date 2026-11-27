@@ -17,9 +17,10 @@ git branch --show-current          # must print: feature/orders-v2
 ```
 
 ```powershell
-# 2. Dependencies (lockfile install)
-npm ci
-npx wrangler --version
+# 2. Dependencies: the repository has no package.json (the build uses only Node.js built-ins).
+#    Wrangler is fetched on demand; pin the version that was tested.
+node --version                      # 20 or newer
+npx --yes wrangler@4.168.0 --version
 ```
 
 ```powershell
@@ -35,24 +36,24 @@ node -e "const c=JSON.parse(require('fs').readFileSync('wrangler.staging-storefr
 
 ```powershell
 # 5. Authenticate (opens a browser; choose the NORX account). Do not use a token that has Zone/DNS/Access rights.
-npx wrangler login
-npx wrangler whoami
+npx wrangler@4.168.0 login
+npx wrangler@4.168.0 whoami
 ```
 
 ```powershell
 # 6. Dry run: uploads nothing. The output must NOT contain a "bindings" table, any route, or a workers.dev URL.
-npx wrangler deploy --dry-run -c wrangler.staging-storefront.jsonc
+npx wrangler@4.168.0 deploy --dry-run -c wrangler.staging-storefront.jsonc
 ```
 
 ```powershell
 # 7. Deploy ONLY the storefront
-npx wrangler deploy -c wrangler.staging-storefront.jsonc
+npx wrangler@4.168.0 deploy -c wrangler.staging-storefront.jsonc
 # expected: "Uploaded norx-staging-storefront", then "No targets deployed" (= no routes, no workers.dev) and a Current Version ID
 ```
 
 ```powershell
 # 8. Verify (read-only)
-npx wrangler deployments list --name norx-staging-storefront
+npx wrangler@4.168.0 deployments list --name norx-staging-storefront
 ```
 
 Do **not** run `wrangler d1 …`, `wrangler deploy` for the other configs, `render-staging-config`, or anything with `--remote` against the database: D1, migrations, marker, seed and the two other Workers are already in place.
