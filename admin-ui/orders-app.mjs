@@ -50,7 +50,7 @@ async function load({ quiet = false } = {}) {
 
 function draw(notifs, lat, ready = lastR) {
   lastN = notifs; lastL = lat; lastR = ready;
-  $("ready").textContent = ready ? (ready.ready ? "ช่องทางแจ้งเตือน: พร้อม (" + ready.mode + ")" : "ช่องทางแจ้งเตือน: ยังไม่พร้อม — ขาด " + (ready.missing || []).join(", ")) : "";
+  $("ready").textContent = ready ? (ready.ready ? "ช่องทางแจ้งเตือน: ตั้งค่าครบ (" + ready.mode + ") · ยังไม่ยืนยันการส่งถึงผู้รับ" : "ช่องทางแจ้งเตือน: ยังไม่พร้อม — " + (ready.missing || []).join(", ")) : "";
   const sel = $("round"); sel.replaceChildren(...rounds.slice().reverse().map((r) => { const o = el("option", "", r.name + " (" + r.id + ") · " + TH_PHASE[r.phase]); o.value = r.id; return o; })); sel.value = current;
   if (filteredQueue) {
     const all = el("option", "", "ทุกรอบ");
@@ -127,5 +127,5 @@ if (filteredQueue) {
   $("status").hidden = true;
   $("csv").hidden = true;
 }
-await load();
 refresher = startAutoRefresh({ pulse: () => api("/api/admin/pulse"), reload: load, interacting, onPending: (v) => { $("fresh").hidden = !v; }, onError: () => { $("live").textContent = "เชื่อมต่อไม่ได้ จะลองใหม่อัตโนมัติ"; } });
+await load();

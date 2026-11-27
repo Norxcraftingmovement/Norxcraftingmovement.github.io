@@ -26,3 +26,12 @@ Verified by a **model-based test**: all 243 outcome sequences (ambiguous / refus
 
 ## Not done (needs the owner / approval)
 Enabling the service, verifying the destination address, onboarding a sending domain / DNS, any real send, any paid plan.
+
+## Admin channel status (2026-11-27)
+The Public Worker's existing one-minute cron writes a sanitized configuration report to the existing `settings` table (`notification_channel_report`): schema version, environment, channel mode, sender-configured boolean and check time. No sender/recipient address, URL, token or provider error is stored in that report. No schema migration, new binding or Admin send privilege is required.
+
+Admin combines the report with the CURRENT recipient setting. Missing, malformed, mismatched-environment, future-dated or older-than-five-minute reports are not ready. The pulse token changes when the report changes or expires, so the page updates without requiring a new order. The page says configuration is complete, while explicitly stating that delivery to the recipient is not yet confirmed.
+
+Report persistence failure logs fixed text and leaves the existing notification dispatcher running. Queue claiming, retry limits, ambiguity handling and delivery confirmation rules are unchanged. Tests use mocks only.
+
+Staging rollout requires BOTH updated Workers: deploy Public first, wait for its cron report, then Admin (with regenerated browser assets). Validate the authenticated Admin status and actual owner-delivered email separately. This code change does not enable Email Service, verify destinations, configure DNS or authorize a real send. A rollback can restore the prior Workers; the extra settings row is inert for older code and need not be deleted.

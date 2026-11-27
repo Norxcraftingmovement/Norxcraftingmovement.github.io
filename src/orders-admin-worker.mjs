@@ -5,7 +5,7 @@ import * as api from "./orders-admin-api.mjs";
 import * as svc from "./orders-service.mjs";
 import { UserError } from "./orders-core.mjs";
 import * as pay from "./payments.mjs";
-import { listNotifications, retryNotification, markNotificationReceived, notificationHistory, latencyStats, notificationReadiness } from "./orders-notify.mjs";
+import { listNotifications, retryNotification, markNotificationReceived, notificationHistory, latencyStats, reportedNotificationReadiness } from "./orders-notify.mjs";
 const headers = { "Cache-Control": "no-store", "X-Robots-Tag": "noindex, nofollow", "X-Content-Type-Options": "nosniff", "Referrer-Policy": "no-referrer" };
 const reply = (error, status) => Response.json({ error }, { status, headers });
 const pageCsp = "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' blob: data:; font-src 'self'; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'";
@@ -84,7 +84,7 @@ const routes = [
   ["GET", /^\/api\/admin\/settings\/payment\/preview\.svg$/, "api", async (r, env) => { const svg = await pay.previewSvg(env); return svg ? new Response(svg, { headers: { ...headers, "Content-Type": "image/svg+xml; charset=utf-8" } }) : api.json({ ok: false, error: "NOT_CONFIGURED" }, 404); }],
   ["GET", /^\/api\/admin\/integrity$/, "api", async (r, env) => api.json({ ok: true, violations: await svc.paymentIntegrity(env) })],
   ["GET", /^\/api\/admin\/pulse$/, "api", async (r, env) => api.json({ ok: true, ...(await svc.pulse(env)) })],
-  ["GET", /^\/api\/admin\/notifications$/, "api", async (r, env) => api.json({ ok: true, notifications: await listNotifications(env), readiness: await notificationReadiness(env, async () => (await svc.getSetting(env, "storefront"))?.notifyTo ?? null) })],
+  ["GET", /^\/api\/admin\/notifications$/, "api", async (r, env) => api.json({ ok: true, notifications: await listNotifications(env), readiness: await reportedNotificationReadiness(env, async () => (await svc.getSetting(env, "storefront"))?.notifyTo ?? null) })],
   ["GET", /^\/api\/admin\/notifications\/(\d{1,12})\/history$/, "api", async (r, env, a, m) => api.json({ ok: true, ...(await notificationHistory(env, +m[1])) })],
   ["POST", /^\/api\/admin\/notifications\/(\d{1,12})\/received$/, "write", async (r, env, a, m) => api.json({ ok: true, marked: await markNotificationReceived(env, +m[1]) })],
   ["POST", /^\/api\/admin\/notifications\/(\d{1,12})\/retry$/, "write", async (r, env, a, m) => api.json({ ok: true, retried: await retryNotification(env, +m[1]) })],

@@ -136,7 +136,9 @@ test("PII: raw provider errors (addresses, phones, names) are never stored anywh
   const {env,sqlite}=await setupV1();await mk(env);
   await dispatchDue(env,async()=>{throw refuse("E_RECIPIENT_NOT_ALLOWED")},{now:NOW+1000});
   await dispatchDue(env,async()=>{const e=timeout();e.code="E_TIMEOUT";throw e},{now:NOW+1000+BACKOFF_MS[0]});
-  const dump=allText(sqlite);for(const leak of ["owner@example.test","0899999999","สมชาย","mailbox","socket timed out","550"])assert.ok(!dump.includes(leak),leak);
+  // UUID lock tokens can coincidentally contain 550; verify the exact persisted error text instead.
+  const dump=allText(sqlite);for(const leak of ["owner@example.test","0899999999","สมชาย","mailbox","socket timed out"])assert.ok(!dump.includes(leak),leak);
+  assert.deepEqual(sqlite.prepare("SELECT error FROM notification_failures ORDER BY id").all().map(r=>r.error),["provider refused or failed: E_RECIPIENT_NOT_ALLOWED","delivery unconfirmed (ambiguous provider outcome): E_TIMEOUT"]);
   assert.ok(dump.includes("E_RECIPIENT_NOT_ALLOWED")&&dump.includes("E_TIMEOUT"));
   assert.deepEqual(classifyError(new Error("hello owner@example.test")),{code:"unknown",ambiguous:false});assert.deepEqual(classifyError(timeout()),{code:"TimeoutError",ambiguous:true});
   assert.deepEqual(classifyError({name:"Error",code:"weird code with spaces and a@b.c"}),{code:"unknown",ambiguous:false});
