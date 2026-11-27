@@ -89,3 +89,7 @@ New/changed: `orders-review-fixes` (7: **Confirm→Undo→Confirm ×3 = one conf
 | Deploy `norx-orders-public-staging` | pass (version `26439a64-5d0f-4c87-a59c-44948ac0e651`) — D1, rate limiter, email, cron registered, no routes |
 | Deploy `norx-staging-storefront` | **FAIL — `401 Unauthorized` on `POST /workers/assets/upload`** (retried twice, identical). Cause: asset upload uses a short-lived token the cloud credential proxy replaces; not an invalid API token (`whoami` and all other calls succeeded). No bypass attempted. Not deployed; no partial Worker. Plan: local Windows deploy (`STAGING_STOREFRONT_DEPLOY_WINDOWS.md`). |
 **Still untested:** gate, Access behaviour, any HTTP request to the Workers, cron/notification behaviour, email, all latency figures (staging host does not exist yet). Code/test suite unchanged this round (188 tests, 187 pass, 1 skipped).
+
+
+## Independent Codex Desktop check (2026-11-27)
+Local source HEAD e8d9411, Windows, Node 22.11.0. Build: PASS (155 files, 5 rewrites). Assets-only config check: PASS (correct worker name; no routes/bindings; workers.dev/previews disabled). Automated storefront tests: NOT COMPLETED — node --test blocked by spawn EPERM; direct module execution fails Windows URL.pathname conversion (C:\\C:\\...). Pinned Wrangler dry-run: NOT RUN — npm install failed spawn EPERM; Wrangler 4.168.0 additionally requires Node >=22.12.0. No Cloudflare or integration result is claimed. See latest HANDOVER section for next action; no deployment or remote resource changes made.
