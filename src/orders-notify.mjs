@@ -5,14 +5,14 @@
 //  * 'sent' means ACCEPTED BY THE PROVIDER (messageId stored). It is not proof of inbox delivery.
 //  * NORMAL failure (definite refusal): retry with backoff 1m/5m/30m/2h/12h, at most max_attempts (5) provider calls, then 'dead'.
 //  * AMBIGUOUS failure (timeout/abort, or the Worker stopped after calling the provider): the message may already be out.
-//    Exactly ONE further attempt is allowed (flagged "possible duplicate"); a second ambiguous outcome ends in
-//    'unconfirmed' with NO further automatic attempts — the owner decides (resend or mark as received).
+//    Exactly ONE further automatic attempt is allowed (flagged "possible duplicate") — whatever its outcome — and then the row
+//    ends in 'unconfirmed' (or 'sent' if that attempt is accepted). The owner decides (resend or mark as received).
 //  * We do NOT assume the provider de-duplicates. The reference id in the body lets a human recognise a duplicate.
 //  * Stale-lock recovery and outcome writes are compare-and-set on `lock_token`, so concurrent workers cannot double count.
 //  * History is append-only (notification_failures + notification_events) and contains codes/fixed text only — never raw
 //    provider errors, e-mail addresses or message content.
 export const BACKOFF_MS = [60e3, 5 * 60e3, 30 * 60e3, 2 * 3600e3, 12 * 3600e3]; // after failed attempt 1..5
-export const MAX_AMBIGUOUS = 2; // first ambiguous outcome + ONE retry
+export const MAX_AMBIGUOUS = 2; // the first ambiguous outcome + the ONE additional attempt that follows it
 const iso = (ms) => new Date(ms).toISOString();
 const STALE_MS = 5 * 60e3;
 const token = () => crypto.randomUUID();
@@ -35,8 +35,11 @@ const event = (db, id, name, detail = null, guardToken = null) => guardToken
  * (changes === 1); the history rows are written only by the winner, in the same transaction.
  */
 async function applyOutcome(db, row, { kind, code, ambiguous }, now) {
-  const mine = token(), attempts = row.attempts + 1, amb = row.ambiguous_count + (ambiguous ? 1 : 0);
-  const status = amb >= MAX_AMBIGUOUS ? "unconfirmed" : attempts >= row.max_attempts ? "dead" : "failed";
+  const mine = token(), attempts = row.attempts + 1, amb = row.ambiguous_count + (ambiguous ? 1 : 0), exhausted = attempts >= row.max_attempts;
+  // Once ANY attempt has ended ambiguously the message may already be out, so exactly ONE further automatic attempt is allowed,
+  // whatever that attempt's own outcome is. After it (accepted aside) the row stops: 'unconfirmed' (owner decides). An ambiguous
+  // outcome that exhausts the attempt budget is also 'unconfirmed', never 'dead' (dead = we know it was refused every time).
+  const status = row.ambiguous_count >= 1 ? "unconfirmed" : ambiguous ? (exhausted ? "unconfirmed" : "failed") : exhausted ? "dead" : "failed";
   const next = iso(now + BACKOFF_MS[Math.min(attempts, BACKOFF_MS.length) - 1]), text = fixedText({ code, ambiguous });
   const res = await db.batch([
     db.prepare(`UPDATE notification_queue SET status=?3, attempts=?4, ambiguous_count=?5, last_error_code=?6, locked_at=NULL, provider_called_at=NULL, lock_token=?7,

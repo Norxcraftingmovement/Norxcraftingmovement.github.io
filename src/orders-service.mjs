@@ -3,6 +3,7 @@
 import * as core from "./orders-core.mjs";
 import { toCsv } from "./csv.mjs";
 import { newPayToken, hashToken, paymentForReceipt } from "./payments.mjs";
+import { maskPromptPayId } from "./promptpay.mjs";
 const { UserError, STATUS } = core;
 const iso = (ms) => new Date(ms).toISOString();
 const J = JSON.stringify;
@@ -154,12 +155,17 @@ export async function listOrders(env, { round, status, q, limit = 200 } = {}) {
   const where = [], args = [];
   if (round) { where.push("r.code=?"); args.push(round); }
   if (q) { where.push("(o.order_no LIKE ? ESCAPE '\\' OR o.customer_name LIKE ? ESCAPE '\\' OR o.customer_phone LIKE ? ESCAPE '\\')"); const l = "%" + q.replace(/[\\%_]/g, (c) => "\\" + c) + "%"; args.push(l, l, l); }
+  const ppSettings = await env.ORDERS_DB.prepare("SELECT value FROM settings WHERE key='payment'").first().then((r) => (r ? JSON.parse(r.value) : null));
+  const reqs = new Map((await rowsOf(env.ORDERS_DB.prepare("SELECT order_id, status, provider, payee_name, payee_id_masked FROM payment_requests"))).map((r) => [r.order_id, r]));
   const rows = await rowsOf(env.ORDERS_DB.prepare(`${ORDER_SELECT} ${where.length ? "WHERE " + where.join(" AND ") : ""} ORDER BY o.created_at DESC, o.id DESC LIMIT ${Math.min(Math.max(+limit | 0, 1), 500)}`).bind(...args));
   const items = await rowsOf(env.ORDERS_DB.prepare("SELECT i.*, p.slug FROM order_items i JOIN products p ON p.id=i.product_id WHERE i.order_id IN (SELECT id FROM orders ORDER BY created_at DESC, id DESC LIMIT 500)"));
   const out = rows.map((o) => ({
     id: o.order_no, roundId: o.round_code, createdAt: o.created_at, name: o.customer_name, phone: o.customer_phone, delivery: o.delivery, subtotal: o.subtotal_baht, shipping: o.shipping_baht, total: o.total_baht,
     status: core.toLegacy(o.payment_status, o.fulfillment_status), moves: core.MOVES[core.toLegacy(o.payment_status, o.fulfillment_status)] ?? [], paymentStatus: o.payment_status, fulfillmentStatus: o.fulfillment_status, isTest: o.is_test === 1, updatedAt: o.updated_at, updatedBy: o.status_updated_by ?? "", note: o.note,
     items: items.filter((i) => i.order_id === o.id).map((i) => ({ product: i.slug, name: i.product_name, fit: i.fit, sleeve: i.sleeve, size: i.size, qty: i.qty })),
+    payment: reqs.has(o.id) ? { provider: reqs.get(o.id).provider, requestStatus: reqs.get(o.id).status, payeeName: reqs.get(o.id).payee_name, payeeMasked: reqs.get(o.id).payee_id_masked,
+      // the QR this customer holds was issued for an account that is no longer the configured one: reconcile against that account's statement
+      legacyPayee: !!ppSettings && (reqs.get(o.id).payee_name !== ppSettings.payeeName || reqs.get(o.id).payee_id_masked !== maskPromptPayId(ppSettings.idType, ppSettings.promptpayId)) } : null,
   }));
   return status ? out.filter((o) => o.status === status) : out;
 }

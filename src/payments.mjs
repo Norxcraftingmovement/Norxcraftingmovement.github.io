@@ -74,6 +74,7 @@ export async function getPayView(env, orderNo, token, now = Date.now()) {
   if (o.payment_due_at && now > Date.parse(o.payment_due_at)) return { ...base, payment: { state: "expired", reference: o.order_no, amount: o.total_baht } };
   const r = await ensurePaymentRequest(env, o, now);
   if (!r) return { ...base, payment: { state: "unavailable", reference: o.order_no, amount: o.total_baht } };
+  if (r.status !== "awaiting") return { ...base, payment: { state: "revoked", reference: o.order_no, amount: o.total_baht } }; // owner withdrew this QR (e.g. receiving account changed)
   await env.ORDERS_DB.prepare("INSERT INTO payment_events(request_id,at,event) SELECT ?1,?2,'qr_viewed' WHERE NOT EXISTS (SELECT 1 FROM payment_events WHERE request_id=?1 AND event='qr_viewed')").bind(r.id, iso(now)).run();
   return { ...base, payment: { state: "awaiting", provider: r.provider, reference: r.reference, amount: r.expected_amount_baht, deadline: r.deadline_at, payeeName: r.payee_name, ...urls(o.order_no, token) } };
 }
@@ -86,12 +87,20 @@ export async function getPaySvg(env, orderNo, token, now = Date.now()) {
 // ---------- owner configuration ----------
 const clean = (v, max) => String(v ?? "").replace(/[\u0000-\u001f\u007f]/g, "").trim().slice(0, max + 1);
 const audit = (env, actor, action, after) => env.ORDERS_DB.prepare("INSERT INTO audit_log(actor_hash,action,entity,entity_id,before,after) VALUES (?1,?2,'settings','payment',NULL,?3)").bind(actor, action, JSON.stringify(after)).run();
-export const publicPaymentSettings = (s) => (s ? { provider: s.provider, idType: s.idType, idTypeLabel: ID_TYPES[s.idType]?.label, idMasked: maskPromptPayId(s.idType, normalizePromptPayId(s.idType, s.promptpayId).display), payeeName: s.payeeName, verified: s.verified === true, verifiedAt: s.verifiedAt ?? null } : null);
+export const publicPaymentSettings = (s, outstanding = 0) => (s ? { outstandingUnpaid: outstanding, provider: s.provider, idType: s.idType, idTypeLabel: ID_TYPES[s.idType]?.label, idMasked: maskPromptPayId(s.idType, normalizePromptPayId(s.idType, s.promptpayId).display), payeeName: s.payeeName, verified: s.verified === true, verifiedAt: s.verifiedAt ?? null } : null);
 
+/** Unpaid orders whose QR is still payable (awaiting request, order pending, before the deadline). Their QR is bound to the account it was issued for. */
+export async function outstandingRequests(env, now = Date.now()) {
+  return (await env.ORDERS_DB.prepare(`SELECT COUNT(*) n FROM payment_requests r JOIN orders o ON o.id=r.order_id WHERE r.status='awaiting' AND o.payment_status='pending' AND (o.payment_due_at IS NULL OR o.payment_due_at>?1)`).bind(iso(now)).first()).n;
+}
 export async function putPaymentSettings(env, actor, b, now = Date.now()) {
   let p; try { p = normalizePromptPayId(b?.idType, b?.id); } catch (e) { throw new UserError(e.message); }
   const payeeName = clean(b?.payeeName, 80); if (payeeName.length < 2 || payeeName.length > 80) throw new UserError("กรุณากรอกชื่อผู้รับเงินตามบัญชี PromptPay");
   const old = await getPaymentSettings(env), unchanged = old && old.idType === p.type && old.promptpayId === p.display && old.payeeName === payeeName;
+  if (!unchanged && old) { // changing the RECEIVING account while customers can still pay the old QR
+    const n = await outstandingRequests(env, now);
+    if (n > 0 && b?.acknowledgeOutstanding !== true) throw new UserError("มีออเดอร์ที่ยังรอชำระด้วย QR ของบัญชีเดิม " + n + " รายการ — QR เหล่านั้นจะยังชี้ไปบัญชีเดิม (ลูกค้าอาจบันทึกรูปไว้แล้ว) ต้องคงตรวจยอดบัญชีเดิมจนกว่าจะครบกำหนดหรือยกเลิก หรือกด \"เพิกถอน QR ที่ค้าง\" ก่อน แล้วยืนยันว่ารับทราบ");
+  }
   const next = { provider: "promptpay", idType: p.type, promptpayId: p.display, payeeName, verified: unchanged ? old.verified === true : false, verifiedAt: unchanged ? old.verifiedAt ?? null : null }; // ANY change un-verifies
   await env.ORDERS_DB.prepare("INSERT INTO settings(key,value) VALUES ('payment',?1) ON CONFLICT(key) DO UPDATE SET value=excluded.value").bind(JSON.stringify(next)).run();
   await audit(env, actor, "payment.settings", { idType: p.type, idMasked: maskPromptPayId(p.type, p.display), verified: next.verified });
@@ -110,4 +119,17 @@ export async function verifyPaymentSettings(env, actor, b, now = Date.now()) {
 export async function previewSvg(env) {
   const s = await getPaymentSettings(env); if (!s) return null;
   return qrSvg(buildPromptPayPayload({ type: s.idType, id: s.promptpayId, amountBaht: 1 }));
+}
+
+/** Owner withdraws every still-payable QR (e.g. the receiving account was closed or compromised). Orders stay pending; customers see "QR withdrawn" + the bank fallback. */
+export async function revokeOutstanding(env, actor, b, now = Date.now()) {
+  if (b?.confirm !== true) throw new UserError("กรุณายืนยันการเพิกถอน QR ที่ค้าง");
+  const db = env.ORDERS_DB, at = iso(now);
+  const ids = (await db.prepare(`SELECT r.id FROM payment_requests r JOIN orders o ON o.id=r.order_id WHERE r.status='awaiting' AND o.payment_status='pending'`).all()).results.map((x) => x.id);
+  if (ids.length) await db.batch([
+    db.prepare(`UPDATE payment_requests SET status='cancelled', updated_at=?1 WHERE status='awaiting' AND order_id IN (SELECT id FROM orders WHERE payment_status='pending')`).bind(at),
+    db.prepare(`INSERT INTO payment_events(request_id,at,event,detail) SELECT id,?1,'revoked_by_owner','receiving_account_change' FROM payment_requests WHERE status='cancelled' AND updated_at=?1`).bind(at),
+  ]);
+  await audit(env, actor, "payment.revoke_outstanding", { count: ids.length });
+  return { revoked: ids.length };
 }

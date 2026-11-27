@@ -40,10 +40,10 @@
     if (!o || !t) { status.textContent = 'ลิงก์ไม่ถูกต้อง'; return; }
     fetch('/api/orders/pay?o=' + encodeURIComponent(o) + '&t=' + encodeURIComponent(t), { credentials: 'same-origin' }).then(function (r) { if (!r.ok) throw new Error('nf'); return r.json(); }).then(function (v) {
       var s = v.payment.state; root.textContent = '';
-      var msg = { paid: 'ได้รับการยืนยันการชำระเงินแล้ว ขอบคุณครับ', cancelled: 'ออเดอร์นี้ถูกยกเลิกแล้ว', on_site: 'ออเดอร์นี้ชำระหน้างาน ไม่ต้องโอนล่วงหน้า', expired: 'เลยกำหนดชำระแล้ว กรุณาติดต่อเพจ NORX', unavailable: 'ยังไม่เปิดให้ชำระด้วย QR กรุณาโอนผ่านเลขบัญชีและส่งสลิปทางแชทเพจ' }[s];
+      var msg = { paid: 'ได้รับการยืนยันการชำระเงินแล้ว ขอบคุณครับ', cancelled: 'ออเดอร์นี้ถูกยกเลิกแล้ว', on_site: 'ออเดอร์นี้ชำระหน้างาน ไม่ต้องโอนล่วงหน้า', expired: 'เลยกำหนดชำระแล้ว กรุณาติดต่อเพจ NORX', unavailable: 'ยังไม่เปิดให้ชำระด้วย QR กรุณาโอนผ่านเลขบัญชีและส่งสลิปทางแชทเพจ', revoked: 'QR นี้ถูกยกเลิกโดยทีมงาน ห้ามโอนตาม QR เดิม กรุณาติดต่อเพจ NORX เพื่อรับวิธีชำระเงินใหม่' }[s];
       status.textContent = msg || '';
       if (s === 'awaiting') root.appendChild(build(v.order.id, v.payment));
-      if (s === 'unavailable' || s === 'expired') { var d = el('p', '', 'ยอด ' + baht(v.order.total) + ' · ออเดอร์ ' + v.order.id); root.appendChild(d); }
+      if (s === 'unavailable' || s === 'expired' || s === 'revoked') { var d = el('p', '', 'ยอด ' + baht(v.order.total) + ' · ออเดอร์ ' + v.order.id); root.appendChild(d); }
       if (v.bank && (s === 'awaiting' || s === 'unavailable')) { var b = el('p', 'small'); b.textContent = 'โอนผ่านเลขบัญชี: ' + v.bank.name + ' ' + v.bank.account + ' · ' + v.bank.holder; root.appendChild(b); }
     }).catch(function () { status.textContent = 'ไม่พบออเดอร์หรือลิงก์หมดอายุ'; });
   };

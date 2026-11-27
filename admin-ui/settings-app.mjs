@@ -46,6 +46,8 @@ const confirmLive = () => confirm("เปิดรับออเดอร์จ
   const draw = (p) => {
     if (!p) { $("ppState").textContent = "ยังไม่ได้ตั้งค่า — ออเดอร์ใหม่จะแสดงเฉพาะการโอนผ่านเลขบัญชี"; $("ppPreview").hidden = true; return; }
     $("ppType").value = p.idType; $("ppName").value = p.payeeName; $("ppId").value = ""; $("ppId").placeholder = p.idMasked + " (กรอกใหม่เฉพาะเมื่อต้องการเปลี่ยน)";
+    $("ppOut").textContent = p.outstandingUnpaid ? "ออเดอร์ที่ยังรอชำระด้วย QR ปัจจุบัน: " + p.outstandingUnpaid + " รายการ — หากเปลี่ยนบัญชีรับเงิน QR เหล่านั้นจะยังชี้ไปบัญชีเดิม ต้องคงตรวจยอดบัญชีเดิมต่อ" : "";
+    $("ppRevoke").hidden = !p.outstandingUnpaid;
     $("ppState").textContent = (p.verified ? "เปิดใช้งานแล้ว (ยืนยันเมื่อ " + new Date(p.verifiedAt).toLocaleString("th-TH") + ")" : "ยังไม่ยืนยัน — ยังไม่แสดง QR ให้ลูกค้า") + " · " + p.idTypeLabel + " " + p.idMasked;
     $("ppPreview").src = "/api/admin/settings/payment/preview.svg?" + Date.now(); $("ppPreview").hidden = false;
   };
@@ -53,8 +55,15 @@ const confirmLive = () => confirm("เปิดรับออเดอร์จ
   const msg = (e) => e.userMessage || errText(e);
   $("payForm").addEventListener("submit", async (ev) => {
     ev.preventDefault(); $("ppSave").disabled = true;
-    try { const r = await api("/api/admin/settings/payment", { method: "PUT", body: { idType: $("ppType").value, id: $("ppId").value, payeeName: $("ppName").value } }); draw(r.payment); notice($("notice"), "บันทึกแล้ว — ต้องยืนยันชื่อผู้รับก่อนจึงจะแสดง QR"); } catch (e) { notice($("notice"), msg(e), true); }
+    try {
+      const body = { idType: $("ppType").value, id: $("ppId").value, payeeName: $("ppName").value };
+      let r; try { r = await api("/api/admin/settings/payment", { method: "PUT", body }); }
+      catch (e) { if (e.userMessage && /ยังรอชำระ/.test(e.userMessage) && confirm(e.userMessage + "\n\nรับทราบและบันทึกต่อหรือไม่?")) r = await api("/api/admin/settings/payment", { method: "PUT", body: { ...body, acknowledgeOutstanding: true } }); else throw e; } draw(r.payment); notice($("notice"), "บันทึกแล้ว — ต้องยืนยันชื่อผู้รับก่อนจึงจะแสดง QR"); } catch (e) { notice($("notice"), msg(e), true); }
     $("ppSave").disabled = false;
+  });
+  $("ppRevoke").addEventListener("click", async () => {
+    if (!confirm("เพิกถอน QR ของทุกออเดอร์ที่ยังไม่ชำระ? ลูกค้าจะเห็นว่า QR ถูกยกเลิกและต้องติดต่อเพจ (ออเดอร์ยังอยู่ในสถานะรอโอน)")) return;
+    try { const r = await api("/api/admin/payments/revoke-outstanding", { method: "POST", body: { confirm: true } }); notice($("notice"), "เพิกถอน QR แล้ว " + r.revoked + " รายการ"); draw((await api("/api/admin/settings/payment")).payment); } catch (e) { notice($("notice"), msg(e), true); }
   });
   $("verifyForm").addEventListener("submit", async (ev) => {
     ev.preventDefault(); $("ppVerify").disabled = true;

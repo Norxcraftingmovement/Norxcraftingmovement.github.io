@@ -60,3 +60,20 @@ test("scheduled(): a burst of orders is drained in ONE cron run (several batches
   const jobs=[];const real=Date.now;Date.now=()=>NOW+60000;try{await pub.scheduled({},env,{waitUntil:p=>jobs.push(p)});await Promise.all(jobs)}finally{Date.now=real}
   assert.equal(sqlite.prepare("SELECT COUNT(*) n FROM notification_queue WHERE status='sent'").get().n,40);
 });
+
+test("rate limiter: submits and payment-page views use SEPARATE buckets; config reads are never limited; refused submits create nothing; production-strength limits are identical in staging",async()=>{
+  const {env,sqlite}=await setupV1();const seen=[];let allow=true;env.ORDERS_LIMITER={limit:async({key})=>{seen.push(key);return {success:allow}}};
+  const ip={"CF-Connecting-IP":"203.0.113.9"};
+  await withClock(NOW,async()=>{
+    await pub.fetch(new Request(U),env,{});assert.deepEqual(seen,[],"GET config is not limited");
+    const ok=await pub.fetch(new Request(U,{method:"POST",headers:ip,body:JSON.stringify({action:"submit",order:orderInput()})}),env,{});assert.equal((await ok.json()).ok,true);
+    await pub.fetch(new Request("https://orders.test/api/orders/pay?o=NORX-AAAAAAAA&t="+"A".repeat(22),{headers:ip}),env,{});
+    assert.deepEqual(seen,["203.0.113.9","pay:203.0.113.9"]);
+    allow=false;const before=sqlite.prepare("SELECT COUNT(*) n FROM orders").get().n;
+    const no=await (await pub.fetch(new Request(U,{method:"POST",headers:ip,body:JSON.stringify({action:"submit",order:orderInput()})}),env,{})).json();assert.deepEqual([no.ok,/ถี่เกินไป/.test(no.error)],[false,true]);
+    assert.equal(sqlite.prepare("SELECT COUNT(*) n FROM orders").get().n,before);
+    assert.equal((await pub.fetch(new Request("https://orders.test/api/orders/pay?o=NORX-AAAAAAAA&t="+"A".repeat(22),{headers:ip}),env,{})).status,429);
+  });
+  const {readFileSync}=await import("node:fs");const cfg=JSON.parse(readFileSync(new URL("../wrangler.orders-public.jsonc",import.meta.url),"utf8"));
+  assert.deepEqual(cfg.env.staging.ratelimits[0].simple,{limit:10,period:60});assert.deepEqual(cfg.env.staging.ratelimits[0].simple,cfg.env.production.ratelimits[0].simple,"staging is not looser than production");
+});

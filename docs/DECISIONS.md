@@ -87,3 +87,12 @@
 | D23 | Owner scans the 1.00 THB preview QR with a banking app (no transfer) before the first real PromptPay use |
 | D24 | Sending domain for `NOTIFY_FROM` (may need DNS records) — approval needed |
 | D25 | Provide D1 id, rate-limit namespace id, Access AUD, verified owner address (see STAGING_RUNBOOK §3) |
+
+
+## Final staging review (2026-11-27)
+- **A32 (seed)** The runbook SQL (migrate → marker → read-back → guarded seed) is tested exactly as generated, repeated; every seed INSERT is `OR IGNORE`; the marker command never overwrites an environment.
+- **A33 (auth)** No service token and no service-identity allow-list. Integration tests use the owner's authenticated session. `verifiedOwner` is unchanged and environment-independent; identity headers are never trusted (tested). Supersedes the service-token part of D21.
+- **A34 (rate limit)** Limit stays 10 / 60 s per IP, identical in staging and production (tested). The smoke test paces itself; rate limiting is tested only in its own phase; rate-limited answers in normal phases fail the run.
+- **A35 (notifications)** After the first ambiguous outcome at most ONE further automatic attempt regardless of its outcome, then `unconfirmed`. Failure drills never touch account-level destination addresses.
+- **A36 (payments)** QR bound to the issuing account; account change needs acknowledgement when unpaid QR orders exist; owner can withdraw outstanding QRs; admin flags old-account QRs.
+- **A37 (deployment order)** Access application first → Workers without routes → DNS record + routes → gate → tests. Rollback = remove routes only; nothing deleted.

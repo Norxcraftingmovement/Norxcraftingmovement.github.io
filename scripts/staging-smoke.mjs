@@ -1,14 +1,25 @@
 // Staging integration smoke test over HTTP (synthetic data only). Works against the real staging host (send Access service-token
 // headers) or the local rehearsal server (scripts/dev-staging-local.mjs). It CREATES test orders — never point it at production.
-// Usage: node scripts/staging-smoke.mjs --base https://staging.norxcraftingmovement.com --header "CF-Access-Client-Id: …" --header "CF-Access-Client-Secret: …"
-//        [--anon-header "x-dev-anon: 1"] [--orders 20] [--cron-path /__dev/cron] [--with-cutoff] [--json]
+// Usage: node scripts/staging-smoke.mjs --base https://staging.norxcraftingmovement.com --session .staging/owner-session.json
+//        (the owner's authenticated Access session; see scripts/staging-session.mjs — service tokens are NOT used)
+//        [--anon-header "x-dev-anon: 1"] [--orders 30] [--rate-limit 10/60] [--rate-limit-test] [--cron-path /__dev/cron] [--with-cutoff] [--json]
 import { performance } from "node:perf_hooks";
 import { fileURLToPath } from "node:url";
+import { readFileSync } from "node:fs";
+import { cookieHeader } from "./staging-session.mjs";
 const pct = (a, p) => { const s = [...a].sort((x, y) => x - y); return s.length ? Math.round(s[Math.min(s.length - 1, Math.floor(p * s.length))]) : null; };
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const BOM = "﻿";
 
-export async function runSmoke({ base, headers = {}, anonHeaders = {}, orders = 12, cronPath = null, withCutoff = false, fetchImpl = fetch, log = () => {} }) {
+// Client-side pacing so the smoke test stays INSIDE the per-IP limit (production-strength: 10 requests / 60 s, never weakened for staging).
+// Waiting here is outside every latency measurement. Submits and payment-page views are separate buckets on the server.
+class Pacer {
+  constructor(limit, periodMs, margin = 1) { this.cap = Math.max(1, limit - margin); this.periodMs = periodMs; this.t = []; this.waited = 0; }
+  async take(n = 1) { if (n > this.cap) throw new Error("burst larger than the pacing budget"); for (;;) { const now = Date.now(); this.t = this.t.filter((x) => now - x < this.periodMs); if (this.t.length + n <= this.cap) { for (let i = 0; i < n; i++) this.t.push(now); return; } const w = this.t[0] + this.periodMs - now + 60; this.waited += w; await sleep(w); } }
+}
+const RATE_MSG = /ถี่เกินไป/;
+export async function runSmoke({ base, headers = {}, anonHeaders = {}, orders = 12, cronPath = null, withCutoff = false, rateLimit = { limit: 10, periodMs: 60000 }, rateLimitTest = false, fetchImpl = fetch, log = () => {} }) {
+  const submitPacer = new Pacer(rateLimit.limit, rateLimit.periodMs), payPacer = new Pacer(rateLimit.limit, rateLimit.periodMs);
   const results = [], latency = {}, run = Math.random().toString(16).slice(2, 8), stamp = Date.now();
   const call = async (method, path, { body, h = {}, auth = true, text = false, raw = false } = {}) => {
     const t0 = performance.now();
@@ -24,7 +35,10 @@ export async function runSmoke({ base, headers = {}, anonHeaders = {}, orders = 
   const orderBody = (over = {}) => { const p = config.products[0], size = p.sizes[0], sleeve = p.prices.short ? "short" : "long", price = p.prices[sleeve];
     const o = { requestId: `smoke-${run}-${++seq}-` + Math.random().toString(16).slice(2, 14), roundId: config.round.id, name: "ทดสอบ สโมค " + seq, phone: "0800000000", delivery: "city", address: "", items: [{ product: p.id, fit: p.fit, sleeve, size, qty: 1 }], preorder: true, sizing: true, privacy: true, website: "", expectedTotal: price, ...over };
     o._price = price; return o; };
-  const submit = async (o) => { const { _price, ...order } = o; return call("POST", "/api/orders", { body: JSON.stringify({ action: "submit", order }), text: true, h: { Origin: base } }); };
+  const rawSubmit = (o) => { const { _price, ...order } = o; return call("POST", "/api/orders", { body: JSON.stringify({ action: "submit", order }), text: true, h: { Origin: base } }); };
+  // normal phases: pace first; a rate-limited answer here means the pacing/limit configuration is wrong, never silently ignored
+  const submit = async (o) => { await submitPacer.take(); const r = await rawSubmit(o); if (RATE_MSG.test(r.json?.error ?? "")) throw new Error("rate limited during a normal phase (client pacing does not match the server limit " + rateLimit.limit + "/" + rateLimit.periodMs / 1000 + "s)"); return r; };
+  const payGet = async (path, opt) => { await payPacer.take(); const r = await call("GET", path, opt); if (r.status === 429) throw new Error("payment endpoint rate limited during a normal phase"); return r; };
   const created = [];
 
   // ---- access ----
@@ -44,10 +58,11 @@ export async function runSmoke({ base, headers = {}, anonHeaders = {}, orders = 
     must(/^NORX-[0-9A-F]{8}$/.test(r.json.id), "bad id " + r.json.id); same(r.json.total, o._price, "total"); same(r.json.status, "รอโอน", "status");
     return r.json.payment ? "QR block present" : "no QR block (PromptPay not verified)";
   });
-  await check("idempotency: replay returns the same order; changed payload with the same requestId is refused; 8 parallel replays create one order", async () => {
+  await check("idempotency: replay returns the same order; changed payload with the same requestId is refused; parallel replays create one order", async () => {
     const o = orderBody(), a = await submit(o), b = await submit(o); must(a.json.ok && b.json.id === a.json.id, "replay differs"); created.push({ id: a.json.id, order: o });
     const c = await submit({ ...o, name: "คนอื่น ทดสอบ" }); must(c.json?.ok === false && /ซ้ำ/.test(c.json.error), "changed payload accepted: " + c.text.slice(0, 100));
-    const o2 = orderBody(), rs = await Promise.all(Array.from({ length: 8 }, () => submit(o2))); same(new Set(rs.map((x) => x.json.id)).size, 1, "parallel replays → distinct ids"); created.push({ id: rs[0].json.id, order: o2 });
+    const o2 = orderBody(), par = Math.min(8, Math.max(2, rateLimit.limit - 3)); await submitPacer.take(par); // wait until the whole burst fits in the budget, record it at send time, then fire in parallel
+    const rs = await Promise.all(Array.from({ length: par }, () => rawSubmit(o2))); for (const r of rs) must(!RATE_MSG.test(r.json?.error ?? ""), "parallel replays hit the limiter"); same(new Set(rs.map((x) => x.json.id)).size, 1, "parallel replays → distinct ids"); created.push({ id: rs[0].json.id, order: o2 });
   });
   await check("server-side price/shipping/round validation", async () => {
     const bad = await submit(orderBody({ expectedTotal: 1 })); must(bad.json.ok === false && /ยอดเงิน/.test(bad.json.error), "wrong total accepted");
@@ -60,8 +75,8 @@ export async function runSmoke({ base, headers = {}, anonHeaders = {}, orders = 
   await check("payment page: token-protected JSON + QR image; wrong token and unknown order look the same; viewing never changes the order", async () => {
     const withQr = created.find((c) => c.receipt?.payment); if (!withQr) return "skipped (no QR configured)";
     const pay = withQr.receipt.payment, ok = await call("GET", pay.apiUrl); must(ok.status === 200 && ok.json.payment.state === "awaiting" && ok.json.payment.amount === withQr.receipt.total, "pay view wrong: " + ok.text.slice(0, 120));
-    const svg = await call("GET", pay.qrUrl, { raw: true }); must(svg.status === 200 && /svg/.test(svg.headers.get("content-type")), "svg missing");
-    const bad = await call("GET", pay.apiUrl.replace(/t=[^&]+/, "t=" + "A".repeat(22))), unk = await call("GET", pay.apiUrl.replace(/o=[^&]+/, "o=NORX-00000000")); must(bad.status === 404 && unk.status === 404 && bad.text === unk.text, "token/order not indistinguishable");
+    const svg = await payGet(pay.qrUrl, { raw: true }); must(svg.status === 200 && /svg/.test(svg.headers.get("content-type")), "svg missing");
+    const bad = await payGet(pay.apiUrl.replace(/t=[^&]+/, "t=" + "A".repeat(22))), unk = await payGet(pay.apiUrl.replace(/o=[^&]+/, "o=NORX-00000000")); must(bad.status === 404 && unk.status === 404 && bad.text === unk.text, "token/order not indistinguishable");
     const list = await call("GET", "/api/admin/orders?q=" + withQr.id); same(list.json.orders[0].status, "รอโอน", "status after QR views");
     return "QR view did not change status";
   });
@@ -85,9 +100,10 @@ export async function runSmoke({ base, headers = {}, anonHeaders = {}, orders = 
   const clientMs = [], dash = [];
   await check(`latency: ${orders} sequential orders (client-observed) and dashboard data update after each`, async () => {
     for (let i = 0; i < orders; i++) {
-      const before = (await call("GET", "/api/admin/pulse")).json.token, o = orderBody(), r = await submit(o); must(r.json?.ok, "order " + i + " failed"); clientMs.push(r.ms); created.push({ id: r.json.id, order: o });
+      const before = (await call("GET", "/api/admin/pulse")).json.token, o = orderBody(); await submitPacer.take(); const r = await rawSubmit(o); must(!RATE_MSG.test(r.json?.error ?? ""), "latency run hit the rate limiter — figures would be invalid"); must(r.json?.ok, "order " + i + " failed"); clientMs.push(r.ms); created.push({ id: r.json.id, order: o });
       const t0 = performance.now(); let seen = false; for (let k = 0; k < 100 && !seen; k++) { const p = await call("GET", "/api/admin/pulse"); if (p.json.token !== before) { seen = true; dash.push(performance.now() - t0); } else await sleep(100); } must(seen, "dashboard pulse never changed");
     }
+    latency.pacing = { waitedMs: Math.round(submitPacer.waited + payPacer.waited), note: "client pacing to stay under the rate limit; excluded from every latency figure" };
     latency.orderCreation = { client: { n: clientMs.length, p50: pct(clientMs, 0.5), p95: pct(clientMs, 0.95), max: Math.round(Math.max(...clientMs)) } };
     latency.dashboardDataUpdate = { n: dash.length, p50: pct(dash, 0.5), p95: pct(dash, 0.95), max: Math.round(Math.max(...dash)), note: "time from order response to the first pulse that reports the change; the admin UI then reloads within its 15 s polling interval" };
     const m = await call("GET", "/api/admin/metrics/latency"); latency.serverSide = m.json.latency; return `p50 ${latency.orderCreation.client.p50} ms client-observed`;
@@ -109,15 +125,28 @@ export async function runSmoke({ base, headers = {}, anonHeaders = {}, orders = 
     const mv = async (from, to) => { const s = (await call("GET", `/api/admin/production/summary?round=${rid}&includeTest=1`)).json.totals.status[from]; must(s > 0, "no pieces in " + from); must((await call("POST", "/api/admin/production/items-status", { body: { round: rid, from, to, expected: s } })).json.ok, from + "→" + to + " failed"); };
     await mv("batched", "produced"); await mv("produced", "received"); same((await call("GET", "/api/admin/integrity")).json.violations, [], "integrity after cut-off");
   });
+  // ---- rate limiting, tested on its own (never mixed into latency) ----
+  const rateLimitReport = {};
+  if (rateLimitTest) await check("rate limit: a burst beyond the limit is refused (submits and payment pages), then service recovers after the window", async () => {
+    const burst = rateLimit.limit + 6, probe = () => rawSubmit(orderBody({ website: "rate-limit-probe" })); // honeypot filled: refused AFTER the limiter, so no order is ever created
+    const rs = await Promise.all(Array.from({ length: burst }, probe)), refused = rs.filter((r) => RATE_MSG.test(r.json?.error ?? "")).length, passed = rs.length - refused;
+    must(refused >= 1, "no request was rate limited (limiter missing or too loose): " + passed + "/" + burst + " passed"); must(passed <= rateLimit.limit + 2, passed + " requests passed a limit of " + rateLimit.limit);
+    const tk = created.find((c) => c.receipt?.payment)?.receipt.payment.apiUrl, prs = tk ? await Promise.all(Array.from({ length: burst }, () => call("GET", tk.replace(/t=[^&]+/, "t=" + "A".repeat(22))))) : [], pr = prs.filter((r) => r.status === 429).length;
+    if (tk) must(pr >= 1, "payment endpoint never returned 429");
+    await sleep(rateLimit.periodMs + 500); const after = await rawSubmit(orderBody({ website: "rate-limit-probe" })); must(!RATE_MSG.test(after.json?.error ?? ""), "still limited after the window");
+    Object.assign(rateLimitReport, { limit: rateLimit.limit, periodMs: rateLimit.periodMs, burst, submitsRefused: refused, submitsPassed: passed, paymentRefused: pr, recovered: true });
+    return `${refused}/${burst} submits refused, ${pr} payment views 429, recovered`;
+  });
   return finish();
-  function finish() { const failed = results.filter((r) => !r.ok); return { base, run, at: new Date(stamp).toISOString(), summary: { passed: results.length - failed.length, failed: failed.length }, results, latency, createdOrders: created.length }; }
+  function finish() { const failed = results.filter((r) => !r.ok); return { base, run, at: new Date(stamp).toISOString(), summary: { passed: results.length - failed.length, failed: failed.length }, results, latency, rateLimit: rateLimitReport, createdOrders: created.length }; }
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const a = process.argv.slice(2), all = (k) => a.flatMap((x, i) => (x === k ? [a[i + 1]] : [])), one = (k, d) => (a.includes(k) ? a[a.indexOf(k) + 1] : d);
+  const sess = one("--session", null);
   const hdr = (list) => Object.fromEntries(list.map((s) => { const i = s.indexOf(":"); return [s.slice(0, i).trim(), s.slice(i + 1).trim()]; }));
-  const base = one("--base"); if (!base) { console.error("usage: node scripts/staging-smoke.mjs --base <url> [--header 'K: V']… [--anon-header 'K: V'] [--orders N] [--cron-path /__dev/cron] [--with-cutoff]"); process.exit(2); }
+  const base = one("--base"); if (!base) { console.error("usage: node scripts/staging-smoke.mjs --base <url> --session <owner-session.json> [--header 'K: V']… [--anon-header 'K: V'] [--orders N] [--cron-path /__dev/cron] [--with-cutoff]"); process.exit(2); }
   if (/^https?:\/\/(www\.)?norxcraftingmovement\.com\/?$/.test(base) || !/staging|127\.0\.0\.1|localhost/.test(base)) { console.error("refusing to run: base URL is not a staging/local host"); process.exit(2); }
-  const rep = await runSmoke({ base: base.replace(/\/$/, ""), headers: hdr(all("--header")), anonHeaders: hdr(all("--anon-header")), orders: +one("--orders", 12), cronPath: one("--cron-path", null), withCutoff: a.includes("--with-cutoff"), log: (m) => !a.includes("--json") && console.log(m) });
-  console.log(a.includes("--json") ? JSON.stringify(rep, null, 2) : "\n" + JSON.stringify({ summary: rep.summary, latency: rep.latency }, null, 2)); process.exit(rep.summary.failed ? 1 : 0);
+  const rep = await runSmoke({ base: base.replace(/\/$/, ""), headers: { ...hdr(all("--header")), ...(sess ? { Cookie: cookieHeader(JSON.parse(readFileSync(sess, "utf8")), base) } : {}) }, anonHeaders: hdr(all("--anon-header")), orders: +one("--orders", 12), rateLimit: (() => { const [l, p] = one("--rate-limit", "10/60").split("/").map(Number); return { limit: l, periodMs: p * 1000 }; })(), rateLimitTest: a.includes("--rate-limit-test"), cronPath: one("--cron-path", null), withCutoff: a.includes("--with-cutoff"), log: (m) => !a.includes("--json") && console.log(m) });
+  console.log(a.includes("--json") ? JSON.stringify(rep, null, 2) : "\n" + JSON.stringify({ summary: rep.summary, latency: rep.latency, rateLimit: rep.rateLimit }, null, 2)); process.exit(rep.summary.failed ? 1 : 0);
 }

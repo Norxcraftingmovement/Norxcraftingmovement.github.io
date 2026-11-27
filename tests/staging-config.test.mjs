@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
+import {join} from "node:path";
 import {DatabaseSync} from "node:sqlite";
 import {renderStaging,validateInputs,checkRendered,verifyD1List,deploymentCommands,productionIdentifiers,sha256,STAGING_HOST} from "../scripts/staging-lib.mjs";
 import {guardSql} from "../src/env-guard-sql.mjs";
@@ -84,4 +85,93 @@ test("the generated seed file for staging is guarded and synthetic",()=>{
   assert.throws(()=>d.exec(guardSql("staging")+seed),/malformed JSON/,"fresh DB without the marker is refused");
   d.exec("INSERT INTO meta VALUES ('environment','staging')");d.exec(guardSql("staging")+seed.replace(/INSERT INTO meta\(key,value\) VALUES \('environment','staging'\),\('schema','1'\);/,"INSERT INTO meta(key,value) VALUES ('schema','1');"));
   assert.ok(d.prepare("SELECT COUNT(*) n FROM orders").get().n>0);
+});
+
+// ---------- deployment SQL sequence, executed exactly as the runbook script lists it ----------
+import {seedSql} from "../scripts/staging-lib.mjs";
+import {readdirSync} from "node:fs";
+function wrangler(db){ // emulates `wrangler d1 migrations apply` (tracked, idempotent) and `d1 execute --command/--file` (one transaction)
+  db.exec("CREATE TABLE IF NOT EXISTS d1_migrations(name TEXT PRIMARY KEY)");
+  return {
+    migrations(){for(const f of readdirSync(new URL("migrations/orders/",root)).sort()){if(db.prepare("SELECT 1 x FROM d1_migrations WHERE name=?").get(f))continue;db.exec("BEGIN");try{db.exec(readFileSync(new URL("migrations/orders/"+f,root),"utf8"));db.prepare("INSERT INTO d1_migrations VALUES (?)").run(f);db.exec("COMMIT")}catch(e){db.exec("ROLLBACK");throw e}}},
+    exec(sql){db.exec("BEGIN");try{db.exec(sql);db.exec("COMMIT")}catch(e){db.exec("ROLLBACK");throw e}},
+    query(sql){return db.prepare(sql).all()}};
+}
+const dumpDb=db=>JSON.stringify(db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name!='d1_migrations' ORDER BY name").all().map(t=>[t.name,db.prepare(`SELECT * FROM "${t.name}" ORDER BY 1`).all()]));
+function runbookSteps(){ // parsed from the generated script itself, in order
+  const out=[];for(const l of deploymentCommands().split("\n")){
+    if(/migrations apply/.test(l))out.push({kind:"migrate"});
+    const c=l.match(/d1 execute \S+ --remote -c \S+ --command "(.*?)"( --json)?( \|.*)?$/);if(c)out.push({kind:"command",sql:c[1],verify:/grep -q/.test(l)});
+    if(/--file \.staging\/seed\.guarded\.sql/.test(l))out.push({kind:"file"});
+  }return out;
+}
+test("RUNBOOK SQL SEQUENCE: migrate → marker → marker read-back → guarded seed, executed exactly as listed, TWICE: first run succeeds, second run is a no-op (identical database)",()=>{
+  const steps=runbookSteps();assert.deepEqual(steps.map(s=>s.kind),["migrate","command","command","file"],"the script's D1 steps");
+  const db=new DatabaseSync(":memory:");db.exec("PRAGMA foreign_keys=ON");const w=wrangler(db);
+  const pass=()=>{for(const s of steps){if(s.kind==="migrate")w.migrations();else if(s.kind==="command"){const r=db.prepare(s.sql).all?w.query(s.sql):null;void r}else w.exec(seedSql(root))}};
+  const run=()=>{for(const s of steps){
+    if(s.kind==="migrate")w.migrations();
+    else if(s.kind==="command"){ if(/^SELECT/i.test(s.sql)){const rows=w.query(s.sql);assert.deepEqual(rows.map(r=>r.value),["staging"],"marker reads back as 'staging'")} else w.exec(s.sql) }
+    else w.exec(seedSql(root));}};
+  run();const first=dumpDb(db);assert.ok(db.prepare("SELECT COUNT(*) n FROM orders").get().n>=5);assert.equal(db.prepare("SELECT value v FROM meta WHERE key='environment'").get().v,"staging");
+  run();assert.equal(dumpDb(db),first,"second run changes nothing");
+  run();assert.equal(dumpDb(db),first,"third run changes nothing");
+  assert.equal(db.prepare("SELECT COUNT(*) n FROM d1_migrations").get().n,readdirSync(new URL("migrations/orders/",root)).length,"migrations applied once");
+  void pass;
+  // the seed alone is repeatable too (e.g. re-run after a partial failure)
+  w.exec(seedSql(root));w.exec(seedSql(root));assert.equal(dumpDb(db),first);
+  assert.equal(db.prepare("SELECT COUNT(*) n FROM meta WHERE key='environment'").get().n,1,"exactly one environment marker row");
+});
+test("RUNBOOK SQL SEQUENCE safety: a database marked production (or unmarked) is refused by the seed and nothing is written; an interrupted first run can simply be repeated",()=>{
+  const steps=runbookSteps(),marker=steps.find(s=>s.kind==="command"&&!/^SELECT/i.test(s.sql)).sql;
+  for(const bad of ["production",null]){
+    const db=new DatabaseSync(":memory:");const w=wrangler(db);w.migrations();if(bad)db.prepare("INSERT INTO meta VALUES ('environment',?)").run(bad);
+    assert.throws(()=>w.exec(seedSql(root)),/malformed JSON/);assert.equal(db.prepare("SELECT COUNT(*) n FROM orders").get().n,0);assert.equal(db.prepare("SELECT COUNT(*) n FROM products").get().n,0);
+    if(bad==="production")w.exec(marker),assert.equal(db.prepare("SELECT value v FROM meta WHERE key='environment'").get().v,"production","the marker command never overwrites an existing environment");
+  }
+  const db=new DatabaseSync(":memory:");const w=wrangler(db);w.migrations();w.exec(marker);
+  const seed=seedSql(root);assert.throws(()=>w.exec(seed+"\nINSERT INTO nonexistent VALUES (1);"),/no such table/);assert.equal(db.prepare("SELECT COUNT(*) n FROM orders").get().n,0,"a failing file is rolled back as a whole");
+  w.exec(seed);assert.ok(db.prepare("SELECT COUNT(*) n FROM orders").get().n>=5);
+  assert.ok(!/INSERT INTO (?!OR IGNORE)/.test(readFileSync(new URL("seeds/orders-staging-synthetic.sql",root),"utf8").replace(/--.*\n/g,"")),"every seed INSERT is OR IGNORE");
+});
+
+import {cookieHeader} from "../scripts/staging-session.mjs";
+test("owner session → Cookie header: honours domain, path, secure and expiry; the committed scripts/runbook use the owner session, not service tokens",()=>{
+  const now=Date.parse("2026-12-01T00:00:00Z"),st={cookies:[
+    {name:"CF_Authorization",value:"AAA",domain:"staging.norxcraftingmovement.com",path:"/",secure:true,expires:now/1000+3600},
+    {name:"expired",value:"X",domain:"staging.norxcraftingmovement.com",path:"/",secure:true,expires:now/1000-10},
+    {name:"session",value:"S",domain:".norxcraftingmovement.com",path:"/",secure:true,expires:-1},
+    {name:"other",value:"O",domain:"example.test",path:"/",secure:false,expires:-1},
+    {name:"admin-only",value:"P",domain:"staging.norxcraftingmovement.com",path:"/admin",secure:true,expires:-1}]};
+  assert.equal(cookieHeader(st,"https://staging.norxcraftingmovement.com/api/orders",now),"CF_Authorization=AAA; session=S");
+  assert.equal(cookieHeader(st,"https://staging.norxcraftingmovement.com/admin/orders/",now),"CF_Authorization=AAA; session=S; admin-only=P");
+  assert.equal(cookieHeader(st,"http://staging.norxcraftingmovement.com/",now),"","secure cookies are never sent over http");assert.equal(cookieHeader({},"https://staging.norxcraftingmovement.com"),"");
+  for(const f of ["scripts/staging-smoke.mjs","scripts/staging-ui-check.mjs","scripts/staging-lib.mjs"])assert.ok(!/CF-Access-Client-(Id|Secret)/i.test(readFileSync(new URL(f,root),"utf8").replace(/\/\/.*\n/g,"")),f+" must not use service-token headers");
+  assert.ok(readFileSync(new URL(".gitignore",root),"utf8").includes("/.staging/"),"saved sessions live under the git-ignored .staging/");
+});
+
+import {judge,checkGate,PROBES} from "../scripts/staging-gate.mjs";
+test("DEPLOYMENT ORDER: Access exists before anything is reachable; Workers deploy without routes; DNS/routes last; the gate precedes every test; nothing destructive anywhere",()=>{
+  const sh=deploymentCommands(),i=(re)=>{const m=sh.search(re);assert.ok(m>=0,String(re));return m};
+  const access=i(/# 6\. OWNER[^\n]*Access/),deploy=i(/npx wrangler deploy -c/),dns=i(/# 7\. OWNER[^\n]*reachable/),gate=i(/node scripts\/staging-gate\.mjs/),smoke=i(/staging-smoke\.mjs/);
+  assert.ok(deploy<dns,"Workers are deployed before any route/DNS exists (so they are unreachable meanwhile)");assert.ok(access<dns,"Access is applied before DNS/routes make the host reachable");assert.ok(dns<gate&&gate<smoke,"gate between exposure and any test");
+  assert.match(sh,/self-hosted application for[\s\S]*was created in the prerequisites/);assert.match(sh,/no service-token, bypass, everyone/);
+  const code=sh.split("\n").filter(l=>!l.startsWith("#")).join("\n");
+  assert.ok(!/\b(delete|rm -|drop table|d1 delete|--force|destroy|truncate|DELETE FROM)\b/i.test(code),"no destructive command");assert.ok(!/ route /i.test(code.replace(/node scripts.*/g,"")),"routes are not created by script");
+  assert.ok(!/workers\.dev|--env production|norx-orders["' ]/.test(code.replace(/norx-orders-staging/g,"")));
+  assert.match(sh,/add the DNS record for "staging" ONLY/);
+});
+test("ACCESS GATE: only an Access redirect / content-free 401|403 passes; any 200, application 404, application body or foreign redirect fails the whole gate",async()=>{
+  assert.equal(judge(302,"https://norx.cloudflareaccess.com/cdn-cgi/access/login/staging?x=1","").ok,true);assert.equal(judge(403,"","Forbidden").ok,true);assert.equal(judge(401,"","").ok,true);
+  for(const [st,loc,body] of [[200,"","ok"],[404,"","Not found"],[403,"",'{"ok":false,"error":"ACCESS_REQUIRED"}'],[403,"","<title>NORX</title>"],[302,"https://evil.test/login",""],[302,"https://cloudflareaccess.com.evil.test/",""],[500,"",""]])assert.equal(judge(st,loc,body).ok,false,st+" "+loc+" "+body);
+  const mk=(f)=>async(u,o)=>f(new URL(u).pathname,o.method);
+  const closed=mk(()=>new Response(null,{status:302,headers:{location:"https://norx.cloudflareaccess.com/cdn-cgi/access/login/x"}}));
+  const ok=await checkGate({base:"https://staging.example.test",fetchImpl:closed});assert.equal(ok.ok,true);assert.equal(ok.results.length,PROBES.length);
+  for(const leak of ["/","/api/orders","/admin/","/shop.js","/api/admin/dashboard"]){const r=await checkGate({base:"https://staging.example.test",fetchImpl:mk((p)=>p===leak?new Response("hello NORX",{status:200}):new Response(null,{status:302,headers:{location:"https://norx.cloudflareaccess.com/x"}}))});assert.equal(r.ok,false,leak);assert.ok(r.results.find(x=>x.path===leak).why)}
+  assert.equal((await checkGate({base:"https://staging.example.test",fetchImpl:async()=>{throw new Error("ECONNREFUSED")}})).ok,false,"an unreachable host is not 'closed' evidence");
+  // the local simulation: anonymous requests are blocked everywhere; if Access were missing the gate would flag it
+  const {start}=await import("../scripts/dev-staging-local.mjs");const {mkdtempSync}=await import("node:fs");const {tmpdir}=await import("node:os");const {build}=await import("../scripts/build-staging-storefront.mjs");
+  const d=mkdtempSync(join(tmpdir(),"g-"));build(d);const sim=await start(0,{staticDir:d});
+  try{const blocked=await checkGate({base:sim.url,fetchImpl:(u,o)=>fetch(u,{...o,headers:{...o.headers,"x-dev-anon":"1"}})});assert.equal(blocked.ok,true,JSON.stringify(blocked.results.filter(r=>!r.ok)));
+    const exposed=await checkGate({base:sim.url});assert.equal(exposed.ok,false,"without Access in front, the gate must fail");}finally{sim.server.close()}
 });

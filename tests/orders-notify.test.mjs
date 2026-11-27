@@ -46,15 +46,50 @@ test("AMBIGUOUS failures are bounded: two consecutive TimeoutErrors = exactly TW
   assert.equal(sqlite.prepare("SELECT COUNT(*) n FROM notification_failures").get().n,2,"audit history preserved");assert.ok((await notificationHistory(env,1)).events.some(e=>e.event==="manual_retry"));
   assert.equal((await dispatchDue(env,async()=>({messageId:"m2"}),{now:t+2e3})).sent,1);
 });
-test("mixed sequences stay bounded: ambiguous then definite refusals total ≤5 calls; definite then ambiguous still allows only one extra ambiguous retry",async()=>{
-  const a=await setupV1();await mk(a.env);let t=NOW+1000,calls=0;
-  const seq=[timeout,()=>refuse(),()=>refuse(),()=>refuse(),()=>refuse(),()=>refuse()];
-  for(const f of seq){const s=await dispatchDue(a.env,async()=>{calls++;throw f()},{now:t});if(!s.claimed)break;t+=12*3600e3+1}
-  assert.equal(calls,5);assert.equal(q(a.sqlite)[0].status,"dead");assert.equal(q(a.sqlite)[0].possible_duplicate,1,"flag persists after an earlier ambiguous attempt");
-  const b=await setupV1();await mk(b.env);t=NOW+1000;calls=0;
-  const seq2=[()=>refuse(),timeout,timeout,timeout,timeout];
-  for(const f of seq2){const s=await dispatchDue(b.env,async()=>{calls++;throw f()},{now:t});if(!s.claimed)break;t+=12*3600e3+1}
-  assert.equal(calls,3);assert.equal(q(b.sqlite)[0].status,"unconfirmed");
+// Independent specification of the policy (written separately from the implementation).
+function spec(seq){let attempts=0,amb=false,calls=0;
+  for(const o of seq){calls++;attempts++;
+    if(o==="S")return {calls,status:"sent"};
+    if(amb)return {calls,status:"unconfirmed"};                      // the ONE additional attempt after an ambiguous outcome has been used
+    if(o==="A"){amb=true;if(attempts>=5)return {calls,status:"unconfirmed"};continue}
+    if(attempts>=5)return {calls,status:"dead"};
+  }return {calls,status:"open"}}
+test("MODEL-BASED: every outcome sequence (ambiguous / refused / success, length 5 = 243 sequences) obeys the policy; after the first ambiguous outcome at most ONE more automatic attempt is made",async()=>{
+  const outcomes=["A","R","S"];let checked=0;
+  const seqs=[];const gen=(p)=>{if(p.length===5){seqs.push(p);return}for(const o of outcomes)gen([...p,o])};gen([]);
+  for(const seq of seqs){
+    const {env,sqlite}=await setupV1();await mk(env);let i=0,t=NOW+1000;const used=[];
+    const provider=async()=>{const o=seq[i++]??"R";used.push(o);if(o==="S")return {messageId:"m"};if(o==="A")throw timeout();throw refuse()};
+    for(let k=0;k<12;k++){const s=await dispatchDue(env,provider,{now:t});t+=12*3600e3+1;if(!s.claimed&&k>1)break}
+    const want=spec(seq),row=q(sqlite)[0];
+    // calls are what the provider actually saw
+    assert.equal(used.length,want.calls,"calls for "+seq.join(""));
+    assert.equal(row.status,want.status==="open"?row.status:want.status,"status for "+seq.join(""));
+    const firstA=used.indexOf("A");if(firstA>=0)assert.ok(used.length-1-firstA<=1,"more than ONE automatic attempt after the first ambiguous outcome: "+seq.join(""));
+    assert.ok(used.length<=5,"more than 5 provider calls: "+seq.join(""));
+    if(row.status==="dead")assert.ok(!used.includes("A"),"dead requires that no outcome was ambiguous");
+    if(["unconfirmed","dead","sent"].includes(row.status)){assert.equal((await dispatchDue(env,provider,{now:t+99*864e5})).claimed,0,"no automatic attempt after terminal state "+seq.join(""))}
+    const f=sqlite.prepare("SELECT COUNT(*) n FROM notification_failures").get().n;assert.equal(f,used.filter(o=>o!=="S").length,"every failed attempt is in the audit history");
+    checked++;
+  }
+  assert.equal(checked,243);
+});
+test("explicit mixed cases after the first ambiguous outcome",async()=>{
+  const run=async(seq)=>{const {env,sqlite}=await setupV1();await mk(env);let i=0,t=NOW+1000,calls=0;
+    for(let k=0;k<10;k++){const s=await dispatchDue(env,async()=>{calls++;const o=seq[i++]??"R";if(o==="A")throw timeout();if(o==="R")throw refuse();return {}},{now:t});t+=12*3600e3+1;if(!s.claimed&&k>1)break}
+    return {calls,row:q(sqlite)[0]}};
+  let r=await run(["A","R","R","R","R"]);assert.deepEqual([r.calls,r.row.status],[2,"unconfirmed"],"ambiguous then refusals: ONE extra attempt only (was 5 calls)");
+  r=await run(["A","A","R"]);assert.deepEqual([r.calls,r.row.status],[2,"unconfirmed"]);
+  r=await run(["A","S"]);assert.deepEqual([r.calls,r.row.status,r.row.possible_duplicate],[2,"sent",1],"accepted retry: sent, duplicate possible");
+  r=await run(["R","R","A","R","R"]);assert.deepEqual([r.calls,r.row.status],[4,"unconfirmed"],"definite refusals before the ambiguous one count toward the budget; one extra after it");
+  r=await run(["R","R","R","R","A"]);assert.deepEqual([r.calls,r.row.status],[5,"unconfirmed"],"ambiguous on the LAST budgeted attempt: unconfirmed, not dead");
+  r=await run(["R","R","R","R","R"]);assert.deepEqual([r.calls,r.row.status],[5,"dead"]);
+  // Worker stopped after the provider call (ambiguous via recovery), then a definite refusal on the one extra attempt
+  const {env,sqlite}=await setupV1();await mk(env);const calls=[];const real=env.ORDERS_DB.batch;
+  env.ORDERS_DB.batch=async()=>{throw new Error("Worker terminated")};await assert.rejects(dispatchDue(env,async()=>{calls.push("C")},{now:NOW+1000}),/terminated/);env.ORDERS_DB.batch=real;
+  let t=NOW+6*60e3;await dispatchDue(env,null,{now:t});assert.equal(q(sqlite)[0].ambiguous_count,1);
+  await dispatchDue(env,async()=>{calls.push("R");throw refuse()},{now:t+BACKOFF_MS[0]});
+  assert.deepEqual([calls.join(""),q(sqlite)[0].status],["CR","unconfirmed"]);assert.equal((await dispatchDue(env,async()=>{calls.push("X")},{now:t+99*864e5})).claimed,0);
 });
 test("provider accepted but the Worker stopped before SENT: recovered as AMBIGUOUS — one more attempt (flagged), then stop; never a third call",async()=>{
   const {env,sqlite}=await setupV1();await mk(env);const p=providerLog();

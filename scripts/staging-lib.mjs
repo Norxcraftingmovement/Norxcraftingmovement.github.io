@@ -6,6 +6,9 @@ import { createHash } from "node:crypto";
 export const STAGING_HOST = "staging.norxcraftingmovement.com", STAGING_DB = "norx-orders-staging";
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i, EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const read = (root, f) => JSON.parse(readFileSync(new URL(f, root), "utf8"));
+/** The exact file the runbook executes for seeding: environment guard + the synthetic seed (idempotent: every INSERT is OR IGNORE). */
+import { guardSql } from "../src/env-guard-sql.mjs";
+export const seedSql = (root) => guardSql("staging") + "\n" + readFileSync(new URL("seeds/orders-staging-synthetic.sql", root), "utf8");
 export const sha256 = (s) => createHash("sha256").update(s).digest("hex");
 
 /** Identifiers that must never appear in a staging config: every production D1/R2/rate-limit id in the committed configs. */
@@ -89,11 +92,14 @@ export function verifyD1List(json, { id, name = STAGING_DB }) {
   return { ok: true, id: gotId, name: d.name };
 }
 
-/** The exact, ordered sequence. Every remote operation carries --remote and a -c config that binds only the staging database. */
+/** The exact, ordered sequence. Every remote D1 operation carries --remote and a -c config that binds only the staging database.
+ *  ORDER MATTERS: the Access application exists before anything is reachable; Workers are deployed WITHOUT routes (workers.dev and
+ *  previews are off, so they are unreachable); the DNS record and routes come last; the gate must pass before any test or sharing. */
 export function deploymentCommands() {
   const C = ".staging", D = STAGING_DB;
   return `#!/usr/bin/env bash
 # NORX Orders V2 — STAGING deployment sequence (generated; review before running; needs owner approval).
+# Nothing here deletes anything. Production, Events, Media and Orders V1 are not referenced.
 set -euo pipefail
 : "\${NORX_STAGING_D1_ID:?}" "\${NORX_STAGING_RATELIMIT_NS:?}" "\${NORX_STAGING_ACCESS_AUD:?}" "\${NORX_OWNER_EMAIL:?}" "\${NORX_NOTIFY_FROM:?}"
 
@@ -111,17 +117,32 @@ npx wrangler d1 migrations apply ${D} --remote -c ${C}/wrangler.orders.jsonc
 npx wrangler d1 execute ${D} --remote -c ${C}/wrangler.orders.jsonc --command "INSERT INTO meta(key,value) VALUES ('environment','staging') ON CONFLICT(key) DO NOTHING"
 npx wrangler d1 execute ${D} --remote -c ${C}/wrangler.orders.jsonc --command "SELECT value FROM meta WHERE key='environment'" --json | grep -q '"value": "staging"'
 
-# 4. synthetic seed (file starts with the environment guard)
+# 4. synthetic seed (file starts with the environment guard; every INSERT is OR IGNORE, so it can be repeated)
 npx wrangler d1 execute ${D} --remote -c ${C}/wrangler.orders.jsonc --file ${C}/seed.guarded.sql
 
-# 5. storefront build, then dry-run every Worker before deploying any
+# 5. build the storefront, dry-run every Worker, then deploy them. NO routes exist yet and workers.dev/previews are off:
+#    the Workers are unreachable until step 7.
 node scripts/build-staging-storefront.mjs
 for c in orders orders-public staging-storefront; do npx wrangler deploy --dry-run -c ${C}/wrangler.$c.jsonc; done
 npx wrangler deploy -c ${C}/wrangler.orders.jsonc
 npx wrangler deploy -c ${C}/wrangler.orders-public.jsonc
 npx wrangler deploy -c ${C}/wrangler.staging-storefront.jsonc
 
-# 6. owner (dashboard): routes for ${STAGING_HOST}, Access policy for the whole hostname (see docs/STAGING_RUNBOOK.md), then:
-#    node scripts/staging-smoke.mjs --base https://${STAGING_HOST}   (uses an Access service token supplied by the owner)
+# 6. OWNER (dashboard) — Cloudflare Access is applied BEFORE the hostname exists: the self-hosted application for ${STAGING_HOST}
+#    (whole hostname, no path) was created in the prerequisites (its AUD is needed by step 0). Re-check now: ONE policy, Allow, owner
+#    e-mail only; no service-token, bypass, everyone or "public" policy; its AUD equals NORX_STAGING_ACCESS_AUD.
+# 7. OWNER (dashboard) — only now make the hostname reachable: add the DNS record for "staging" ONLY (no other record changes) and the 3 routes:
+#      ${STAGING_HOST}/api/orders*  -> norx-orders-public-staging
+#      ${STAGING_HOST}/api/admin/*  and  ${STAGING_HOST}/admin*  -> norx-orders-staging
+#      ${STAGING_HOST}/*            -> norx-staging-storefront
+# 8. GATE — must pass before ANY other test or before the URL is shared. If it fails: remove the three routes (nothing else), fix, re-run.
+node scripts/staging-gate.mjs --base https://${STAGING_HOST}
+
+# 9. integration tests with the OWNER's authenticated session (see scripts/staging-session.mjs; run the capture on the owner's computer)
+#    node scripts/staging-session.mjs capture --base https://${STAGING_HOST} --out ${C}/owner-session.json
+#    node scripts/staging-smoke.mjs --base https://${STAGING_HOST} --session ${C}/owner-session.json --orders 30
+#    node scripts/staging-smoke.mjs --base https://${STAGING_HOST} --session ${C}/owner-session.json --orders 0 --rate-limit-test   # rate limiting, separately
+#    node scripts/staging-ui-check.mjs --base https://${STAGING_HOST} --session ${C}/owner-session.json
 `;
 }
+

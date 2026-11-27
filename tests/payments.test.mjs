@@ -143,3 +143,57 @@ test("admin payment routes: owner-only, CSRF-protected; public worker exposes no
   const r=await mk(env);assert.deepEqual(Object.keys(r),["ok","id","name","roundId","items","subtotal","shipping","total","paymentDue","status"],"V1 receipt shape unchanged when no QR");
   await ready(c);const r2=await mk(env);assert.deepEqual(Object.keys(r2).slice(0,10),Object.keys(r),"V1 fields keep their order; `payment` is an extra trailing field");assert.equal(Object.keys(r2).at(-1),"payment");
 });
+
+// ---------------- payment SAFETY when the receiving account changes (no real transfers anywhere) ----------------
+const NEW={idType:"mobile",id:"0811111111",payeeName:"ผู้รับใหม่ สมมติ"};
+const tok=r=>new URL("https://x"+r.payment.payUrl).searchParams.get("t");
+const payload=(sqlite,id)=>sqlite.prepare("SELECT qr_payload q FROM payment_requests WHERE reference=?").get(id).q;
+const idOf=p=>parseTlv(parseTlv(p).find(x=>x[0]==="29")[1])[1][1];
+const switchTo=async(c,cfg,extra={})=>{await pay.putPaymentSettings(c.env,"adm",{...cfg,...extra},NOW);await pay.verifyPaymentSettings(c.env,"adm",{confirmName:cfg.payeeName},NOW)};
+
+test("SAFETY: QR codes and payment links already issued keep pointing at the account they were issued for after the receiving account changes; new orders use the new account",async()=>{
+  const c=await ready(await setupV1());const {env,sqlite}=c;
+  const a=await mk(env),b=await mk(env);const pa=payload(sqlite,a.id),svgBefore=await pay.getPaySvg(env,a.id,tok(a),NOW),viewBefore=await pay.getPayView(env,a.id,tok(a),NOW);
+  assert.equal(idOf(pa),"0066800000000");
+  await switchTo(c,NEW,{acknowledgeOutstanding:true});                                  // owner changes the receiving account (acknowledging the 2 open orders)
+  assert.equal(payload(sqlite,a.id),pa,"stored QR payload untouched");assert.equal(await pay.getPaySvg(env,a.id,tok(a),NOW),svgBefore,"served QR image identical");
+  const viewAfter=await pay.getPayView(env,a.id,tok(a),NOW);assert.deepEqual([viewAfter.payment.payeeName,viewAfter.payment.amount,viewAfter.payment.state],[SYN.payeeName,980,"awaiting"],"payee NAME shown matches the QR it belongs to, not the new setting");assert.deepEqual(viewAfter.payment,viewBefore.payment);
+  const c2=await mk(env);assert.equal(c2.payment.payeeName,NEW.payeeName);assert.equal(idOf(payload(sqlite,c2.id)),"0066811111111","new order → new account");
+  assert.notEqual(payload(sqlite,c2.id),pa);
+  // the admin sees which orders hold an old-account QR so the right statement is checked
+  const list=await svc.listOrders(env,{});const m=Object.fromEntries(list.map(o=>[o.id,o.payment]));
+  assert.equal(m[a.id].legacyPayee,true);assert.equal(m[b.id].legacyPayee,true);assert.equal(m[c2.id].legacyPayee,false);assert.equal(m[a.id].payeeMasked,"080-xxx-0000");
+  // confirming an old-QR order works (money arrived in the OLD account) and links the old request + bank reference
+  await svc.changeStatus(env,"adm",{orderNo:a.id,from:S.PENDING,to:S.PAID,amount:980,bankTxnRef:"OLD-ACCT-TXN-1",now:NOW});
+  const y=sqlite.prepare("SELECT y.bank_txn_ref r, q.payee_id_masked m FROM payments y JOIN payment_requests q ON q.id=y.request_id WHERE y.status='confirmed'").get();assert.deepEqual([y.r,y.m],["OLD-ACCT-TXN-1","080-xxx-0000"]);
+});
+test("SAFETY: changing the account while unpaid QR orders exist needs an explicit acknowledgement; with none outstanding it does not; an unverified state keeps old links valid but issues no new QR",async()=>{
+  const c=await ready(await setupV1());const {env,ctx,sqlite}=c;const a=await mk(env);
+  const put=(b)=>call(worker,env,ctx,"/api/admin/settings/payment",{method:"PUT",body:b});
+  const refused=await put(NEW);assert.equal(refused.status,400);assert.match((await refused.json()).message,/ยังรอชำระด้วย QR ของบัญชีเดิม 1 รายการ/);
+  assert.equal(JSON.parse(sqlite.prepare("SELECT value v FROM settings WHERE key='payment'").get().v).promptpayId,"0800000000","nothing changed by the refused request");
+  assert.equal((await put({...NEW,acknowledgeOutstanding:true})).status,200);
+  const g=(await (await call(worker,env,ctx,"/api/admin/settings/payment")).json()).payment;assert.deepEqual([g.verified,g.outstandingUnpaid],[false,1]);
+  // not verified yet: the new customer gets NO QR (bank fallback), the old customer's QR still works
+  const n=await mk(env);assert.equal("payment" in n,false);assert.equal((await pay.getPayView(env,a.id,tok(a),NOW)).payment.state,"awaiting");
+  // once the old order is paid, no outstanding requests remain for it; a further change needs no acknowledgement
+  await svc.changeStatus(env,"adm",{orderNo:a.id,from:S.PENDING,to:S.PAID,amount:980,now:NOW});
+  await svc.changeStatus(env,"adm",{orderNo:n.id,from:S.PENDING,to:S.CANCEL,now:NOW});
+  assert.equal((await put({...SYN,id:"0822222222"})).status,200);
+  // after the deadline outstanding requests no longer count
+  const d=await ready(await setupV1());const o=await mk(d.env);assert.equal(await pay.outstandingRequests(d.env,NOW),1);assert.equal(await pay.outstandingRequests(d.env,T0+8*DAY),0);void o;
+});
+test("SAFETY: owner can withdraw every still-payable QR; links then show 'withdrawn' and serve no QR; orders stay pending; nothing is marked paid; new orders after re-verification get a fresh QR",async()=>{
+  const c=await ready(await setupV1());const {env,ctx,sqlite}=c;const a=await mk(env),b=await mk(env);await svc.changeStatus(env,"adm",{orderNo:b.id,from:S.PENDING,to:S.PAID,amount:980,now:NOW});
+  const rev=(body)=>call(worker,env,ctx,"/api/admin/payments/revoke-outstanding",{method:"POST",body});
+  assert.equal((await rev({})).status,400);assert.equal((await call(worker,env,{},"/api/admin/payments/revoke-outstanding",{method:"POST",body:{confirm:true}})).status,403);
+  const cross=await worker.fetch(new Request("https://orders.test/api/admin/payments/revoke-outstanding",{method:"POST",headers:{"Content-Type":"application/json",Origin:"https://evil.test"},body:JSON.stringify({confirm:true})}),env,ctx);assert.equal(cross.status,403);
+  assert.deepEqual(await (await rev({confirm:true})).json(),{ok:true,revoked:1});
+  const v=await pay.getPayView(env,a.id,tok(a),NOW);assert.deepEqual([v.payment.state,v.payment.amount],["revoked",980]);assert.ok(v.bank,"bank-transfer fallback still offered");assert.equal(await pay.getPaySvg(env,a.id,tok(a),NOW),null);
+  assert.equal(sqlite.prepare("SELECT payment_status p FROM orders WHERE order_no=?").get(a.id).p,"pending");assert.equal(sqlite.prepare("SELECT COUNT(*) n FROM payments WHERE status='confirmed'").get().n,1,"only the explicitly confirmed order is paid");
+  assert.equal(sqlite.prepare("SELECT status s FROM payment_requests WHERE reference=?").get(b.id).s,"verified","paid order's request untouched");
+  assert.equal(sqlite.prepare("SELECT COUNT(*) n FROM payment_events WHERE event='revoked_by_owner'").get().n,1);assert.equal(await pay.getPayView(env,a.id,tok(a),NOW+1000).then(x=>x.payment.state),"revoked","a view never silently re-issues it");
+  await svc.changeStatus(env,"adm",{orderNo:a.id,from:S.PENDING,to:S.PAID,amount:980,bankTxnRef:"AFTER-REVOKE-1",now:NOW}); // manual confirmation still possible (money may have arrived before the revoke)
+  assert.deepEqual(await svc.paymentIntegrity(env),[]);
+  await switchTo(c,NEW);const n=await mk(env);assert.equal(idOf(payload(sqlite,n.id)),"0066811111111");
+});

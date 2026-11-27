@@ -30,3 +30,7 @@ Added (additive): `payment_requests` (what the customer is asked to pay), `payme
 
 ## 6. Not done / needs the owner
 A real PromptPay ID (staging uses a synthetic one), the banking-app scan described above, any gateway/biller contract, slip upload UI, e-mail/LINE receipt to the customer. No payment was initiated; nothing was purchased.
+
+
+## 7. Changing the receiving account (safety, tested)
+Existing QR codes and links are bound to the account they were issued for (payload, payee name and masked ID are stored on the request; the pay page and QR image come from that record, never from the live setting). Settings changes: any change un-verifies; with unpaid payable orders outstanding the change is refused until acknowledged (count shown); `POST /api/admin/payments/revoke-outstanding {confirm:true}` withdraws every still-payable QR (orders stay pending, pages show "withdrawn" + the bank fallback, nothing is marked paid). Admin shows "QR บัญชีเดิม" on orders holding an old-account QR and the confirm dialog names the account to check. Procedure for the owner: `STAGING_RUNBOOK.md` §5. No transfers are ever made by the system or its tests.

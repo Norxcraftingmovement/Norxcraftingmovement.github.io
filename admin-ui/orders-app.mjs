@@ -54,7 +54,7 @@ function draw(notifs, lat, ready = lastR) {
   if (!shown.length) ul.append(el("li", "muted", "ไม่พบออเดอร์"));
   for (const o of shown) {
     const li = el("li"), g = el("div", "grow"), t = el("strong", "", o.id); const b = el("span", "badge " + (CLS[o.status] || ""), o.status);
-    g.append(t, b); if (o.isTest) g.append(el("span", "tag", "ทดสอบ"));
+    g.append(t, b); if (o.isTest) g.append(el("span", "tag", "ทดสอบ")); if (o.payment?.legacyPayee && o.status === "รอโอน") g.append(el("span", "tag", "QR บัญชีเดิม"));
     g.append(el("br"), document.createTextNode(o.name + " · " + o.phone + " · " + ({ city: "นัดรับในเมือง", event: "รับที่งาน", ship: "จัดส่ง" }[o.delivery])), el("br"),
       el("small", "muted", o.items.map((i) => i.name + " " + (i.sleeve === "short" ? "แขนสั้น" : "แขนยาว") + " " + i.size + "×" + i.qty).join(", ")), el("br"), el("b", "", baht(o.total) + (o.shipping ? " (รวมส่ง " + baht(o.shipping) + ")" : "")));
     const acts = el("div", "acts");
@@ -76,7 +76,7 @@ function draw(notifs, lat, ready = lastR) {
 async function move(o, to) {
   let amount;
   if ((to === "ชำระแล้ว" || to === "ส่งมอบแล้ว") && o.status !== "ส่งร้านแล้ว") {
-    amount = await ask({ title: BTN[to] + " " + o.id, text: "ยอดที่ต้องได้รับ " + baht(o.total) + " — พิมพ์ยอดที่ได้รับจริงเพื่อยืนยัน", label: "ยอดที่ได้รับ (บาท)", label2: to === "ชำระแล้ว" ? "เลขอ้างอิงรายการโอนจากรายการเดินบัญชี (ไม่บังคับ — ใช้กันยืนยันซ้ำ)" : "", validate: (v) => (Number(v) === o.total ? "" : "ยอดไม่ตรงกับยอดออเดอร์") });
+    amount = await ask({ title: BTN[to] + " " + o.id, text: "ยอดที่ต้องได้รับ " + baht(o.total) + " — พิมพ์ยอดที่ได้รับจริงเพื่อยืนยัน" + (o.payment?.legacyPayee ? "  ⚠ QR ของออเดอร์นี้ออกให้บัญชีผู้รับเดิม (" + (o.payment.payeeMasked || "") + " · " + (o.payment.payeeName || "") + ") — ตรวจเงินเข้าบัญชีนั้น ไม่ใช่บัญชีปัจจุบัน" : ""), label: "ยอดที่ได้รับ (บาท)", label2: to === "ชำระแล้ว" ? "เลขอ้างอิงรายการโอนจากรายการเดินบัญชี (ไม่บังคับ — ใช้กันยืนยันซ้ำ)" : "", validate: (v) => (Number(v) === o.total ? "" : "ยอดไม่ตรงกับยอดออเดอร์") });
     if (amount === null) return; amount = Number(amount);
   } else if (!(await ask({ title: BTN[to] + " " + o.id + "?", text: o.status + " → " + to }))) return;
   try { await api("/api/admin/orders/" + encodeURIComponent(o.id) + "/status", { method: "POST", body: { from: o.status, to, amount, ...(askExtra ? { bankTxnRef: askExtra } : {}) } }); await load(); } catch (e) { notice($("notice"), msg(e), true); await load({ quiet: true }); }
