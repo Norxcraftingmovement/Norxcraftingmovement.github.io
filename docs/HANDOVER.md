@@ -141,3 +141,5 @@ Both are asserted in tests now; keep or change is the owner's call.
 Wrangler on this PC: use `npx.cmd` (PowerShell execution policy blocks `npx.ps1`); after switching accounts delete the worktree's `.wrangler/cache/wrangler-account.json` (otherwise the API answers 10000); `wrangler login` must be completed by the owner in their own browser.
 
 **Owner decisions on the two partial-receipt rules (2026-11-27):** see DECISIONS A38 (confirmed: no hand-over before full receipt) and A39 (payment and hand-over together; one combined action vs. today's two clicks still open).
+
+**Recovery R3 + A39 done (code only, not deployed):** tests for the restored features, Windows test fixes, and the owner's one-button on-site hand-over ("รับเงินและส่งมอบ", DECISIONS A39). Suite green on Windows (196: 195 pass, 1 skipped). Staging Admin still runs 589b707d (two-step on-site flow) until the next approved Admin deploy (R5). Next: R4 reverse export V2 → V1.

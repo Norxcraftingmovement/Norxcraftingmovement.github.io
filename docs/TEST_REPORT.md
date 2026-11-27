@@ -143,3 +143,5 @@ Developer-reported by Claude (Windows 10, Node 24.20.0, wrangler 4.168.0). Not a
 | `9f24911` suite | 188: 186 pass, 1 skip, 1 fail (staging-storefront Windows path, pre-existing) |
 
 NOT TESTED: e-mail to an inbox, cron, PromptPay scan with a banking app, paper labels, on-site payment in person, duplicate submit near cut-off, latency under load, rate limit on Cloudflare, real V1 export, rollback.
+
+**Recovery R3 + A39 (same day, developer-reported, not deployed):** new `tests/orders-recovered-features.test.mjs` (carriers S10/Flash warnings, partial receipts incl. stale/over-receipt refusal and Admin API, batch shipping incl. audit of the overwritten number, no-cache Admin assets) 5/5; A39 one-step on-site hand-over asserted in `orders-status-rounds`; `staging-storefront.test.mjs` fixed for Windows paths. Full suite: **196 tests, 195 pass, 0 fail, 1 skipped** (live V1 differential, needs `NORX_V1_SOURCE`).

@@ -2,15 +2,16 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {readFileSync,readdirSync,statSync,existsSync} from "node:fs";
 import {join} from "node:path";
+import {fileURLToPath} from "node:url";
 import {build,transformHtml,STAGING_ORIGIN} from "../scripts/build-staging-storefront.mjs";
-const root=new URL("../",import.meta.url).pathname,out=join(root,"dist-staging");
+const root=fileURLToPath(new URL("../",import.meta.url)),out=join(root,"dist-staging"); // fileURLToPath: URL.pathname gives C:\C:\… on Windows
 const walk=d=>readdirSync(d).flatMap(f=>statSync(join(d,f)).isDirectory()?walk(join(d,f)):[join(d,f)]);
 const cfg=JSON.parse(readFileSync(join(root,"wrangler.staging-storefront.jsonc"),"utf8"));
 
 test("D18: standalone staging storefront has NO production reachability (no Apps Script, events, admin, production origin)",()=>{
   const r=build();assert.equal(r.rewrites,5,"all five NORX_API declarations rewritten");
   const files=walk(out);
-  assert.ok(files.some(f=>f.endsWith("/cart/index.html")));
+  assert.ok(files.some(f=>f.replaceAll("\\","/").endsWith("/cart/index.html")));
   for(const bad of ["events","admin"])assert.ok(!existsSync(join(out,bad)),bad+" must not be published to staging");
   for(const f of files.filter(f=>/\.(html|js|css|txt)$/.test(f))){const t=readFileSync(f,"utf8");assert.ok(!/script\.google\.com|\/api\/events|\/admin\//.test(t),f);assert.ok(!t.includes("https://norxcraftingmovement.com"),f+" production origin")}
   for(const p of ["index.html","cart/index.html","home-terrain/index.html","woven-stride/index.html","community/index.html"]){
