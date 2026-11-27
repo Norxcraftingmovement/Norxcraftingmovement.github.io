@@ -12,8 +12,9 @@ export async function draftBody(request) {
   try { return JSON.parse(raw); } catch { fail("รูปแบบคำขอไม่ถูกต้อง"); }
 }
 function normalize(raw) {
-  const allowed = new Set(["slug", "name", "shortName", "fit", "fitName", "description", "collectionId", "prices", "sizes", "expectedRevision"]);
+  const allowed = new Set(["slug", "name", "shortName", "fit", "fitName", "description", "collectionId", "prices", "sizes", "expectedRevision", "coverRemove"]);
   if (!raw || typeof raw !== "object" || Array.isArray(raw) || Object.keys(raw).some(k => !allowed.has(k))) fail("บันทึกได้เฉพาะข้อมูลฉบับร่าง ยังเปิดขายจากหน้านี้ไม่ได้");
+  if (raw.coverRemove !== undefined && typeof raw.coverRemove !== "boolean") fail("ตรวจรูปปกให้ถูกต้อง");
   const p = { slug: text(raw.slug, 60, true), name: text(raw.name, 140, true), shortName: text(raw.shortName ?? "", 60), fit: text(raw.fit, 40, true), fitName: text(raw.fitName, 80, true), description: text(raw.description ?? "", 3000), collectionId: raw.collectionId ?? null };
   if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(p.slug) || p.slug.length < 3 || !/^[a-z][a-z0-9-]*$/.test(p.fit)) fail("รหัสสินค้าและรหัสทรงใช้ a-z, 0-9 และขีดกลางเท่านั้น");
   if (p.collectionId !== null && (!Number.isSafeInteger(p.collectionId) || p.collectionId <= 0)) fail("เลือก Collection จากรายการ");
@@ -35,24 +36,25 @@ export async function listProducts(env) {
     rows(db.prepare("SELECT product_id,size FROM product_sizes WHERE active=1 ORDER BY sort,id")),
     rows(db.prepare("SELECT id,name,status FROM collections ORDER BY name,id")),
   ]);
-  return { products: products.map(p => ({ id: p.id, slug: p.slug, name: p.name, shortName: p.short_name || "", fit: p.fit, fitName: p.fit_name, description: p.description || "", collectionId: p.collection_id, collectionName: p.collection_name || "", status: p.status, revision: p.revision, editable: p.status === "draft" && p.order_uses === 0, prices: Object.fromEntries(variants.filter(v => v.product_id === p.id).map(v => [v.sleeve, v.price_baht])), sizes: sizes.filter(s => s.product_id === p.id).map(s => s.size) })), collections };
+  return { products: products.map(p => ({ id: p.id, slug: p.slug, name: p.name, shortName: p.short_name || "", fit: p.fit, fitName: p.fit_name, description: p.description || "", collectionId: p.collection_id, collectionName: p.collection_name || "", coverUrl: /^products\/[0-9a-f-]{36}\.(?:jpg|png|webp)$/.test(p.image_key || "") ? "/api/admin/product-images/" + p.image_key.slice(9) : "", status: p.status, revision: p.revision, editable: p.status === "draft" && p.order_uses === 0, prices: Object.fromEntries(variants.filter(v => v.product_id === p.id).map(v => [v.sleeve, v.price_baht])), sizes: sizes.filter(s => s.product_id === p.id).map(s => s.size) })), collections, mediaReady: !!env.PRODUCT_MEDIA };
 }
-export async function saveDraft(env, actor, raw, id = null) {
+export async function saveDraft(env, actor, raw, id = null, coverKey = undefined) {
   const p = normalize(raw), db = env.ORDERS_DB;
   const catalog = await listProducts(env), old = id === null ? null : catalog.products.find(v => v.id === id);
   if (id !== null && (!old || !old.editable)) fail("สินค้าที่เปิดขาย มีออเดอร์ หรือเก็บไว้แล้ว ดูข้อมูลได้อย่างเดียว");
   if (old && (p.slug !== old.slug || !Number.isSafeInteger(raw.expectedRevision) || raw.expectedRevision !== old.revision)) fail("ข้อมูลเปลี่ยนแล้ว กรุณาโหลดสินค้าใหม่ก่อนบันทึก");
   if (p.collectionId !== null && !catalog.collections.some(c => c.id === p.collectionId && c.status !== "archived")) fail("Collection นี้ไม่พร้อมใช้งาน");
+  p.imageKey = coverKey ?? (raw.coverRemove ? null : old ? (await db.prepare("SELECT image_key FROM products WHERE id=?").bind(id).first()).image_key : null);
   const token = crypto.randomUUID(), next = JSON.stringify({ ...p, status: "draft", operationToken: token });
   const guard = "EXISTS(SELECT 1 FROM audit_log a WHERE a.entity='products' AND a.entity_id=?1 AND json_extract(a.after,'$.operationToken')=?2)";
   const statements = [];
   if (!old) {
-    statements.push(db.prepare("INSERT INTO products(slug,name,short_name,fit,fit_name,description,collection_id,status) VALUES (?1,?2,?3,?4,?5,?6,?7,'draft')").bind(p.slug, p.name, p.shortName, p.fit, p.fitName, p.description, p.collectionId));
+    statements.push(db.prepare("INSERT INTO products(slug,name,short_name,fit,fit_name,description,collection_id,image_key,status) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,'draft')").bind(p.slug, p.name, p.shortName, p.fit, p.fitName, p.description, p.collectionId, p.imageKey));
     statements.push(db.prepare("INSERT INTO audit_log(actor_hash,action,entity,entity_id,after) VALUES (?1,'product.draft.create','products',?2,?3)").bind(actor, p.slug, next));
   } else {
     // The audit insertion is the compare-and-set lock; all following writes require THIS operation token.
     statements.push(db.prepare("INSERT INTO audit_log(actor_hash,action,entity,entity_id,before,after) SELECT ?1,'product.draft.update','products',?2,?3,?4 WHERE EXISTS(SELECT 1 FROM products p WHERE p.id=?5 AND p.status='draft' AND NOT EXISTS(SELECT 1 FROM order_items i WHERE i.product_id=p.id)) AND COALESCE((SELECT MAX(id) FROM audit_log WHERE entity='products' AND entity_id=?2),0)=?6").bind(actor, p.slug, JSON.stringify(old), next, id, raw.expectedRevision));
-    statements.push(db.prepare("UPDATE products SET name=?3,short_name=?4,fit=?5,fit_name=?6,description=?7,collection_id=?8 WHERE slug=?1 AND status='draft' AND " + guard).bind(p.slug, token, p.name, p.shortName, p.fit, p.fitName, p.description, p.collectionId));
+    statements.push(db.prepare("UPDATE products SET name=?3,short_name=?4,fit=?5,fit_name=?6,description=?7,collection_id=?8,image_key=?9 WHERE slug=?1 AND status='draft' AND " + guard).bind(p.slug, token, p.name, p.shortName, p.fit, p.fitName, p.description, p.collectionId, p.imageKey));
     statements.push(db.prepare("UPDATE product_variants SET active=0 WHERE product_id=(SELECT id FROM products WHERE slug=?1) AND " + guard).bind(p.slug, token));
     statements.push(db.prepare("UPDATE product_sizes SET active=0 WHERE product_id=(SELECT id FROM products WHERE slug=?1) AND " + guard).bind(p.slug, token));
   }

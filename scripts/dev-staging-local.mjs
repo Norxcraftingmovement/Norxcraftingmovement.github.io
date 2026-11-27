@@ -29,7 +29,9 @@ export async function start(port = 0, { emailFails = false, staticDir = join(roo
   const sent = [], hits = new Map(); let origin = "";
   // Emulates the Workers Rate Limiting binding (per key, sliding window). null = no limiter.
   const limiter = rateLimit ? { limit: async ({ key }) => { const now = Date.now(), a = (hits.get(key) ?? []).filter((t) => now - t < rateLimit.periodMs); if (a.length >= rateLimit.limit) { hits.set(key, a); return { success: false }; } a.push(now); hits.set(key, a); return { success: true }; } } : undefined;
-  const mkEnv = () => ({ ENVIRONMENT: "staging", ORDERS_DB_LABEL: "staging", ORDERS_DB: db, ORDERS_ALLOWED_ORIGIN: origin, ORDERS_PUBLIC_ORIGINS: origin, STAGING_REQUIRE_ACCESS: "1", MEDIA_ADMIN_ENABLED: "1", MEDIA_ACCESS_AUD: "dev", MEDIA_ADMIN_EMAIL_HASH: hash,
+  const media = new Map();
+  const productMedia = { put: async (key, value, options) => media.set(key, {bytes:new Uint8Array(value), ...options}), get: async key => { const o=media.get(key); return o ? {...o,body:o.bytes} : null; }, delete: async key => media.delete(key) };
+  const mkEnv = () => ({ PRODUCT_MEDIA: productMedia, ENVIRONMENT: "staging", ORDERS_DB_LABEL: "staging", ORDERS_DB: db, ORDERS_ALLOWED_ORIGIN: origin, ORDERS_PUBLIC_ORIGINS: origin, STAGING_REQUIRE_ACCESS: "1", MEDIA_ADMIN_ENABLED: "1", MEDIA_ACCESS_AUD: "dev", MEDIA_ADMIN_EMAIL_HASH: hash,
     ...(limiter ? { ORDERS_LIMITER: limiter } : {}), NOTIFY_FROM: "alerts@example.test", ORDERS_ADMIN_URL: origin + "/admin/orders/", EMAIL: { send: async (m) => { if (emailFails) { const e = new Error("owner@example.test refused"); e.code = "E_REFUSED"; throw e; } sent.push(m); return { messageId: "<dev-" + sent.length + "@example.test>" }; } } });
   const server = http.createServer(async (req, res) => {
     const chunks = []; for await (const c of req) chunks.push(c);

@@ -6,6 +6,7 @@ import * as svc from "./orders-service.mjs";
 import { UserError } from "./orders-core.mjs";
 import * as pay from "./payments.mjs";
 import * as drafts from "./product-drafts.mjs";
+import { saveProductRequest, productImage } from "./product-images.mjs";
 import { listNotifications, retryNotification, markNotificationReceived, notificationHistory, latencyStats, reportedNotificationReadiness } from "./orders-notify.mjs";
 const headers = { "Cache-Control": "no-store", "X-Robots-Tag": "noindex, nofollow", "X-Content-Type-Options": "nosniff", "Referrer-Policy": "no-referrer" };
 const reply = (error, status) => Response.json({ error }, { status, headers });
@@ -23,7 +24,7 @@ export async function overview(env) {
 const csvResponse = (csv, name) => new Response(csv, { headers: { ...headers, "Content-Type": "text/csv; charset=utf-8", "Content-Disposition": `attachment; filename="${name.replace(/[^A-Za-z0-9._-]/g, "_")}"` } });
 const decoded = new Map();
 const bytes = (name) => { if (!decoded.has(name)) decoded.set(name, Uint8Array.from(atob(assets[name].base64), (c) => c.charCodeAt(0))); return decoded.get(name); };
-const page = (name) => new Response(assets[name].text, { headers: { ...headers, "Content-Type": assets[name].type, "Content-Security-Policy": pageCsp } });
+const page = (name) => new Response(assets[name].text, { headers: { ...headers, "Content-Type": assets[name].type, "Content-Security-Policy": pageCsp + (name === "products.html" ? "; frame-src 'self'" : "") } });
 const asset = (name) => {
   const a = assets[name];
   // Scripts and styles are re-checked on every load: a cached old script after a deploy would run against the new API.
@@ -78,9 +79,10 @@ const routes = [
   ["GET", /^\/admin\/?$/, "page", () => page("overview.html")],
   ["GET", /^\/admin\/production\/?$/, "page", () => page("production.html")],
   ["GET", /^\/admin\/products\/?$/, "page", () => page("products.html")],
+  ["GET", /^\/api\/admin\/product-images\/([0-9a-f-]{36}\.(?:jpg|png|webp))$/, "api", (r, env, a, m) => productImage(env, m[1])],
   ["GET", /^\/api\/admin\/products$/, "api", async (r, env) => api.json({ ok: true, ...(await drafts.listProducts(env)) })],
-  ["POST", /^\/api\/admin\/products$/, "write", async (r, env, a) => api.json({ ok: true, product: await drafts.saveDraft(env, a, await drafts.draftBody(r)) })],
-  ["PUT", /^\/api\/admin\/products\/(\d{1,12})$/, "write", async (r, env, a, m) => api.json({ ok: true, product: await drafts.saveDraft(env, a, await drafts.draftBody(r), +m[1]) })],
+  ["POST", /^\/api\/admin\/products$/, "write", async (r, env, a) => api.json({ ok: true, product: await saveProductRequest(r, env, a) })],
+  ["PUT", /^\/api\/admin\/products\/(\d{1,12})$/, "write", async (r, env, a, m) => api.json({ ok: true, product: await saveProductRequest(r, env, a, +m[1]) })],
   ["GET", /^\/api\/admin\/settings\/payment$/, "api", async (r, env) => api.json({ ok: true, payment: pay.publicPaymentSettings(await pay.getPaymentSettings(env), await pay.outstandingRequests(env)) })],
   ["POST", /^\/api\/admin\/payments\/revoke-outstanding$/, "write", async (r, env, a) => api.json({ ok: true, ...(await pay.revokeOutstanding(env, a, await r.json().catch(() => ({})))) })],
   ["PUT", /^\/api\/admin\/settings\/payment$/, "write", async (r, env, a) => api.json({ ok: true, payment: await pay.putPaymentSettings(env, a, await r.json().catch(() => ({}))) })],

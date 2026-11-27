@@ -17,6 +17,8 @@ export function generate() {
   const files = [];
   for (const dir of ["", "fonts"]) for (const f of readdirSync(join(root, dir)).sort()) if (extname(f) in types) files.push([dir ? dir + "/" + f : f, join(root, dir, f)]);
   const assets = {};
+  const liveCss = readFileSync(new URL("../home-terrain/index.html", import.meta.url), "utf8").match(/<style>([\s\S]*?)<\/style>/)[1];
+  assets["product-template.css"] = { type: "text/css; charset=utf-8", text: liveCss + "\n" + readFileSync(join(root, "product-preview.css"), "utf8") };
   for (const [name, path] of files.sort(([a], [b]) => a.localeCompare(b))) {
     const buf = readFileSync(path), flat = name.replace(/^fonts\//, ""), type = types[extname(name)];
     assets[flat] = type.startsWith("text/") ? { type, text: extname(name) === ".html" ? buf.toString("utf8").replace("<!--NAV-->", nav(flat)).replace("</head>", '<link rel="stylesheet" href="/admin/assets/theme.css"></head>') : buf.toString("utf8") } : { type, base64: buf.toString("base64") };
