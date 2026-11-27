@@ -5,6 +5,7 @@ import * as api from "./orders-admin-api.mjs";
 import * as svc from "./orders-service.mjs";
 import { UserError } from "./orders-core.mjs";
 import * as pay from "./payments.mjs";
+import * as drafts from "./product-drafts.mjs";
 import { listNotifications, retryNotification, markNotificationReceived, notificationHistory, latencyStats, reportedNotificationReadiness } from "./orders-notify.mjs";
 const headers = { "Cache-Control": "no-store", "X-Robots-Tag": "noindex, nofollow", "X-Content-Type-Options": "nosniff", "Referrer-Policy": "no-referrer" };
 const reply = (error, status) => Response.json({ error }, { status, headers });
@@ -77,6 +78,9 @@ const routes = [
   ["GET", /^\/admin\/?$/, "page", () => page("overview.html")],
   ["GET", /^\/admin\/production\/?$/, "page", () => page("production.html")],
   ["GET", /^\/admin\/products\/?$/, "page", () => page("products.html")],
+  ["GET", /^\/api\/admin\/products$/, "api", async (r, env) => api.json({ ok: true, ...(await drafts.listProducts(env)) })],
+  ["POST", /^\/api\/admin\/products$/, "write", async (r, env, a) => api.json({ ok: true, product: await drafts.saveDraft(env, a, await drafts.draftBody(r)) })],
+  ["PUT", /^\/api\/admin\/products\/(\d{1,12})$/, "write", async (r, env, a, m) => api.json({ ok: true, product: await drafts.saveDraft(env, a, await drafts.draftBody(r), +m[1]) })],
   ["GET", /^\/api\/admin\/settings\/payment$/, "api", async (r, env) => api.json({ ok: true, payment: pay.publicPaymentSettings(await pay.getPaymentSettings(env), await pay.outstandingRequests(env)) })],
   ["POST", /^\/api\/admin\/payments\/revoke-outstanding$/, "write", async (r, env, a) => api.json({ ok: true, ...(await pay.revokeOutstanding(env, a, await r.json().catch(() => ({})))) })],
   ["PUT", /^\/api\/admin\/settings\/payment$/, "write", async (r, env, a) => api.json({ ok: true, payment: await pay.putPaymentSettings(env, a, await r.json().catch(() => ({}))) })],
