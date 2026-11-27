@@ -3,6 +3,7 @@
 import { publicConfig, submitOrder } from "./orders-service.mjs";
 import { UserError } from "./orders-core.mjs";
 import { environmentGuard } from "./orders-guard.mjs";
+import { verifiedOwner } from "./orders-access.mjs";
 import { dispatchDue, makeProvider } from "./orders-notify.mjs";
 import { getSetting } from "./orders-service.mjs";
 import { getPayView, getPaySvg } from "./payments.mjs";
@@ -37,6 +38,8 @@ async function payRoute(request, env, u) {
 export default {
   async fetch(request, env, ctx) {
     const u = new URL(request.url);
+    // Staging: the whole hostname sits behind Cloudflare Access. Defence in depth — if the edge policy were ever misconfigured, this Worker still refuses anyone but the owner.
+    if (env.STAGING_REQUIRE_ACCESS === "1" && !(await verifiedOwner(ctx, env))) return new Response(JSON.stringify({ ok: false, error: "ACCESS_REQUIRED" }), { status: 403, headers: { ...base, "Content-Type": "application/json" } });
     if (u.pathname === "/api/orders/pay" || u.pathname === "/api/orders/pay.svg") return payRoute(request, env, u);
     if (u.pathname !== "/api/orders") return new Response("Not found", { status: 404, headers: base });
     if (request.method === "OPTIONS") {

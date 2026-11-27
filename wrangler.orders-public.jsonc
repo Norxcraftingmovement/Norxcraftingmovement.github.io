@@ -7,22 +7,82 @@
     "staging": {
       "name": "norx-orders-public-staging",
       "workers_dev": false,
-      "vars": { "ENVIRONMENT": "staging", "ORDERS_DB_LABEL": "staging", "ORDERS_PUBLIC_ORIGINS": "https://staging.norxcraftingmovement.com" },
-      "triggers": { "crons": ["* * * * *"] },
+      "vars": {
+        "ENVIRONMENT": "staging",
+        "ORDERS_DB_LABEL": "staging",
+        "ORDERS_PUBLIC_ORIGINS": "https://staging.norxcraftingmovement.com",
+        "STAGING_REQUIRE_ACCESS": "1",
+        "MEDIA_ADMIN_ENABLED": "1",
+        "MEDIA_ACCESS_AUD": "REPLACE_WITH_STAGING_ACCESS_AUD",
+        "MEDIA_ADMIN_EMAIL_HASH": "REPLACE_WITH_SHA256_OF_OWNER_EMAIL",
+        "NOTIFY_FROM": "REPLACE_WITH_SENDER_ADDRESS",
+        "ORDERS_ADMIN_URL": "https://staging.norxcraftingmovement.com/admin/orders/"
+      },
+      "triggers": {
+        "crons": [
+          "* * * * *"
+        ]
+      },
       "d1_databases": [
-        { "binding": "ORDERS_DB", "database_name": "norx-orders-staging", "database_id": "REPLACE_WITH_STAGING_DB_ID" }
+        {
+          "binding": "ORDERS_DB",
+          "database_name": "norx-orders-staging",
+          "database_id": "REPLACE_WITH_STAGING_DB_ID"
+        }
       ],
-      "ratelimits": [{ "name": "ORDERS_LIMITER", "namespace_id": "REPLACE_STAGING_RATELIMIT_NS", "simple": { "limit": 10, "period": 60 } }]
+      "ratelimits": [
+        {
+          "name": "ORDERS_LIMITER",
+          "namespace_id": "REPLACE_STAGING_RATELIMIT_NS",
+          "simple": {
+            "limit": 10,
+            "period": 60
+          }
+        }
+      ],
+      "preview_urls": false,
+      "send_email": [
+        {
+          "name": "EMAIL",
+          "destination_address": "REPLACE_WITH_VERIFIED_OWNER_ADDRESS"
+        }
+      ]
     },
     "production": {
       "name": "norx-orders-public",
       "workers_dev": false,
-      "vars": { "ENVIRONMENT": "production", "ORDERS_DB_LABEL": "production", "ORDERS_PUBLIC_ORIGINS": "https://norxcraftingmovement.com" },
-      "triggers": { "crons": ["* * * * *"] },
+      "vars": {
+        "ENVIRONMENT": "production",
+        "ORDERS_DB_LABEL": "production",
+        "ORDERS_PUBLIC_ORIGINS": "https://norxcraftingmovement.com",
+        "MEDIA_ADMIN_ENABLED": "1",
+        "MEDIA_ACCESS_AUD": "REPLACE_WITH_PRODUCTION_ACCESS_AUD",
+        "MEDIA_ADMIN_EMAIL_HASH": "REPLACE_WITH_SHA256_OF_OWNER_EMAIL"
+      },
+      "triggers": {
+        "crons": [
+          "* * * * *"
+        ]
+      },
       "d1_databases": [
-        { "binding": "ORDERS_DB", "database_name": "norx-orders", "database_id": "REPLACE_WITH_PRODUCTION_DB_ID" }
+        {
+          "binding": "ORDERS_DB",
+          "database_name": "norx-orders",
+          "database_id": "REPLACE_WITH_PRODUCTION_DB_ID"
+        }
       ],
-      "ratelimits": [{ "name": "ORDERS_LIMITER", "namespace_id": "REPLACE_PRODUCTION_RATELIMIT_NS", "simple": { "limit": 10, "period": 60 } }]
+      "ratelimits": [
+        {
+          "name": "ORDERS_LIMITER",
+          "namespace_id": "REPLACE_PRODUCTION_RATELIMIT_NS",
+          "simple": {
+            "limit": 10,
+            "period": 60
+          }
+        }
+      ],
+      "preview_urls": false
     }
-  }
+  },
+  "preview_urls": false
 }

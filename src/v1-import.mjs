@@ -11,6 +11,7 @@
 //   h != s && c != s               -> both changed              -> CONFLICT (report), overwrite only in mode "v1-wins"
 //   h == c && s != h               -> already equal             -> refresh marker only
 // "v1-wins" is for the final sync during the V1 freeze, when V1 is the single source of truth.
+import { guardSql } from "./env-guard-sql.mjs";
 import { FROM_LEGACY, legacyStatus, toLegacy, DELIVERY, PAID_LIKE } from "./orders-core.mjs";
 
 // ---------- V1 sheet layout (header names as in V1 SHEETS; column order irrelevant when reading CSV) ----------
@@ -221,11 +222,11 @@ export async function runSync(db, plan, { dryRun = true } = {}) {
   return { dryRun: false, groups: groups.length };
 }
 /** Render the statements as literal SQL (for `wrangler d1 execute --file`). Same code path as runSync. */
-export function renderSql(plan) {
+export function renderSql(plan, { guard = null } = {}) {
   const lit = (v) => (v === null || v === undefined ? "NULL" : typeof v === "number" ? String(v) : "'" + String(v).replace(/'/g, "''") + "'");
   const rec = { prepare: (sql) => ({ bind: (...a) => ({ sql, a }) }) };
   const groups = buildStatements(rec, plan);
-  return groups.map((g) => g.map(({ sql, a }) => sql.replace(/\?(\d+)/g, (_, n) => lit(a[n - 1])).replace(/\s+/g, " ").trim() + ";").join("\n")).join("\n\n") + "\n";
+  return (guard ? guardSql(guard) + "\n" : "") + groups.map((g) => g.map(({ sql, a }) => sql.replace(/\?(\d+)/g, (_, n) => lit(a[n - 1])).replace(/\s+/g, " ").trim() + ";").join("\n")).join("\n\n") + "\n";
 }
 
 // ---------- reconciliation (against a V2 state) ----------

@@ -1,4 +1,4 @@
-import { verifiedOwner } from "./admin-access-worker.mjs";
+import { verifiedOwner } from "./orders-access.mjs";
 import { environmentGuard } from "./orders-guard.mjs";
 import { assets } from "./generated/orders-admin-assets.mjs";
 import * as api from "./orders-admin-api.mjs";

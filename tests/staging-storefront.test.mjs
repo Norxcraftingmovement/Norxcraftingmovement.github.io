@@ -27,7 +27,7 @@ test("D18: the build fails closed if a production reference slips in",()=>{
   assert.equal(apiRewrites,1);assert.ok(!html.includes("script.google.com"));
 });
 test("D18: staging worker config is assets-only: no D1, R2, rate limits, vars, routes or production bindings; nothing deploys it by default",()=>{
-  assert.deepEqual(Object.keys(cfg).sort(),["assets","compatibility_date","name","workers_dev"]);
+  assert.deepEqual(Object.keys(cfg).sort(),["assets","compatibility_date","name","preview_urls","workers_dev"]);assert.ok(!("binding" in cfg.assets),"assets-only Workers cannot declare an assets binding (rejected by wrangler)");
   assert.equal(cfg.workers_dev,false);assert.equal(cfg.name,"norx-staging-storefront");assert.ok(!/d1|r2|EVENTS|MEDIA|route|ratelimit/i.test(JSON.stringify(cfg)));
   assert.equal(cfg.assets.directory,"./dist-staging");
   const prodBuild=readFileSync(join(root,"scripts/build-cloudflare.mjs"),"utf8");assert.ok(!prodBuild.includes("dist-staging"),"production build never includes staging output");

@@ -5,7 +5,7 @@
   "assets": {
     "directory": "./dist-staging",
     "html_handling": "auto-trailing-slash",
-    "not_found_handling": "none",
-    "binding": "ASSETS"
-  }
+    "not_found_handling": "none"
+  },
+  "preview_urls": false
 }

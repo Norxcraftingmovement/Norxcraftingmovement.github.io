@@ -8,3 +8,4 @@
 *.v1.gs
 *.v1.txt
 /dist-staging/
+/.staging/
