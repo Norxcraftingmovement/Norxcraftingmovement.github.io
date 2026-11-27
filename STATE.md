@@ -19,6 +19,9 @@ Rollback ก่อนรอบนี้: Public 26439a64, Admin 9aa87251; เก
 - A6: ซ้อม rollback กับสำเนาชีต V1 จริงยังค้าง
 ขึ้นระบบเร็วที่สุดเมื่อด่านพร้อม; วันที่เดิมปรับได้ ไม่ข้าม Security Gate/QA/rollback
 
+## UX/UI update — development only
+Shared sidebar/mobile disclosure menu and compact Orders implemented; not deployed. Local 8/8 workflow checks and 18 route/viewport checks pass, full suite 242: 241 pass / 1 skip / 0 fail. See TEST_REPORT: Admin navigation and Orders UX. Events/Media destinations retained, separate consoles unchanged.
+
 ## Next exact action
 ต่อ A2 รับบางส่วน/รับเงินพร้อมส่งมอบบน staging ด้วยข้อมูลสมมติ และ A4/A6 ก่อน production/cutover. คำอนุมัติเมลรอบนี้ไม่ครอบคลุมส่งเมลลูกค้าจริง
 งานปกติ/ทดสอบ/รวมกิ่งพัฒนาทำต่อเอง ใช้ Single Writer; ถามเรื่องสำคัญต่อระบบ/ข้อมูล/วิธีใช้งาน. Claude ติดลิมิต ให้ Codex solo self-review และรายงานตามจริง
