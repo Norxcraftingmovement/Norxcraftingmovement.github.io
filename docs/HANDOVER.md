@@ -115,3 +115,27 @@ Remaining: automated owner-session smoke/UI still blocked by Google login in Pla
 ## Staging mixed-cart checkout (2026-11-27)
 Owner ran guarded catalog SQL on norx-orders-staging. Readback: drop02 regular, 11 sizes, 2 sleeves; drop03 boxy, 6 sizes, 2 sleeves; test01 retained. SQL tested locally for repeat safety and seed-order preservation before remote execution.
 Independent owner-session Chrome check: added Drop 02 short M (510) and Drop 03 long L (620), selected shipping (50 once), and placed synthetic order NORX-7D56CF56. Checkout receipt and Admin agree at 1,180 THB, pending payment. Confirmed the synthetic payment status with a test reference and reverted to pending, both verified in Admin; no funds transferred. Admin recorded 147 ms for one server-side creation sample only. Notification was queued, then recorded one attempt with recipient_not_configured. This confirms queue processing but not provider acceptance or inbox delivery. Dynamic QR, duplicate submission, latency under multiple orders, rate limit, and the remaining integration checklist are still pending.
+
+
+## Recovery Mode session — owner's home PC (2026-11-27, evening)
+Operator: Claude (Claude Code desktop on the owner's home Windows PC), separate worktree on `feature/orders-v2`. Start `d1d7213` → end `9f24911` (+ this docs commit). `feature/cloudflare-migration` (production) untouched.
+
+**Context.** The evening work (local commit 7b20b5f on the owner's workplace PC, never pushed — HTTP 403) is treated as lost by owner decision (Recovery Mode; GitHub is the base). The home PC can push, and its wrangler is logged in to the NORX Cloudflare account.
+
+**Done**
+- P0 staging QR (`0d2dbed`): with no per-order PromptPay ID set, the staging checkout fell back to the static QR of the real receiving account (`cart/index.html` → `assets/qr.jpg`). `scripts/build-staging-storefront.mjs` now replaces that block with a STAGING notice, does not upload `qr.jpg`, and fails the build if it reappears; the production cart is unchanged. Storefront-only deploy (owner-approved): version `3bcf6749`, no targets; gate 16/16 afterwards. Developer retest PASS; independent retest pending.
+- Recovery R1 (read-only): D1 staging has `0001` + `0002`; its schema differs from `0001` only by `order_items.received_qty`. Downloaded the running Workers with `create-cloudflare --existing-script` (no deploy, no git): their source maps carry every original module. Admin `589b707d` differed from GitHub in 4 src modules + 9 admin-ui files + new `carriers.mjs`; Public `26439a64` equals GitHub. Recovered sources, bundles, source maps and the schema dump are kept privately by the owner (Google Drive, NORX-handoff/recovery-2026-11-27).
+- Recovery R2 (`cf1fed0`, `9f24911`): Admin sources restored verbatim; regenerated admin assets equal the deployed ones (25/25); `0002_partial_receipts.sql` reconstructed (same name as the d1_migrations record, so it is not re-applied). Test helper and local simulators now apply every migration in order. No deploy needed — staging already runs this code.
+
+**Owner decision needed** (behaviour that came with partial receipts; already live on staging and used in QA):
+1. ส่งมอบแล้ว is refused while any item of the order has not been received from the factory ("ออเดอร์นี้รับเสื้อยังไม่ครบ"). Migration consequence: V1 orders imported as ส่งร้านแล้ว need their receipts recorded in V2 before they can be marked delivered.
+2. On-site pickup is two steps: record the money (จ่ายหน้างาน → ชำระแล้ว, method `on_site`), then ส่งมอบแล้ว ("บันทึกรับเงินก่อนส่งมอบ"). V1 did this in one step.
+Both are asserted in tests now; keep or change is the owner's call.
+
+**Side effect to review:** `orders-core` / `orders-service` are shared, so the staging Public Worker (`26439a64`) is now older than GitHub for these modules. Review before any Public redeploy (R5, needs approval).
+
+**Lost for good (never deployed):** round create/edit UI, `0003` + `shop.js` event name, weekly-round switch on the Orders page, `export-v2-to-v1.mjs`, `rehearse-v1-local.mjs`, the extra tests. All deferred by the owner except the reverse export (R4). Results reported from 7b20b5f (212/211 tests, local V1 rehearsal 35→37 with 0 diff, rollback round-trip) now have no evidence.
+
+**Next** (single writer: Claude on the home PC until recovery completes): R3 tests for the restored features (receipts, batch shipments, carriers) + Windows test fixes → R4 reverse export V2 → V1 with a round-trip test → R5 bug fixes (shipped date sets `shipped_at`; TEST- seed ids rejected by Admin routes; shipping queue lists unpaid orders — to confirm; "รับแล้ว 0"), then ask approval to deploy Admin/Public. Independent retest of the staging QR by Codex or the owner. After Orders V2 integration: `/track/`. No cutover before MOVE KIDS (13 Dec) unless the owner decides otherwise.
+
+Wrangler on this PC: use `npx.cmd` (PowerShell execution policy blocks `npx.ps1`); after switching accounts delete the worktree's `.wrangler/cache/wrangler-account.json` (otherwise the API answers 10000); `wrangler login` must be completed by the owner in their own browser.

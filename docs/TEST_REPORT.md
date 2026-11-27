@@ -123,3 +123,23 @@ Remaining: automated owner-session smoke/UI still blocked by Google login in Pla
 ## Staging mixed-cart checkout (2026-11-27)
 Owner ran guarded catalog SQL on norx-orders-staging. Readback: drop02 regular, 11 sizes, 2 sleeves; drop03 boxy, 6 sizes, 2 sleeves; test01 retained. SQL tested locally for repeat safety and seed-order preservation before remote execution.
 Independent owner-session Chrome check: added Drop 02 short M (510) and Drop 03 long L (620), selected shipping (50 once), and placed synthetic order NORX-7D56CF56. Checkout receipt and Admin agree at 1,180 THB, pending payment. Confirmed the synthetic payment status with a test reference and reverted to pending, both verified in Admin; no funds transferred. Admin recorded 147 ms for one server-side creation sample only. Notification was queued, then recorded one attempt with recipient_not_configured. This confirms queue processing but not provider acceptance or inbox delivery. Dynamic QR, duplicate submission, latency under multiple orders, rate limit, and the remaining integration checklist are still pending.
+
+
+## Recovery Mode verification — home PC (2026-11-27)
+Developer-reported by Claude (Windows 10, Node 24.20.0, wrangler 4.168.0). Not an independent retest.
+
+| Check | Result |
+|---|---|
+| GitHub `d1d7213` suite (LF checkout) | 185 tests: 182 pass, 1 skip, 2 fail (generated-assets byte check — `admin-ui/orders-app.mjs` blob was CRLF; staging-storefront Windows path) |
+| `0d2dbed` staging QR fix — build | `{ rewrites: 5, qrRemoved: 1, files: 154 }`, no `qr.jpg` in the output |
+| `0d2dbed` suite | 188: 185 pass, 1 skip, 2 fail (same two); new QR tests 3/3; D18 storefront tests 4/4 with Windows-safe paths |
+| Storefront deploy `3bcf6749` | pass; "No targets deployed"; dry-run "No bindings found" |
+| Gate after deploy | 16/16 PASS (all 302 → Access), exit 0 |
+| Staging `/cart/` (owner Chrome, read-only) | no `img.qr`, STAGING notice shown, `/assets/qr.jpg` 404, no console errors. Checkout flow not exercised (no open round) |
+| D1 staging (SELECT only) | migrations 0001, 0002; schema diff vs 0001 = `order_items.received_qty` only |
+| Deployed Admin `589b707d` vs GitHub `0d2dbed` | 4 src + 9 admin-ui changed, `carriers.mjs` new, all else identical (source map `sourcesContent`) |
+| Deployed Public `26439a64` vs GitHub | identical |
+| Regenerated admin assets vs deployed | 25/25 identical (text LF-normalised) |
+| `9f24911` suite | 188: 186 pass, 1 skip, 1 fail (staging-storefront Windows path, pre-existing) |
+
+NOT TESTED: e-mail to an inbox, cron, PromptPay scan with a banking app, paper labels, on-site payment in person, duplicate submit near cut-off, latency under load, rate limit on Cloudflare, real V1 export, rollback.

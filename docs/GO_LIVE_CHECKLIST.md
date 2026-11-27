@@ -25,7 +25,11 @@ Status: PLAN ONLY. Nothing here is approved or executed. Every step marked OWNER
 ## D. Rollback (non-destructive)
 Revert the single `NORX_API` commit, remove production routes, keep D1 untouched; export V2-native orders to the V1 Sheet with the reverse script (to be written and rehearsed in A6), reconcile.
 
-## E. What is still missing in code (as of `df74c47`)
-- Reverse export V2 → V1 Sheet (A6/D).
-- Partial receipts / multi-parcel / pickup queue + migration `0002` (exists only in the owner's local tree; not on GitHub).
-- Round create/edit UI, batch status actions, `/track/`, Products management.
+## E. What is still missing in code (as of `9f24911`, Recovery Mode)
+- Reverse export V2 → V1 Sheet (A6/D) — the earlier local version was lost with 7b20b5f; to be rewritten (Recovery R4).
+- ~~Partial receipts / pickup queue + migration `0002`~~ — restored on GitHub in `cf1fed0` from the code running on staging (Admin 589b707d).
+- Deferred (owner-approved, not needed to open): round create/edit UI, `0003` event name per round + `shop.js`, weekly-round switch on the Orders page, `rehearse-v1-local`.
+- Not started: batch status actions, `/track/` (next after Orders V2 integration), Products management.
+
+## F. Timing (owner direction, 2026-11-27)
+No cutover and no production backend change before MOVE KIDS (13 Dec 2026) and the Home Terrain delivery window, unless the owner decides otherwise separately.
