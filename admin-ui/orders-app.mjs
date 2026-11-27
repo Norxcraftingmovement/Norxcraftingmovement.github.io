@@ -83,11 +83,13 @@ function draw(notifs, lat, ready = lastR) {
     const acts = el("div", "acts");
     for (const to of o.moves) {
       if (queue === "pickup" && to !== "ส่งมอบแล้ว") continue; // pickup queue: one hand-over button (paid, or รับเงินและส่งมอบ)
-      const bt = el("button", "secondary small", btnLabel(o, to)); bt.type = "button"; bt.onclick = () => move(o, to); acts.append(bt);
+      const style = to === "ยกเลิก" ? "secondary danger-text" : ["ชำระแล้ว", "ส่งมอบแล้ว"].includes(to) ? "" : "secondary";
+      const bt = el("button", style, btnLabel(o, to)); bt.type = "button"; bt.onclick = () => move(o, to); acts.append(bt);
     }
     g.append(acts); li.append(g); ul.append(li);
   }
   $("nsum").textContent = notifs.length ? notifs.length + " รายการ (รอส่ง/ล้มเหลว) · ส่งอัตโนมัติและลองใหม่เมื่อล้มเหลว" : "ไม่มีรายการค้าง";
+  $("notificationSummary").textContent = "การแจ้งเตือนออเดอร์ · " + (notifs.length ? "ค้าง " + notifs.length + " รายการ" : "ไม่มีรายการค้าง");
   const nl = $("notifs"); nl.replaceChildren();
   const NS = { queued: "รอส่ง", sending: "กำลังส่ง", failed: "ส่งไม่สำเร็จ (จะลองใหม่)", dead: "ส่งไม่สำเร็จ (ครบจำนวนครั้ง)", unconfirmed: "ยืนยันผลการส่งไม่ได้ (หยุดส่งอัตโนมัติ)" };
   for (const n of notifs) { const li = el("li"), g = el("div", "grow"); g.append(el("strong", "", n.orderNo || "-"), el("span", "badge" + (n.status === "dead" || n.status === "unconfirmed" ? " cancel" : ""), NS[n.status] || n.status), el("br"), el("small", "muted", "ลองแล้ว " + n.attempts + "/" + n.maxAttempts + (n.possibleDuplicate ? " · อาจส่งซ้ำ" : "") + (n.lastErrorCode ? " · รหัส: " + n.lastErrorCode : "")));

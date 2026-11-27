@@ -37,6 +37,7 @@ export async function runHandoverUiCheck({ page, base }) {
 
     await page.goto(base + "/admin/orders/");
     await page.getByRole("button", { name: "จ่ายหน้างาน", exact: true }).click(); await confirm();
+    await page.locator("#roundDetails > summary").click();
     await page.getByRole("button", { name: "ปิดรับตอนนี้", exact: true }).click(); await confirm();
     await page.getByRole("button", { name: /ตัดยอดส่งร้าน/ }).click(); await confirm();
     must((await orderList()).orders[0].status === "จ่ายหน้างาน", "Deferred status lost");
