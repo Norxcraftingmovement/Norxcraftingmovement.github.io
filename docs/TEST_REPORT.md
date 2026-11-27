@@ -211,3 +211,10 @@ Local synthetic flow 8/8: QR checkout, deferred payment, partial-receipt guard, 
 
 ## Remove Orders background ring — 28 Nov (Codex solo review)
 Removed the single outlined circular-gradient layer after owner feedback. Warm light, frosted panels and controls unchanged. Local pending synthetic order reviewed at 390px; checks at 320/390/1440 show no overflow and circle layer absent. Full suite/preflight in PR. CSS-only, no deploy or real data writes.
+
+## Production and Settings UX — 28 Nov 2026 (Codex solo review)
+Extend owner-approved warm material/pill controls to Production and Settings. Production count/action panel precedes the detailed table; clarified labels, mobile 2×2 counts, focusable scroll region, low-weight reversals. Settings subheadings group existing forms, preserving IDs, data and handlers. Fixed Production quiet reload erasing a rejected-action explanation. Scoped print rule fixes existing global print CSS that hid Production main content. No API/schema or financial-state rule changes.
+
+Local synthetic workflow 8/8. Controlled Production action rejection (intercepted 400): Thai explanation remains after quiet reload; before/after summary identical. Local sender save persists and leaves payment settings identical; Settings payment anchor works. Six routes × 320/390/820/1440 = 24 responsive checks: no overflow/JS exceptions; rendered Production/Settings screenshots inspected. Print-media check after fix: main/table visible, nav/CSV controls hidden, no background material; print screenshot inspected (not a physical paper test).
+
+Full suite 242: 241 pass / 1 skip / 0 fail before final print-only correction; generated/source syntax checks 3/3 after it; final preflight/hygiene. No redundant full rerun for scoped print CSS. Screenshots use synthetic fixtures; no real data/email, deployment, Events/Media or production changes. Revert this development commit for rollback. Deployed A2/A4/A6 gates remain pending.

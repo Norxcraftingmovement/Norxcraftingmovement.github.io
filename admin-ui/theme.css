@@ -132,7 +132,52 @@ a.dashboard-queue-content:hover .dashboard-arrow{background:transparent}
   .orders-page input,.orders-page select{background:#ffffff75}
 }
 @media(max-width:820px){.orders-page .panel{padding:18px}.orders-page .round-selector{padding-bottom:8px}.orders-page .section-details.panel{padding-block:8px}.orders-page #status{flex:1 1 140px;width:auto;min-width:0}.orders-page #q{flex-basis:100%}.orders-page .acts button{padding-inline:16px}}
+.production-surface,.settings-surface{min-height:100dvh;background-color:#e1d6c8;background-image:radial-gradient(ellipse 560px 460px at 95% 760px,#e88e4d44,transparent 85%),radial-gradient(ellipse 800px 600px at 8% 0%,#faf7f0,transparent 90%);background-repeat:no-repeat}
+.production-page .panel,.settings-page .panel{background:#f8f4ed;border:1px solid #ffffffbd;box-shadow:none;border-radius:22px}
+.production-page input,.production-page select,.settings-page input,.settings-page select,.settings-page textarea{background:#fffcf6;border-color:#a99e90;border-radius:14px}
+.production-page button,.settings-page button,.production-page .btn{font-size:14px;border-radius:999px;padding:8px 18px;min-height:44px}
+.production-page #batch{gap:8px 12px;margin-top:16px}
+.production-page #batch button:not(.secondary-operation):first-child{background:var(--ink);color:#fff;border-color:var(--ink)}
+.production-page #batch button:not(.secondary-operation):first-child:hover{background:#383a33}
+.production-page #batch button:not(:first-child){background:#fff7;border-color:#fff9}
+.production-page #batch button.secondary-operation{background:transparent;border-color:transparent;color:#62635c;text-decoration:underline;text-underline-offset:4px}
+.production-progress{grid-template-columns:repeat(4,minmax(0,1fr));gap:0;margin:20px 0}
+.production-progress .stat{border:0;border-right:1px solid #c9bcab;background:transparent;padding:8px 16px;border-radius:0;font-size:14px;line-height:1.6;overflow-wrap:anywhere}
+.production-progress .stat:last-child{border-right:0}
+.production-progress .stat b{font-size:28px;line-height:1.5;margin-top:8px;font-variant-numeric:tabular-nums}
+.production-page .table-help{font-size:14px;color:#62635c;margin:16px 0 8px}
+.production-page .tablewrap:focus-visible{outline:3px solid var(--earth);outline-offset:4px}
+.production-page table{font-size:14px;line-height:1.6}
+.production-page thead th{background:#e9e0d3}
+.production-page .tablewrap td button{margin:4px 4px 4px 0;white-space:nowrap}
+.settings-page .section-nav{gap:8px}.settings-page .section-nav a{background:#fff7;border-color:#fffc;border-radius:999px}
+.settings-page .section-nav a:hover{background:#fffc}
+.settings-page>p.muted{max-width:72ch;display:block}
+.settings-page h3{font-size:18px;line-height:1.5;margin:0 0 12px}
+.settings-page .settings-subheading{margin-top:28px;padding-top:20px;border-top:1px solid #cfc4b5}
+.settings-page .settings-section{border-color:#c5b7a6;margin-top:36px!important}
+.settings-page fieldset{border-color:#c5b7a6;border-radius:12px}
+.settings-page fieldset label{display:flex;min-height:44px;margin:0;align-items:flex-start;padding-block:8px}
+.settings-page fieldset input[type=checkbox]{margin-top:6px;flex:0 0 auto}
+.settings-page #testKey{max-width:560px}
+.production-page .row select{max-width:100%;min-width:0}
+@supports ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){
+  .production-page .panel,.settings-page .panel{background:#ffffff96;-webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px)}
+  .production-page input,.production-page select,.settings-page input,.settings-page select,.settings-page textarea{background:#ffffff75}
+}
+@media(max-width:820px){
+  .production-page .panel,.settings-page .panel{padding:18px}
+  .production-page .row{gap:8px}.production-page #round{width:100%;flex:1 1 100%}
+  .production-page .inline{margin-left:0;min-height:44px;flex:1 1 100%}
+  .production-progress{grid-template-columns:repeat(2,minmax(0,1fr));gap:16px 0}
+  .production-progress .stat{padding:8px 12px}.production-progress .stat:nth-child(2n){border-right:0}
+  .production-page #batch button{max-width:100%;white-space:normal}
+  .settings-page .grid{gap:16px}
+}
 @media print{
+  .production-surface,.settings-surface{background:#fff}.production-page .panel,.settings-page .panel{background:#fff;-webkit-backdrop-filter:none;backdrop-filter:none}
+  body.production-surface>main#main{display:block!important}
+  .production-page .tablewrap{overflow:visible}.production-page table{min-width:0;font-size:11px}
   .orders-surface{background:#fff}.orders-page .panel,.orders-page input,.orders-page select{background:#fff;-webkit-backdrop-filter:none;backdrop-filter:none}
   body,.overview-page{background:#fff}.panel,.dashboard-queues,.dashboard-round{box-shadow:none;border-radius:0}
   .dashboard-top,.dashboard-sales{background:#fff;color:#000;-webkit-backdrop-filter:none;backdrop-filter:none}.dashboard-top{padding:0;overflow:visible}.dashboard-top::before{display:none}.dashboard-top p{color:#333}

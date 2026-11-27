@@ -23,14 +23,14 @@ async function load({ quiet = false } = {}) {
     }
     const t = d.totals, f = $("foot"); f.replaceChildren(); const tr = el("tr", "total"), c = el("th", "", "รวม"); c.colSpan = 5; c.scope = "row"; tr.append(c, num(t.production, "strong"), num(t.paid), num(t.deferred), num(t.pending, "muted"), el("td", "noprint"), el("td", "noprint")); f.append(tr);
     $("title").textContent = "— " + ($("round").selectedOptions[0]?.textContent ?? "") + " · " + new Date().toLocaleDateString("th-TH");
-    drawBatch(d); notice($("notice"), ""); $("live").textContent = "อัปเดตล่าสุด " + hhmm() + " · รีเฟรชอัตโนมัติทุก 15 วินาที"; refresher?.setToken(p.token);
+    drawBatch(d); if (!quiet) notice($("notice"), ""); $("live").textContent = "อัปเดตล่าสุด " + hhmm() + " · รีเฟรชอัตโนมัติทุก 15 วินาที"; refresher?.setToken(p.token);
   } catch (e) { if (!quiet) notice($("notice"), e.userMessage || "โหลดข้อมูลไม่ได้ (" + (e.code || e.message) + ")", true); }
   busy = false;
 }
-const btn = (t, f) => { const b = el("button", "secondary small", t); b.type = "button"; b.onclick = f; return b; };
+const btn = (t, f, reverse = false) => { const b = el("button", reverse ? "secondary small secondary-operation" : "secondary small", t); b.type = "button"; b.onclick = f; return b; };
 function drawBatch(d) {
   const r = rounds.find((x) => x.id === $("round").value), s = d.totals.status, partial = d.totals.partial ?? 0, box = $("batch"), st = $("stats"); box.replaceChildren(); st.replaceChildren();
-  for (const [k, v] of [["รอตัดยอด", s.pending], ["ส่งร้านแล้ว", s.batched], ["ผลิตเสร็จ (รอรับของ)", s.produced - partial], ["รับของแล้ว", s.received + partial]]) { const x = el("div", "stat", k); x.append(el("b", "", String(v))); st.append(x); }
+  for (const [k, v] of [["รอตัดยอดส่งร้าน", s.pending], ["ส่งร้าน · กำลังผลิต", s.batched], ["ผลิตเสร็จ · รอรับ", s.produced - partial], ["รับของแล้ว", s.received + partial]]) { const x = el("div", "stat", k); x.append(el("b", "", String(v))); st.append(x); }
   if (!r) { $("batchHint").textContent = "เลือกรอบเดียวเพื่ออัปเดตสถานะการผลิตทั้งล็อต"; return; }
   if (r.state !== "sent") {
     $("batchHint").textContent = "รอบนี้ยังไม่ได้ตัดยอดส่งร้าน";
@@ -44,9 +44,9 @@ function drawBatch(d) {
   if (s.produced) box.append(
     btn("รับของจากโรงงานทั้งล็อต", () => move(r.id, "produced", "received", s.produced)),
     btn("รับของไม่ครบ", () => openReceipt(r.id)),
-    btn("ย้อนเป็นส่งร้านแล้ว (" + s.produced + ")", () => move(r.id, "produced", "batched", s.produced)),
+    btn("ย้อนเป็นส่งร้านแล้ว (" + s.produced + ")", () => move(r.id, "produced", "batched", s.produced), true),
   );
-  if (s.received) box.append(btn("ย้อนเป็นผลิตเสร็จ (" + s.received + ")", () => move(r.id, "received", "produced", s.received)));
+  if (s.received) box.append(btn("ย้อนเป็นผลิตเสร็จ (" + s.received + ")", () => move(r.id, "received", "produced", s.received), true));
 }
 let receipt;
 const receiptInputs = () => [...$("receiptRows").querySelectorAll("input")];
