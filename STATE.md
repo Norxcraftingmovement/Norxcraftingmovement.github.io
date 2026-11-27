@@ -6,21 +6,21 @@ As of: 27 พ.ย. 2026 ค่ำ · deployed source bc2b4d1 (HEAD อาจใ�
 
 ## Staging ที่ใช้อยู่
 Public e1cabdf2 → Admin 27b04360 (ตามอนุมัติ); storefront ไม่เปลี่ยน. Bindings/runtime เท่าเดิม; ไม่เปลี่ยน routes/DNS/cron schedule/schema
-D1 marker staging ถูกตัว; สำรองนอก git. ก่อน/หลัง 25 orders / 29 items เท่ากัน; คิวรอส่ง 0; ผู้รับแจ้งเตือนยังไม่ตั้ง. Public cron รายงานได้; Admin แสดงว่าขาดผู้รับถูกต้อง
+D1 marker staging ถูกตัว; สำรองนอก git. ก่อน/หลัง 25 orders / 29 items เท่ากัน; คิวรอส่ง 0; ตั้งผู้รับแจ้งเตือนและทดสอบส่งสำเร็จแล้ว. Public cron รายงานได้; Admin แสดงว่าขาดผู้รับถูกต้อง
 ตรวจหน้าหลังบ้าน 6 หน้า + mobile Orders ไม่พบ console error; Access gate 16/16 ปิดผู้ไม่ล็อกอิน (Codex solo post-deploy checks ไม่ใช่ independent QA)
 Rollback ก่อนรอบนี้: Public 26439a64, Admin 9aa87251; เก็บ D1 ไว้. Admin 589b707d เป็น fallback ที่บันทึกเดิมรับรอง; ห้าม eed44c52
 
 ## ด่านที่เหลือ
 - A1 ซอร์ส Apps Script = deployed V1: เขียวตามรายงานเดิม; ตรวจซ้ำก่อน cutover
 - A2: read-only smoke/visual staging ผ่าน; end-to-end รับบางส่วน/รับเงินพร้อมส่งมอบบน staging ยังค้าง (local 8 checkpoints ผ่านแล้ว)
-- A3: ตัวแก้ readiness ขึ้น staging แล้ว; ยังต้องยืนยันบริการ/destination/โดเมน ตั้งผู้รับ และทดลองส่งถึง inbox จริงตามอนุมัติ
+- A3: Public cron → Email binding → NORX inbox → personal inbox ผ่านหนึ่งฉบับด้วยข้อมูลสมมติ (27 พ.ย. 23:28 น.). ต้นฉบับยังอยู่ NORX; ไม่สร้างออเดอร์. ดู TEST_REPORT หัวข้อ Owner alert delivery. ยังไม่ใช่ full checkout/production test
 - A4: QR แอปธนาคาร/ทดสอบ QR staging และฉลากกระดาษยังค้าง
 - A5: นำเข้า 17 ออเดอร์/2 รอบ reconcile 0 diff ตามรายงานเดิม; เจ้าของตรวจตัวเลข
 - A6: ซ้อม rollback กับสำเนาชีต V1 จริงยังค้าง
 ขึ้นระบบเร็วที่สุดเมื่อด่านพร้อม; วันที่เดิมปรับได้ ไม่ข้าม Security Gate/QA/rollback
 
 ## Next exact action
-ยืนยันบริการและผู้รับก่อนทดสอบส่งจริง; การตั้งค่า/ส่งจริงที่ยังไม่อยู่ในขอบเขตต้องอนุมัติ. ปิด A2/A3/A4/A6 ก่อน production/cutover
+ต่อ A2 รับบางส่วน/รับเงินพร้อมส่งมอบบน staging ด้วยข้อมูลสมมติ และ A4/A6 ก่อน production/cutover. คำอนุมัติเมลรอบนี้ไม่ครอบคลุมส่งเมลลูกค้าจริง
 งานปกติ/ทดสอบ/รวมกิ่งพัฒนาทำต่อเอง ใช้ Single Writer; ถามเรื่องสำคัญต่อระบบ/ข้อมูล/วิธีใช้งาน. Claude ติดลิมิต ให้ Codex solo self-review และรายงานตามจริง
 
 ## ทิศทางระยะถัดไป

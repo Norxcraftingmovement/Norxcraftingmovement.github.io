@@ -36,3 +36,6 @@ GitHub = technical evidence. Trello = status only (state, next action, approvals
 
 ## Efficiency
 Batch independent tool calls; send `update_plan` together with another call; read big files by range or grep; keep tool output to counts and verdicts. One session per milestone — start a new one when context passes ~200K tokens.
+
+## Token budget (owner direction, 2026-11-27)
+Read relevant ranges/diffs, reuse verified facts and tool handles, batch independent checks and return counts/verdicts. Keep raw logs private. Scripts first, browser for UI/inbox proof. Do not repeat passing checks without a new reason. Keep one GitHub evidence record and one linked Trello milestone. Security and approval gates remain unchanged.
