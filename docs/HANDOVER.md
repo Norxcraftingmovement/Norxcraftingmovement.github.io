@@ -139,3 +139,5 @@ Both are asserted in tests now; keep or change is the owner's call.
 **Next** (single writer: Claude on the home PC until recovery completes): R3 tests for the restored features (receipts, batch shipments, carriers) + Windows test fixes → R4 reverse export V2 → V1 with a round-trip test → R5 bug fixes (shipped date sets `shipped_at`; TEST- seed ids rejected by Admin routes; shipping queue lists unpaid orders — to confirm; "รับแล้ว 0"), then ask approval to deploy Admin/Public. Independent retest of the staging QR by Codex or the owner. After Orders V2 integration: `/track/`. No cutover before MOVE KIDS (13 Dec) unless the owner decides otherwise.
 
 Wrangler on this PC: use `npx.cmd` (PowerShell execution policy blocks `npx.ps1`); after switching accounts delete the worktree's `.wrangler/cache/wrangler-account.json` (otherwise the API answers 10000); `wrangler login` must be completed by the owner in their own browser.
+
+**Owner decisions on the two partial-receipt rules (2026-11-27):** see DECISIONS A38 (confirmed: no hand-over before full receipt) and A39 (payment and hand-over together; one combined action vs. today's two clicks still open).

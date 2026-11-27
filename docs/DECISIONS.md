@@ -96,3 +96,8 @@
 - **A35 (notifications)** After the first ambiguous outcome at most ONE further automatic attempt regardless of its outcome, then `unconfirmed`. Failure drills never touch account-level destination addresses.
 - **A36 (payments)** QR bound to the issuing account; account change needs acknowledgement when unpaid QR orders exist; owner can withdraw outstanding QRs; admin flags old-account QRs.
 - **A37 (deployment order)** Access application first → Workers without routes → DNS record + routes → gate → tests. Rollback = remove routes only; nothing deleted.
+
+
+## Owner decisions — Recovery session (2026-11-27)
+- **A38 (hand-over needs full receipt)** ส่งมอบแล้ว is refused while any item of the order has not been received from the shop/factory. Confirmed by the owner. Migration note: V1 orders imported as ส่งร้านแล้ว need their receipts recorded in V2 before they can be marked delivered.
+- **A39 (จ่ายหน้างาน)** No hand-over without payment; the money and the shirts change hands at the same moment. The option is used rarely (mainly close acquaintances who order first and pay when they get the shirt). Today's implementation (restored from staging Admin 589b707d) needs two clicks — record the on-site payment, then ส่งมอบแล้ว. **Open:** whether the Admin should offer one combined action ("รับเงินและส่งมอบ", as in V1). Until the owner chooses, the current two-step behaviour stays.
