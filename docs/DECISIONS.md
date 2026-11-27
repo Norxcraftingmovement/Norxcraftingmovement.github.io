@@ -1,0 +1,26 @@
+# Decisions
+
+## ตัดสินใจแล้ว (ADR)
+- **A1** ใช้ Admin Access Worker + `verifiedOwner()` เดิม ไม่สร้าง auth ใหม่
+- **A2** Orders V2 ใช้ Worker + D1 แยกจาก Events/Media (ไม่แก้ worker เดิม ยกเว้นเมนู shell)
+- **A3** Staging/Production แยกด้วย Wrangler `env` ที่ประกาศ bindings ครบ + runtime guard (`meta.environment`)
+- **A4** Storefront compatibility ด้วย adapter ที่ใช้สัญญา V1; สลับ `NORX_API` ตอน cutover เท่านั้น
+- **A5** ราคา/ค่าส่งคำนวณ server-side; snapshot ราคาใน `order_items`
+- **A6** ไม่ลบข้อมูล, ไม่ dual-write; V1 ยังอยู่เป็น read-only หลัง cutover
+- **A7** Label render ฝั่ง browser จากข้อมูลที่ผ่าน Access; ไม่มี public URL; พิมพ์ไม่เปลี่ยนสถานะ
+
+## ต้องให้เจ้าของตัดสินใจก่อนเริ่ม Implementation
+| # | คำถาม | คำแนะนำ |
+|---|---|---|
+| D1 | ส่งออก **ซอร์ส Apps Script ทั้งหมด** + หัวตาราง/แถวตัวอย่างที่ปิดบังจาก Sheets ให้ได้หรือไม่ (ผมเข้าไม่ถึง) | จำเป็น — Blocker ของ Phase 02 |
+| D2 | ออเดอร์ V1 ปัจจุบันยังเปิดรับอยู่หรือไม่ / รอบถัดไปคือเมื่อใด (กำหนดช่วง cutover) | |
+| D3 | ยืนยันสร้าง D1 `norx-orders-staging` และ `norx-orders` + Worker staging (ไม่มีค่าใช้จ่ายเพิ่มบน free tier; ถ้าต้องจ่าย ต้องแจ้งก่อน) และให้ผมเตรียม config เอง ส่วนคุณสร้างใน dashboard | แนะนำ: ใช่ |
+| D4 | ปิด preview-build ของ Worker หลัก (S2) หรือยอมรับ flag-guard — **การแก้ dashboard เป็นอำนาจของเจ้าของ** | แนะนำ: ปิด/override bindings |
+| D5 | จะรวม `main` (9 commit community) กับ `feature/cloudflare-migration` อย่างไร ก่อน cutover | ทำก่อน Phase 09 |
+| D6 | Payment: ยืนยันด้วยมือจากสลิป (ไม่เชื่อมธนาคาร) และเก็บรูปสลิปใน R2 หรือไม่ | แนะนำ: ไม่เก็บสลิป ใน Phase แรก |
+| D7 | ฟอนต์ภาษาไทยสำหรับใบจ่าหน้า (ต้องมีสิทธิ์ใช้ฝัง) เช่น Noto Sans Thai / Sarabun (OFL) | แนะนำ Sarabun |
+| D8 | ไฟล์โลโก้ต้นฉบับ (เวกเตอร์ SVG/PDF หรือ PNG ความละเอียดสูง) — `assets/logo.png` ใช้ได้หรือไม่ | |
+| D9 | รูปแบบเลขออเดอร์และต้องคงของเดิมแบบใด (รอ D1) | |
+| D10 | Tracking: ใช้ลิงก์ส่วนตัว (token) หรือ เลขออเดอร์+รหัสตรวจสอบ หรือทั้งสอง | แนะนำ: ลิงก์ token เป็นหลัก + เลขออเดอร์+เบอร์ท้าย 4 หลักสำรอง |
+| D11 | สถานะ "พร้อมรับสินค้า" (นัดรับ) vs "พร้อมจัดส่ง" แยกตามวิธีรับ ใช่หรือไม่ | แนะนำ: ใช่ |
+| D12 | Admin: ผู้ใช้คนเดียว (เจ้าของ) ตลอด Phase นี้ ใช่หรือไม่ | แนะนำ: ใช่ |
