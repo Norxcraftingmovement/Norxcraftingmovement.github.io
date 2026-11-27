@@ -1,32 +1,28 @@
 # STATE — NORX Website / Orders V2
-> จุดเริ่มต้นของ session ใหม่ **ไม่ใช่ตัวแทนการตรวจโค้ด**: รัน `git log -1 --format=%h` และ `git status` ก่อนเสมอ ถ้า HEAD ไม่ตรงบรรทัด "As of" ให้เชื่อ git/โค้ด แล้วแก้ไฟล์นี้ (**แทนที่ ไม่ต่อท้าย**, ไม่เกิน ~3K ตัวอักษร)
+> จุดเริ่มต้นเท่านั้น: ตรวจ git HEAD/status และโค้ดจริงก่อนเสมอ; แทนที่ไฟล์นี้เมื่อจบ session
 
-As of: 2026-11-27 ค่ำ · Orders V2 มีตัวแก้ข้อความปฏิเสธ @ `2bebd35` และตัวแก้สถานะอีเมลในชุดนี้ — ตรวจ git HEAD ปัจจุบันเสมอ · production `feature/cloudflare-migration` @ `c227b7a` — ห้ามแตะ
-กฎการทำงาน/ระดับงาน: [CLAUDE.md](CLAUDE.md) · ประวัติ/หลักฐาน (ต่อท้าย อย่าอ่านทั้งไฟล์): [docs/HANDOVER.md](docs/HANDOVER.md) · ด่านขึ้นระบบจริง: [docs/GO_LIVE_CHECKLIST.md](docs/GO_LIVE_CHECKLIST.md)
+As of: 27 พ.ย. 2026 ค่ำ · deployed source bc2b4d1 (HEAD อาจใหม่กว่าเพราะเอกสาร) · production ไม่แตะ
+กฎ: [CLAUDE.md](CLAUDE.md) · หลักฐาน: [TEST_REPORT](docs/TEST_REPORT.md#staging-rollout--27-nov-2026-codex) · ด่าน: [GO_LIVE_CHECKLIST](docs/GO_LIVE_CHECKLIST.md)
 
-## Staging ที่ deploy อยู่
-Admin `9aa87251` (rollback ได้เฉพาะ `589b707d` ห้าม `eed44c52`) · Public `26439a64` · storefront `3bcf6749` · D1 = 0001 + 0002 + นำเข้า V1 ปิดข้อมูล (`V1-ROUND-001` ส่งร้านแล้ว, `V1-ROUND-002` เปิดรับ; 17 ออเดอร์ `v1_import` + 8 สมมติ; สำรองก่อนนำเข้าอยู่ใน `private/`)
+## Staging ที่ใช้อยู่
+Public e1cabdf2 → Admin 27b04360 (ตามอนุมัติ); storefront ไม่เปลี่ยน. Bindings/runtime เท่าเดิม; ไม่เปลี่ยน routes/DNS/cron schedule/schema
+D1 marker staging ถูกตัว; สำรองนอก git. ก่อน/หลัง 25 orders / 29 items เท่ากัน; คิวรอส่ง 0; ผู้รับแจ้งเตือนยังไม่ตั้ง. Public cron รายงานได้; Admin แสดงว่าขาดผู้รับถูกต้อง
+ตรวจหน้าหลังบ้าน 6 หน้า + mobile Orders ไม่พบ console error; Access gate 16/16 ปิดผู้ไม่ล็อกอิน (Codex solo post-deploy checks ไม่ใช่ independent QA)
+Rollback ก่อนรอบนี้: Public 26439a64, Admin 9aa87251; เก็บ D1 ไว้. Admin 589b707d เป็น fallback ที่บันทึกเดิมรับรอง; ห้าม eed44c52
 
-## ด่าน (รายละเอียด GO_LIVE ข้อ A และ G)
-- A1 Apps Script ที่ใช้อยู่ = ซอร์สที่พอร์ต: **เขียว** (เวอร์ชัน 7, 26 พ.ย. 19:46) — ตรวจซ้ำคืน cutover
-- A2 smoke/UI บน build ที่จะขึ้น: **ค้างบน staging**. ซ้อม local ด้วยข้อมูลสมมติผ่าน 8 checkpoints (รับบางส่วน → กันส่งมอบ → รับครบ → ตรวจยอดเงิน → รับเงินพร้อมส่งมอบ); พบข้อความปฏิเสธถูก quiet refresh ลบทิ้ง แก้ในกิ่งพัฒนาแล้ว ต้องตรวจซ้ำบน staging build ที่จะใช้จริง
-- A3 อีเมล: **ค้างบน staging** — แก้ในกิ่งพัฒนาให้ Public cron รายงานสถานะและ Admin อ่าน; ไม่มีรายงาน/เก่าเกิน 5 นาทีไม่ขึ้นพร้อม. ยังต้องเปิด Email Service + ยืนยัน destination + โดเมนผู้ส่ง; rollout ต้อง Public แล้ว Admin และตรวจอีเมลถึงผู้รับจริง
-- A4 QR แอปธนาคาร + independent retest QR staging: **ค้าง**
-- A5 ซ้อมนำเข้า V1: **เขียว** (staging 17 ออเดอร์/2 รอบ reconcile 0 diff) — เจ้าของดูตัวเลขใน Admin
-- A6 ซ้อมทางถอยกับสำเนาชีต V1 จริง: **ค้าง** (เจ้าของ)
-- เจ้าของยืนยันเป้าหมาย: ขึ้นระบบให้เร็วที่สุดเมื่อพร้อม; วันที่เดิมปรับได้ ไม่ใช้เป็นด่านเวลาอัตโนมัติ แต่ Security Gate, QA, rollback และการอนุมัติแต่ละการเปลี่ยนแปลงยังครบตามเดิม
-
-## รออนุมัติ/ตัดสินใจ (เจ้าของ)
-Email Service + โดเมนผู้ส่ง · deploy staging Public + Admin (readiness/UI fixes) · ทรัพยากร production · cutover
-
-## Workflow Phase 1 review (Codex, 27 พ.ย.)
-ชุด Phase 1 ผ่าน Codex solo ตามที่เจ้าของมอบหมาย: แก้ base ผิด/ประวัติค่าลับ/ข้อมูลขึ้นต้น ++. focused 16/16; full suite 235 ผ่าน 234 ข้าม 1 ล้ม 0; preflight OK (solo self-review ไม่ใช่ independent QA). ตัวแก้ PR #3; สถานะรวมให้เช็ค GitHub/HEAD. ไม่ deploy/ไม่แก้ checkout ของ Claude
+## ด่านที่เหลือ
+- A1 ซอร์ส Apps Script = deployed V1: เขียวตามรายงานเดิม; ตรวจซ้ำก่อน cutover
+- A2: read-only smoke/visual staging ผ่าน; end-to-end รับบางส่วน/รับเงินพร้อมส่งมอบบน staging ยังค้าง (local 8 checkpoints ผ่านแล้ว)
+- A3: ตัวแก้ readiness ขึ้น staging แล้ว; ยังต้องยืนยันบริการ/destination/โดเมน ตั้งผู้รับ และทดลองส่งถึง inbox จริงตามอนุมัติ
+- A4: QR แอปธนาคาร/ทดสอบ QR staging และฉลากกระดาษยังค้าง
+- A5: นำเข้า 17 ออเดอร์/2 รอบ reconcile 0 diff ตามรายงานเดิม; เจ้าของตรวจตัวเลข
+- A6: ซ้อม rollback กับสำเนาชีต V1 จริงยังค้าง
+ขึ้นระบบเร็วที่สุดเมื่อด่านพร้อม; วันที่เดิมปรับได้ ไม่ข้าม Security Gate/QA/rollback
 
 ## Next exact action
-เตรียม rollout staging Public → Admin เมื่อขอบเขตได้รับอนุมัติ แล้วตรวจ A2/A3 จริง. ตัวแก้อีเมล: focused 31/31; full suite 242 ผ่าน 241 ข้าม 1 ล้ม 0; visual/functional 390/1280 ผ่าน สถานะปรับตามรายงานโดยไม่กดรีเฟรช (solo self-review). ไม่มี deploy/ส่งอีเมลจริง/เปลี่ยน DNS ในรอบนี้
+ยืนยันบริการและผู้รับก่อนทดสอบส่งจริง; การตั้งค่า/ส่งจริงที่ยังไม่อยู่ในขอบเขตต้องอนุมัติ. ปิด A2/A3/A4/A6 ก่อน production/cutover
+งานปกติ/ทดสอบ/รวมกิ่งพัฒนาทำต่อเอง ใช้ Single Writer; ถามเรื่องสำคัญต่อระบบ/ข้อมูล/วิธีใช้งาน. Claude ติดลิมิต ให้ Codex solo self-review และรายงานตามจริง
 
-## ทิศทางรอบถัดไป (เจ้าของยืนยัน)
-NORX Management Platform: เจ้าของจัดการข้อมูลผ่าน Admin + Template ของ NORX; AI เพิ่มความสามารถใหม่. ต่อจาก Commerce/Orders ให้ทำ Products (สร้าง Drop 04 → Preview → Publish โดยไม่แก้โค้ดรายสินค้า) โดยต่อยอด schema/API เดิมและไม่เปลี่ยน snapshot ของออเดอร์เก่า. จากนั้น Website, Events, Content/Media, Routes/GPX, Analytics/SEO, Growth ตาม roadmap ภาพรวม; ไม่รื้อ Phase ทางเทคนิคเดิม
-
-## สถานะบน Trello
-การ์ดสถานะสั้น: https://trello.com/c/a89Pbdgg · การ์ดเดิม https://trello.com/c/2imGq33Y = ประวัติ (ไม่ต้องอ่านทั้งการ์ด)
+## ทิศทางระยะถัดไป
+NORX Management Platform: เจ้าของจัดการผ่าน Admin + Template; ต่อ Commerce/Orders = Products (Drop 04 → Preview → Publish) ใช้ schema/API เดิม รักษา snapshot ออเดอร์เก่า. ตามด้วย Website, Events, Content/Media, Routes/GPX, Analytics/SEO, Growth; ไม่รื้อ Phase เดิม
+Trello: https://trello.com/c/a89Pbdgg = สถานะ; GitHub = หลักฐาน; ไม่อ่านประวัติทั้งหมด
