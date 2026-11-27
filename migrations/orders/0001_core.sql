@@ -58,16 +58,25 @@ CREATE TABLE audit_log (id INTEGER PRIMARY KEY, at TEXT NOT NULL DEFAULT (strfti
   entity TEXT NOT NULL, entity_id TEXT, before TEXT CHECK (before IS NULL OR json_valid(before)), after TEXT CHECK (after IS NULL OR json_valid(after))) STRICT;
 -- Owner-editable configuration (sender, storefront info incl. bank account, notification recipient). Never in the repo.
 CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL CHECK (json_valid(value))) STRICT;
--- Notification outbox: written in the SAME atomic batch as the order, delivered later with retry/backoff.
+-- Notification outbox: written in the SAME atomic batch as the order, delivered later, retried with backoff.
+-- status 'sent' = ACCEPTED BY THE PROVIDER (not proof of inbox delivery; delivery_confirmed_at stays NULL unless the owner
+-- or a future provider event confirms it). 'unconfirmed' = ambiguous delivery, automatic attempts exhausted: owner decides.
 CREATE TABLE notification_queue (id INTEGER PRIMARY KEY, order_id INTEGER REFERENCES orders(id), channel TEXT NOT NULL, template TEXT NOT NULL,
   payload TEXT NOT NULL CHECK (json_valid(payload)),
-  status TEXT NOT NULL DEFAULT 'queued' CHECK (status IN ('queued','sending','sent','failed','dead')),
-  attempts INTEGER NOT NULL DEFAULT 0, max_attempts INTEGER NOT NULL DEFAULT 5, next_attempt_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
-  locked_at TEXT, provider_called_at TEXT, possible_duplicate INTEGER NOT NULL DEFAULT 0 CHECK (possible_duplicate IN (0,1)), last_error TEXT, created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')), sent_at TEXT,
+  status TEXT NOT NULL DEFAULT 'queued' CHECK (status IN ('queued','sending','sent','failed','dead','unconfirmed')),
+  attempts INTEGER NOT NULL DEFAULT 0, max_attempts INTEGER NOT NULL DEFAULT 5,
+  ambiguous_count INTEGER NOT NULL DEFAULT 0, next_attempt_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+  locked_at TEXT, lock_token TEXT, provider_called_at TEXT, possible_duplicate INTEGER NOT NULL DEFAULT 0 CHECK (possible_duplicate IN (0,1)),
+  last_error_code TEXT, provider_message_id TEXT, provider_accepted_at TEXT, delivery_confirmed_at TEXT,
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')), sent_at TEXT,
   UNIQUE (order_id, channel, template)) STRICT;
 CREATE INDEX idx_notif_due ON notification_queue(status, next_attempt_at);
+-- Append-only history. Never stores raw provider errors, e-mail addresses or message bodies (codes and fixed text only).
 CREATE TABLE notification_failures (id INTEGER PRIMARY KEY, queue_id INTEGER NOT NULL REFERENCES notification_queue(id), at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
-  attempt INTEGER NOT NULL, error TEXT NOT NULL) STRICT;
+  attempt INTEGER NOT NULL, kind TEXT NOT NULL DEFAULT 'failed' CHECK (kind IN ('failed','ambiguous','reclaimed','unconfirmed_delivery')), code TEXT NOT NULL DEFAULT 'unknown', error TEXT NOT NULL) STRICT;
+CREATE TABLE notification_events (id INTEGER PRIMARY KEY, queue_id INTEGER NOT NULL REFERENCES notification_queue(id), at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+  event TEXT NOT NULL, detail TEXT) STRICT;
+CREATE INDEX idx_notif_events_q ON notification_events(queue_id, id);
 -- Order creation and notification delivery are measured separately.
 CREATE TABLE latency_log (id INTEGER PRIMARY KEY, kind TEXT NOT NULL CHECK (kind IN ('order_creation','notification')), ref TEXT,
   ms INTEGER NOT NULL CHECK (ms >= 0), at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))) STRICT;

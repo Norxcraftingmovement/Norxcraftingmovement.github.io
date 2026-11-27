@@ -62,8 +62,11 @@ function draw(notifs, lat, ready = lastR) {
   }
   $("nsum").textContent = notifs.length ? notifs.length + " รายการ (รอส่ง/ล้มเหลว) · ส่งอัตโนมัติและลองใหม่เมื่อล้มเหลว" : "ไม่มีรายการค้าง";
   const nl = $("notifs"); nl.replaceChildren();
-  for (const n of notifs) { const li = el("li"), g = el("div", "grow"); g.append(el("strong", "", n.orderNo || "-"), el("span", "badge" + (n.status === "dead" ? " cancel" : ""), { queued: "รอส่ง", failed: "ล้มเหลว (จะลองใหม่)", dead: "ส่งไม่สำเร็จ", sending: "กำลังส่ง" }[n.status] || n.status), el("br"), el("small", "muted", "ลองแล้ว " + n.attempts + "/" + n.maxAttempts + (n.lastError ? " · " + n.lastError : "")));
-    if (n.status === "failed" || n.status === "dead") { const b = el("button", "secondary small", "ส่งใหม่"); b.type = "button"; b.onclick = async () => { try { await api("/api/admin/notifications/" + n.id + "/retry", { method: "POST", body: {} }); await load(); } catch (e) { notice($("notice"), msg(e), true); } }; g.append(el("br"), b); }
+  const NS = { queued: "รอส่ง", sending: "กำลังส่ง", failed: "ส่งไม่สำเร็จ (จะลองใหม่)", dead: "ส่งไม่สำเร็จ (ครบจำนวนครั้ง)", unconfirmed: "ยืนยันผลการส่งไม่ได้ (หยุดส่งอัตโนมัติ)" };
+  for (const n of notifs) { const li = el("li"), g = el("div", "grow"); g.append(el("strong", "", n.orderNo || "-"), el("span", "badge" + (n.status === "dead" || n.status === "unconfirmed" ? " cancel" : ""), NS[n.status] || n.status), el("br"), el("small", "muted", "ลองแล้ว " + n.attempts + "/" + n.maxAttempts + (n.possibleDuplicate ? " · อาจส่งซ้ำ" : "") + (n.lastErrorCode ? " · รหัส: " + n.lastErrorCode : "")));
+    const post = (path) => async () => { try { await api("/api/admin/notifications/" + n.id + path, { method: "POST", body: {} }); await load(); } catch (e) { notice($("notice"), msg(e), true); } };
+    if (["failed", "dead", "unconfirmed"].includes(n.status)) { const b = el("button", "secondary small", "ส่งใหม่"); b.type = "button"; b.onclick = post("/retry"); g.append(el("br"), b); }
+    if (["dead", "unconfirmed"].includes(n.status)) { const b = el("button", "secondary small", "ยืนยันว่าได้รับแล้ว"); b.type = "button"; b.onclick = post("/received"); g.append(b); }
     li.append(g); nl.append(li); }
   const f2 = (k) => (lat[k].count ? "p50 " + lat[k].p50 + " ms · p95 " + lat[k].p95 + " ms (" + lat[k].count + " ครั้ง)" : "ยังไม่มีข้อมูล");
   $("lat").textContent = "สร้างออเดอร์: " + f2("order_creation") + "  |  ส่งแจ้งเตือน: " + f2("notification");
