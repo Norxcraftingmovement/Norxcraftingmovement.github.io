@@ -20,10 +20,10 @@ Admin `9aa87251` (rollback ได้เฉพาะ `589b707d` ห้าม `eed
 Email Service + โดเมนผู้ส่ง · deploy Admin (readiness) · ทรัพยากร production ทีละคำสั่ง · ทุกอย่างของ cutover
 
 ## Workflow Phase 1 review (Codex, 27 พ.ย.)
-ยังไม่ merge เข้า Orders V2. แก้ preflight ให้หยุดเมื่อ base ไม่ถูกต้อง/Git check ล้มเหลว และตรวจทุก outgoing commit เพื่อไม่ให้ค่าลับที่ลบภายหลังหลุดไปกับประวัติ. เพิ่ม CLI regression tests 5 กรณี; ทดสอบใน clone แยก: 228 tests, ผ่าน 227 ข้าม 1 ล้ม 0; preflight OK (developer-reported โดย Codex; ไม่ใช่ independent QA ของตัวแก้). ไม่ deploy และไม่แก้ checkout ของ Claude
+ยังไม่ merge เข้า Orders V2. เจ้าของมอบหมาย Codex solo เพราะ Claude ติดลิมิต. ตรวจซ้ำพบและแก้การข้ามข้อมูลขึ้นต้น ++ เพิ่มจาก base ผิด/ประวัติค่าลับ. ทดสอบ clean/blocked branch, behind, merge history และหลายไฟล์: focused 16/16; full suite 235 ผ่าน 234 ข้าม 1 ล้ม 0; preflight OK (solo self-review โดย Codex ไม่ใช่ independent QA). ไม่ deploy/ไม่แก้ checkout ของ Claude
 
 ## Next exact action
-ตรวจรับตัวแก้ preflight ใน Phase 1 แล้วขอเจ้าของอนุมัติ merge เข้า feature/orders-v2; ใช้ Single Writer. ปิดด่าน Orders V2 ที่ค้างบน staging; ทุก Cloudflare write ยังต้องอนุมัติตามเดิม
+PR #3 ผ่าน solo self-review ตามมอบหมาย ไม่รอ Claude; พร้อมขอเจ้าของอนุมัติรวมตัวแก้และ Phase 1 เข้า feature/orders-v2 ตามขอบเขตเดิม. ใช้ Single Writer; ปิดด่าน Orders V2 บน staging โดยทุก Cloudflare write ยังต้องอนุมัติ
 
 ## ทิศทางรอบถัดไป (เจ้าของยืนยัน)
 NORX Management Platform: เจ้าของจัดการข้อมูลผ่าน Admin + Template ของ NORX; AI เพิ่มความสามารถใหม่. ต่อจาก Commerce/Orders ให้ทำ Products (สร้าง Drop 04 → Preview → Publish โดยไม่แก้โค้ดรายสินค้า) โดยต่อยอด schema/API เดิมและไม่เปลี่ยน snapshot ของออเดอร์เก่า. จากนั้น Website, Events, Content/Media, Routes/GPX, Analytics/SEO, Growth ตาม roadmap ภาพรวม; ไม่รื้อ Phase ทางเทคนิคเดิม

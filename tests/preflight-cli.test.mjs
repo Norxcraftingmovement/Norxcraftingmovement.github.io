@@ -66,3 +66,57 @@ test("uncommitted sensitive additions still block the gate", t => {
   const r = f.run("--base", f.base);
   assert.equal(r.status, 1); assert.match(r.stdout, /secretAssignment/); assert.ok(!r.stdout.includes(value));
 });
+
+test("clean outgoing commits pass", t => {
+  const f = fixture(t);
+  writeFileSync(join(f.root, "example.txt"), "ordinary content\n");
+  f.git("add", "."); f.git("commit", "-m", "clean change");
+  const r = f.run("--base", f.base);
+  assert.equal(r.status, 0, r.stderr); assert.match(r.stdout, /ahead 1/);
+});
+
+test("production branches are blocked even with a valid base", t => {
+  const f = fixture(t);
+  for (const branch of ["main", "master", "feature/cloudflare-migration"]) {
+    f.git("checkout", "-b", branch);
+    const r = f.run("--base", f.base);
+    assert.equal(r.status, 1); assert.match(r.stdout, /protected\/production branch/);
+  }
+});
+
+test("a branch behind the selected base is blocked", t => {
+  const f = fixture(t);
+  f.git("checkout", "-b", "feature/newer");
+  writeFileSync(join(f.root, "example.txt"), "ordinary content\n");
+  f.git("add", "."); f.git("commit", "-m", "newer base");
+  const newer = f.git("rev-parse", "HEAD"); f.git("checkout", "feature/review");
+  const r = f.run("--base", newer);
+  assert.equal(r.status, 1); assert.match(r.stdout, /behind/); assert.doesNotMatch(r.stdout, /PREFLIGHT OK/);
+});
+
+test("a merged branch cannot hide sensitive history", t => {
+  const f = fixture(t);
+  f.git("checkout", "-b", "feature/side");
+  writeFileSync(join(f.root, "example.txt"), `token = "${"synthetic".repeat(4)}"\n`);
+  f.git("add", "."); f.git("commit", "-m", "add synthetic value");
+  writeFileSync(join(f.root, "example.txt"), "removed\n");
+  f.git("add", "."); f.git("commit", "-m", "remove value");
+  f.git("checkout", "feature/review"); f.git("merge", "--no-ff", "feature/side", "-m", "merge side");
+  const r = f.run("--base", f.base);
+  assert.equal(r.status, 1); assert.match(r.stdout, /secretAssignment/);
+});
+
+test("content beginning with plus signs cannot masquerade as a diff filename header", t => {
+  const f = fixture(t);
+  writeFileSync(join(f.root, "example.txt"), `++ token = "${"synthetic".repeat(4)}"\n`);
+  f.git("add", "."); f.git("commit", "-m", "plus-prefixed synthetic value");
+  const r = f.run("--base", f.base);
+  assert.equal(r.status, 1); assert.match(r.stdout, /secretAssignment/);
+});
+
+test("plus-prefixed untracked values are scanned across multiple files", t => {
+  const f = fixture(t);
+  for (const name of ["one.txt", "two.txt"]) writeFileSync(join(f.root, name), `++ token = "${"synthetic".repeat(4)}"\n`);
+  const r = f.run("--base", f.base);
+  assert.equal(r.status, 1); assert.match(r.stdout, /one.txt:1 secretAssignment/); assert.match(r.stdout, /two.txt:1 secretAssignment/);
+});

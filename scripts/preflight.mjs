@@ -19,11 +19,12 @@ const SKIP_FILE = /^(tests\/fixtures\/|src\/generated\/|tests\/repo-hygiene\.tes
 
 /** [{file, line, rule}] for the added lines of a unified diff produced with -U0 (new files included). */
 export function scanDiff(diff) {
-  const out = []; let file = null, line = 0;
+  const out = []; let file = null, line = 0, inHunk = false;
   for (const l of diff.split("\n")) {
-    if (l.startsWith("+++ ")) { file = l.slice(4).replace(/^b\//, ""); continue; }
-    const h = l.match(/^@@ -\S+ \+(\d+)/); if (h) { line = Number(h[1]); continue; }
-    if (l.startsWith("+") && !l.startsWith("+++")) {
+    if (l.startsWith("diff --git ")) { file = null; inHunk = false; continue; }
+    if (!inHunk && l.startsWith("+++ ")) { file = l.slice(4).replace(/^b\//, ""); continue; }
+    const h = l.match(/^@@ -\S+ \+(\d+)/); if (h) { line = Number(h[1]); inHunk = true; continue; }
+    if (inHunk && l.startsWith("+")) {
       if (file && file !== "/dev/null" && !SKIP_FILE.test(file) && !/preflight-allow\s*$/.test(l)) for (const [rule, re] of Object.entries(RULES)) if (re.test(l)) out.push({ file, line, rule });
       line++;
     }
@@ -54,7 +55,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
 
   // Every outgoing commit is published, including secrets removed by a later commit.
   let diff = git("log", "-m", "--format=", "-p", "-U0", "--no-color", "--no-renames", `${baseSha}..HEAD`) + "\n" + git("diff", "-U0", "--no-color", "--no-renames", "HEAD");
-  for (const f of git("ls-files", "--others", "--exclude-standard").split("\n").filter(Boolean)) { const t = readFileSync(f, "utf8"); diff += `\n+++ b/${f}\n@@ -0,0 +1 @@\n` + t.split("\n").map((x) => "+" + x).join("\n"); }
+  for (const f of git("ls-files", "--others", "--exclude-standard").split("\n").filter(Boolean)) { const t = readFileSync(f, "utf8"); diff += `\ndiff --git a/${f} b/${f}\n--- /dev/null\n+++ b/${f}\n@@ -0,0 +1 @@\n` + t.split("\n").map((x) => "+" + x).join("\n"); }
   const hits = scanDiff(diff);
   console.log(hits.length ? `sensitive-value scan: ${hits.length} hit(s)\n` + hits.slice(0, 20).map((h) => `  ${h.file}:${h.line} ${h.rule}`).join("\n") : "sensitive-value scan: 0 hits in added lines");
   if (hits.length) problems.push("added lines look like secrets/PII/real ids (see file:line above; add `preflight-allow` at the end of a line only for a deliberate fake)");
