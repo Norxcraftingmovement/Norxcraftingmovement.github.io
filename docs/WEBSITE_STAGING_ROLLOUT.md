@@ -1,21 +1,37 @@
-# Website management: online staging rehearsal proposal
+# Website management: staging deployed, owner acceptance pending
 
-28 Nov 2026. Preparation only; **no Cloudflare write is authorized by this document**.
+28 Nov 2026. Owner approved the listed staging scope in chat and explicitly confirmed private data export.
+Production/cutover, V1, Events/Media, DNS, Access-policy, billing and customer email remain outside scope.
 Scope derives from PR25. PR24 Help remains a separate draft, excluded from this candidate.
 
-## Execution checkpoint — backup approval review
+## Execution checkpoint — deployed, browser acceptance incomplete
 
-Owner approved the listed staging-only write/rehearsal scope in chat. Before the first write,
-automatic approval review rejected the combined precheck/database-export command because a local export
-could contain customer personal data. That command did not run. Do not bypass that rejection.
-An unaffected read-only comparison subsequently verified live variables/bindings/schedules and current
-deployment leases match the candidates; only migration 0003 is pending and the /api/site route is absent.
-Aggregate-only queries report 25 orders / 29 items; 5 orders have `is_test=1`, 20 do not.
-This does not prove that the other orders are real or masked; a backup must be treated as potentially sensitive.
-No new bucket, migration, deployment or route was created. The mandatory fresh backup remains incomplete.
-Request explicit confirmation for retaining the potentially unredacted staging backup locally in ignored
-`.staging/website/before-website.sql`; do not place its contents in GitHub, Trello or chat.
-The owner's existing rollout authorization otherwise remains valid; recheck leases and backup before continuing.
+The prior export rejection was resolved through the owner's explicit confirmation, then approval review passed.
+Fresh private backup `.staging/website/before-website.sql` (82,057 bytes) was restored into in-memory SQLite:
+staging marker, 25 orders and 29 items verified. Treat it as sensitive; it is ignored by Git and was not published.
+Live variables, bindings, schedules and deployment leases were compared before writes. The Access owner hash
+remains independent of the notification destination; existing mail/rate-limit/owner settings were preserved.
+
+- Created dedicated `norx-product-content-staging`; r2.dev read back disabled. No public domain/CORS/lifecycle change.
+- Applied only migration 0003; existing catalog/pricing/sizes/rounds/orders/items/storefront data fingerprint unchanged
+  after normalizing the new empty `event_name` column. Counts remain 25 orders/29 items.
+- Activated 100%: Admin `d5919d88`, Public `db1a4728`, storefront `405e52fa` from runtime source at `8f1216d`.
+  Used strict version upload then explicit version activation, keeping existing routes and schedules unchanged.
+- Added only `staging.norxcraftingmovement.com/api/site/*` → `norx-orders-public-staging`; other routes preserved.
+- Anonymous edge gate passed 32/32 (16 existing + 16 new paths including review/publish/media/assets).
+  The first sandboxed probe could not reach the network; the actual network-enabled probe passed, so no exposure
+  or route-removal action was inferred from the sandbox network error.
+- Post-deploy commercial/order fingerprint and counts unchanged. Notification queue still 3 dead / 1 sent;
+  no order created or email sent by this rehearsal. Full IDs, receipts and comparison data remain private.
+
+Owner Chrome session successfully opened the new Website editor with the correct menu, source fields and media-ready
+state. Browser testing is **not complete**: the extension file chooser lacks file-URL access. A documented native-picker
+fallback was attempted without changing extension permissions, then Computer Use stopped because it could not
+confidently verify the browser URL during the picker. UI input stopped. Homepage test text/alt were changed only in
+the browser's unsaved form; no draft, uploaded image or publication was saved by that attempt.
+Remaining: upload/read privacy, saved preview/publication/rollback and all-page/mobile visual-functional checks in
+the deployed owner session, plus owner/independent acceptance. Do not report local PR25 tests as deployed QA.
+Resume from the Website editor after restoring browser control; confirm current UI state before any input.
 
 ## What the owner will try
 
