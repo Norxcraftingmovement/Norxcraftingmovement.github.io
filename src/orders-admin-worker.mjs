@@ -7,7 +7,8 @@ import { UserError } from "./orders-core.mjs";
 import * as pay from "./payments.mjs";
 import { getHome, reviewHome, publishHome } from "./website-home.mjs";
 import { saveHomeRequest, websiteJson } from "./website-home-request.mjs";
-import { getProductContent } from "./product-content.mjs";
+
+import { productPublicationState, reviewProduct, publishProduct } from "./product-publication.mjs";
 import { saveContentRequest } from "./product-content-request.mjs";
 import * as drafts from "./product-drafts.mjs";
 import { saveProductRequest, productImage } from "./product-images.mjs";
@@ -90,8 +91,10 @@ const routes = [
   ["GET", /^\/admin\/products\/?$/, "page", () => page("products.html")],
   ["GET", /^\/api\/admin\/product-images\/([0-9a-f-]{36}\.(?:jpg|png|webp))$/, "api", (r, env, a, m) => productImage(env, m[1])],
   ["GET", /^\/admin\/products\/\d{1,12}\/content\/?$/, "page", () => page("product-content.html")],
-  ["GET", /^\/api\/admin\/products\/(\d{1,12})\/content$/, "api", async (r,env,a,m) => api.json({ok:true,...(await getProductContent(env,+m[1]))})],
-  ["PUT", /^\/api\/admin\/products\/(\d{1,12})\/content$/, "write", async (r,env,a,m) => api.json({ok:true,...(await saveContentRequest(r,env,a,+m[1]))})],
+  ["GET", /^\/api\/admin\/products\/(\d{1,12})\/content$/, "api", async (r,env,a,m) => api.json({ok:true,...(await productPublicationState(env,+m[1]))})],
+  ["PUT", /^\/api\/admin\/products\/(\d{1,12})\/content$/, "write", async (r,env,a,m) => api.json({ok:true,...(await productPublicationState(env,+m[1],await saveContentRequest(r,env,a,+m[1])))})],
+  ["POST", /^\/api\/admin\/products\/(\d{1,12})\/content\/review$/, "write", async (r,env,a,m) => api.json({ok:true,...(await reviewProduct(env,a,+m[1],await websiteJson(r)))})],
+  ["POST", /^\/api\/admin\/products\/(\d{1,12})\/content\/publish$/, "write", async (r,env,a,m) => api.json({ok:true,...(await publishProduct(env,a,+m[1],await websiteJson(r)))})],
   ["GET", /^\/api\/admin\/products$/, "api", async (r, env) => api.json({ ok: true, ...(await drafts.listProducts(env)) })],
   ["POST", /^\/api\/admin\/products$/, "write", async (r, env, a) => api.json({ ok: true, product: await saveProductRequest(r, env, a) })],
   ["PUT", /^\/api\/admin\/products\/(\d{1,12})$/, "write", async (r, env, a, m) => api.json({ ok: true, product: await saveProductRequest(r, env, a, +m[1]) })],

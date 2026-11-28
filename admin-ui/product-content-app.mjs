@@ -1,8 +1,10 @@
 import { $, api, el, notice } from "./common.mjs";
 import { PRODUCT_THEMES } from "./product-theme-options.mjs";
+import { productPublication } from "./product-publication-app.mjs";
 import { productTemplate } from "./product-template.mjs";
 const id=Number(location.pathname.match(/\/products\/(\d+)\/content\/?$/)?.[1]), endpoint="/api/admin/products/"+id+"/content";
 let state=null, content=null, busy=false, dirty=false, reviewed="", operation="", fieldId=0;
+const publication=productPublication({endpoint,accept,setBusy(value){busy=value;controls();}});
 const uploads=new Map(), images=()=>[content.hero,...content.gallery.flatMap(g=>g.images),...content.lookbook];
 const message=e=>e.userMessage||"ทำรายการไม่ได้ ลองอีกครั้ง ข้อมูลที่แก้ยังอยู่";
 function clearUploads(){for(const item of uploads.values())URL.revokeObjectURL(item.url);uploads.clear();}
@@ -10,6 +12,7 @@ function pruneUploads(){const refs=new Set(images().map(i=>i.src));for(const [re
 function readContent(){return {...content,themeId:$("contentTheme").value,heading:$("contentHeading").value,lead:$("contentLead").value,description:$("contentDescription").value,sizing:{...content.sizing,unit:$("contentUnit").value,notes:$("contentSizeNotes").value.split(/\n\s*\n/).map(s=>s.trim()).filter(Boolean)}};}
 const fingerprint=()=>JSON.stringify(readContent());
 function controls(){
+  publication.update(state,busy||dirty);
   $("contentFields").disabled=busy||!state||!state.editable;$("previewContent").disabled=busy||!state;$("reloadContent").disabled=busy;
   $("saveContent").disabled=busy||!state||!state.editable||reviewed!==fingerprint();$("saveContent").textContent=busy&&operation==="กำลังบันทึก…"?operation:"บันทึกร่างเนื้อหา";
   $("contentState").textContent=operation||(!state?"กำลังโหลด…":!state.editable?"สินค้าที่เก็บไว้ดูได้อย่างเดียว":dirty?"มีการแก้ไข · ดูพรีวิวล่าสุดก่อนบันทึก":state.hasDraft?"เปิดฉบับร่างที่บันทึกไว้ · หน้าเว็บออนไลน์ยังใช้ฉบับเดิม":"เริ่มจากเนื้อหาหน้าเดิม · ยังไม่มีฉบับร่างที่บันทึก");
@@ -57,7 +60,7 @@ $("addHighlight").onclick=()=>{content.highlights.push({title:"",body:""});chang
 $("addSizeRow").onclick=()=>{content.sizing.rows.push(content.sizing.headers.map((_,i)=>i?"—":""));changed();renderSizing();};$("addSizeColumn").onclick=()=>{content.sizing.headers.push("");content.sizing.rows.forEach(row=>row.push("—"));changed();renderSizing();};
 const viewport=mode=>{$("storeFrame").parentElement.classList.toggle("desktop",mode==="desktop");$("previewPhone").setAttribute("aria-pressed",String(mode!=="desktop"));$("previewDesktop").setAttribute("aria-pressed",String(mode==="desktop"));};
 $("previewPhone").onclick=()=>viewport("phone");$("previewDesktop").onclick=()=>viewport("desktop");$("closeStorePreview").onclick=()=>$("storePreview").close();
-$("previewContent").onclick=()=>{if(busy||!state||!$("contentForm").reportValidity())return;const snapshot=fingerprint(),source=structuredClone(readContent());for(const photo of [source.hero,...source.gallery.flatMap(g=>g.images),...source.lookbook])photo.src=imageSource(photo.src);source.slug=state.product.slug;source.isContentDraft=true;const product={...state.product,themeId:source.themeId,description:source.description};reviewed="";controls();$("storeFrame").onload=()=>{if(snapshot===fingerprint()){reviewed=snapshot;controls();}};$("storeFrame").srcdoc=productTemplate(product,source.hero.src,source);viewport("phone");$("storePreview").showModal();};
+$("previewContent").onclick=()=>{publication.reset();if(busy||!state||!$("contentForm").reportValidity())return;const snapshot=fingerprint(),source=structuredClone(readContent());for(const photo of [source.hero,...source.gallery.flatMap(g=>g.images),...source.lookbook])photo.src=imageSource(photo.src);source.slug=state.product.slug;source.isContentDraft=true;const product={...state.product,themeId:source.themeId,description:source.description};reviewed="";controls();$("storeFrame").onload=()=>{if(snapshot===fingerprint()){reviewed=snapshot;controls();}};$("storeFrame").srcdoc=productTemplate(product,source.hero.src,source);viewport("phone");$("storePreview").showModal();};
 $("contentForm").onsubmit=async event=>{
   event.preventDefault();if(busy||!state?.editable||reviewed!==fingerprint()||!$("contentForm").reportValidity())return;
   const data={expectedRevision:state.revision,content:readContent()};busy=true;operation="กำลังบันทึก…";controls();notice($("contentError"),"");pruneUploads();

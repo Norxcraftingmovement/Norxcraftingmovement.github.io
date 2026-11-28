@@ -45,6 +45,7 @@ export async function start(port = 0, { emailFails = false, staticDir = join(roo
     const body = ["GET", "HEAD"].includes(req.method) ? undefined : Buffer.concat(chunks), rq = () => new Request(origin + req.url, { method: req.method, headers: req.headers, body });
     if (u.pathname.startsWith("/api/site/")) return send(await pub.fetch(rq(),env,ctx));
     if (u.pathname === "/") { const rendered=await pub.fetch(new Request(origin+"/api/site/home",{headers:req.headers}),env,ctx); if(rendered.status!==404)return send(rendered); }
+    const productSlug={"/home-terrain/":"drop03","/woven-stride/":"drop02"}[u.pathname]; if(productSlug){const rendered=await pub.fetch(new Request(origin+"/api/site/products/"+productSlug,{headers:req.headers}),env,ctx);if(rendered.status!==404)return send(rendered); }
     if (u.pathname.startsWith("/api/orders")) return send(await pub.fetch(rq(), env, ctx));
     if (u.pathname.startsWith("/admin") || u.pathname.startsWith("/api/admin")) return send(await admin.fetch(rq(), env, ctx));
     if (anon) return send(new Response("Access required", { status: 403 }));

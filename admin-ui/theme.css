@@ -255,5 +255,6 @@ a.dashboard-queue-content:hover .dashboard-arrow{background:transparent}
 .content-back,.product-content-link{color:var(--ink)}.content-back:hover,.product-content-link:hover{text-decoration-thickness:2px}
 
 .home-visible,.home-confirmation label{display:flex!important;align-items:center;gap:12px;min-height:44px}.home-visible input[type=checkbox],.home-confirmation input[type=checkbox]{width:24px!important;min-height:24px!important;margin:0}.home-visible{margin:12px 0}.home-history{list-style:none;padding:0}.home-history li{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap;padding:16px 0;border-bottom:1px solid #cdbfb0}.home-confirmation{padding-top:12px}.home-confirmation label{font-size:14px}.home-confirmation[hidden]{display:none}
+#productPublicationConfirm label{align-items:flex-start}#productPublishCheck{flex:0 0 24px;margin-top:4px!important}#productPublishConfirm{margin:8px 0 12px}
 
 .content-page #homeFields{border:0;padding:0;margin:0;min-width:0}.content-page #homeFields input,.content-page #homeFields textarea,.content-page #homeFields select{width:100%;min-height:44px}
