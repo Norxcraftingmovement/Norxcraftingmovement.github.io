@@ -10,8 +10,8 @@ const types = { ".html": "text/html; charset=utf-8", ".css": "text/css; charset=
 export const MENU = [["overview.html", "/admin/", "ภาพรวม"], ["orders.html", "/admin/orders/", "ออเดอร์"], ["production.html", "/admin/production/", "การผลิต"], ["shipping.html", "/admin/shipping/", "จัดส่ง"],
   ["products.html", "/admin/products/", "สินค้า"], [null, "/admin/events/", "กิจกรรม"], [null, "/admin/media/", "สื่อ"], ["settings.html", "/admin/settings/", "ตั้งค่า"]];
 const nav = (page) => {
-  const links = MENU.map(([f, href, label], i) => (i === 0 ? '<p class="nav-group">งานประจำวัน</p>' : i === 4 ? '<p class="nav-group">จัดการ NORX</p>' : '') + `<a href="${href}"${f === page ? ' aria-current="page"' : ""}>${label}</a>`).join("");
-  const label = MENU.find(([f]) => f === page)?.[2] || "เมนู";
+  const links = MENU.map(([f, href, label], i) => (i === 0 ? '<p class="nav-group">งานประจำวัน</p>' : i === 4 ? '<p class="nav-group">จัดการ NORX</p>' : '') + `<a href="${href}"${(f === page || (page === "product-content.html" && f === "products.html")) ? ' aria-current="page"' : ""}>${label}</a>`).join("");
+  const label = page === "product-content.html" ? "สินค้า" : MENU.find(([f]) => f === page)?.[2] || "เมนู";
   return '<header class="admin-shell"><a class="admin-brand" href="/admin/">NORX<span>ADMIN CONSOLE</span></a><nav class="main desktop-nav" aria-label="เมนูหลัก">' + links + '</nav><details class="mobile-nav"><summary>เมนู <span>' + label + '</span></summary><nav class="main" aria-label="เมนูหลักบนมือถือ">' + links + '</nav></details></header>';
 };
 export function generate() {
@@ -19,6 +19,7 @@ export function generate() {
   for (const dir of ["", "fonts"]) for (const f of readdirSync(join(root, dir)).sort()) if (extname(f) in types) files.push([dir ? dir + "/" + f : f, join(root, dir, f)]);
   const assets = {};
   const { themes, fixtures } = productThemeSources();
+  assets["product-content-defaults.json"] = { type: "application/json; charset=utf-8", text: JSON.stringify(fixtures) };
   const extras = readFileSync(join(root, "product-preview.css"), "utf8");
   for (const [id, theme] of Object.entries(themes)) assets["product-theme-" + id + ".css"] = { type: "text/css; charset=utf-8", text: theme.css + "\n" + extras };
   assets["product-template.css"] = assets["product-theme-home-terrain-v1.css"]; // cached clients from the previous release

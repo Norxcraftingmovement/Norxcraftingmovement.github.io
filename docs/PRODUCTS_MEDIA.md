@@ -25,8 +25,7 @@ The theme fixtures module contains only data/image paths, not image bytes, priva
 live API URLs, checkout scripts or embedded source HTML. Generated source fixtures are freshness-checked.
 
 This is still a preview renderer, not the deployed automatic product page: menu destinations,
-checkout, live round dates and payment are intentionally inactive/omitted. Existing active products
-remain read-only until the separate content-draft editor is implemented. PR17's first-style-only
+checkout, live round dates and payment are intentionally inactive/omitted. Existing active products now have a separate presentation-draft editor (PRODUCT_CONTENT_DRAFTS.md); their commercial fields remain read-only. PR17's first-style-only
 preview is superseded. Theme/galleries/sizing render correctly in developer local checks; complete
 preview/published snapshot parity remains a later staging publication gate. See PRODUCT_THEMES_PLAN.md.
 

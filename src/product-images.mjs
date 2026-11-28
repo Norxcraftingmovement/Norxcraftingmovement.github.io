@@ -38,9 +38,13 @@ export async function saveProductRequest(request, env, actor, id = null) {
     throw error;
   }
 }
+export async function imageReferenced(env,key) {
+  if(await env.ORDERS_DB.prepare("SELECT id FROM products WHERE image_key=?").bind(key).first())return true;
+  return !!(await env.ORDERS_DB.prepare("SELECT s.key FROM settings s,json_tree(CASE WHEN json_valid(s.value) THEN s.value ELSE '{}' END) j WHERE s.key LIKE 'product-content:%' AND j.key='src' AND j.value=? LIMIT 1").bind("/api/admin/product-images/"+key.slice(9)).first());
+}
 export async function productImage(env, file) {
   const headers = {"Cache-Control":"private, no-store","X-Content-Type-Options":"nosniff","X-Robots-Tag":"noindex, nofollow","Content-Security-Policy":"default-src 'none'; sandbox"};
-  if (!env.PRODUCT_MEDIA || !(await env.ORDERS_DB.prepare("SELECT id FROM products WHERE image_key=?").bind("products/"+file).first())) return new Response(null,{status:404,headers});
+  if (!env.PRODUCT_MEDIA || !(await imageReferenced(env,"products/"+file))) return new Response(null,{status:404,headers});
   const object = await env.PRODUCT_MEDIA.get("products/"+file);
   if (!object) return new Response(null,{status:404,headers});
   return new Response(object.body,{headers:{...headers,"Content-Type":Object.entries(types).find(([,ext]) => file.endsWith("."+ext))[0]}});
