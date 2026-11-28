@@ -1,6 +1,6 @@
 # STATE — NORX Website / Orders V2
 > Start point only: verify current Git HEAD/status and code.
-28 Nov 2026 · baseline 0c135de · PR21 merged · workflow-only changes; no new deployment.
+28 Nov 2026 · PR21/22 integrated locally with Homepage PR23; integration verified · no new deployment.
 Rules: AGENTS.md → CLAUDE.md | Status: https://trello.com/c/a89Pbdgg | Evidence: docs/TEST_REPORT.md
 Single writer; routine dev/test/dev merge authorized, no installs or unapproved Cloudflare/production/cutover writes. Solo self-review ≠ independent QA.
 
@@ -14,8 +14,12 @@ Single writer; routine dev/test/dev merge authorized, no installs or unapproved 
 Source bc2b4d1: Public e1cabdf2 / Admin 27b04360. Does not include recent UX/Products/Rounds. D1 counts 25 orders/29 items preserved; Access gate 16/16; synthetic owner alert reached inbox + forwarded copy, no sales/customer email approval.
 Rollback: Public 26439a64 / Admin 9aa87251; keep D1; never Admin eed44c52.
 
+## Homepage PR23 — development/local only
+Website editor: hero/focal position, text/buttons, existing card order/visibility/copy and metadata. Shared homepage renderer; separate draft/published snapshots and baseline/history rollback preserving draft. Saved-candidate review binds owner/revision/head/prices/renderer, expires and requires explicit confirmation. SSR/current catalog prices, Community/Roots/lightbox retained. Original index.html untouched; upstream PR21 shop.js/rounds changes preserved
+Only local simulator enables WEBSITE_MANAGEMENT_ENABLED; /api/site/* is owner-gated and enabled-staging-only. No real routes/flag/storage/deploy. Product-content publication remains pending. Details: docs/WEBSITE_HOME_MANAGEMENT.md and PR23. Integrated-base tests: 293 total / 292 pass / 1 existing skip / 0 fail; browser 40/40 rechecked plus round dialog open/close (12 inputs), no JS errors. Solo self-review. Origin of this isolated checkout now targets canonical GitHub; original D: checkouts unchanged
+
 ## Next
-Homepage editor, draft/published snapshots, explicit Publish/rollback, preview/published parity and SEO delivery using existing renderer/IDs/URLs (docs/PRODUCT_THEMES_PLAN.md stage 3; local/synthetic only). Prepare private storage/binding and rebuilt staging Admin/static rollout with retention/rollback for separate approval.
+Finalize PR23 merge/checkpoint, then product-content published snapshots/preview parity/rollback using existing renderer/IDs/URLs (stage 3 remainder; local/synthetic only). Prepare private storage/binding and rebuilt staging Admin/static rollout with retention/rollback for separate approval.
 
 ## Go-live gates (unchanged; docs/GO_LIVE_CHECKLIST.md)
 A1 V1 source/deployed, A5 masked import/reconciliation reported green; recheck before cutover. A2 partial receipt + payment/handover deployed staging rehearsal open; A3 synthetic inbox passed only; A4 bank-app QR and printed labels open; A6 rollback on COPY of real V1 Sheet open. Keep security/approval/rollback gates.

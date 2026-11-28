@@ -1,5 +1,6 @@
 // Public storefront API (V1-compatible contract): GET config, POST {action:'submit', order}.
 // Anonymous by design; protected by validation, idempotency, rate limit and size caps. No admin routes here.
+import { websitePublic } from "./website-public.mjs";
 import { publicConfig, submitOrder } from "./orders-service.mjs";
 import { UserError } from "./orders-core.mjs";
 import { environmentGuard } from "./orders-guard.mjs";
@@ -40,6 +41,7 @@ export default {
     const u = new URL(request.url);
     // Staging: the whole hostname sits behind Cloudflare Access. Defence in depth — if the edge policy were ever misconfigured, this Worker still refuses anyone but the owner.
     if (env.STAGING_REQUIRE_ACCESS === "1" && !(await verifiedOwner(ctx, env))) return new Response(JSON.stringify({ ok: false, error: "ACCESS_REQUIRED" }), { status: 403, headers: { ...base, "Content-Type": "application/json" } });
+    if (u.pathname.startsWith("/api/site/")) { if (!(await verifiedOwner(ctx,env))) return new Response(null,{status:403,headers:base}); try { return await websitePublic(request,env); } catch { return new Response("Unavailable",{status:503,headers:base}); } }
     if (u.pathname === "/api/orders/pay" || u.pathname === "/api/orders/pay.svg") return payRoute(request, env, u);
     if (u.pathname !== "/api/orders") return new Response("Not found", { status: 404, headers: base });
     if (request.method === "OPTIONS") {

@@ -84,13 +84,13 @@ test("batch production status: only after cut-off, atomic, guarded by the piece 
   assert.equal(sqlite.prepare("SELECT COUNT(*) n FROM order_items WHERE production_status='batched' AND order_id IN (SELECT id FROM orders WHERE fulfillment_status='cancelled')").get().n,0,"cancelled orders untouched");
   const sum=await svc.productionSummary(env,{round:"ROUND-001"});assert.equal(sum.totals.status.produced,7);
 });
-test("admin pages: one consistent menu (8 entries) on every page, current page marked, strict CSP, owner-only",async()=>{
+test("admin pages: one consistent menu (9 entries) on every page, current page marked, strict CSP, owner-only",async()=>{
   const {env,ctx}=await setupV1();
-  const pages=[["/admin/","ภาพรวม"],["/admin/orders/","ออเดอร์"],["/admin/production/","การผลิต"],["/admin/shipping/","จัดส่ง"],["/admin/products/","สินค้า"],["/admin/settings/","ตั้งค่า"]];
+  const pages=[["/admin/","ภาพรวม"],["/admin/orders/","ออเดอร์"],["/admin/production/","การผลิต"],["/admin/shipping/","จัดส่ง"],["/admin/products/","สินค้า"],["/admin/products/1/content/","สินค้า"],["/admin/website/","เว็บไซต์"],["/admin/settings/","ตั้งค่า"]];
   for(const [path,label] of pages){
     const res=await call(worker,env,ctx,path);assert.equal(res.status,200,path);const html=await res.text();
     const navHtml=html.slice(html.indexOf("<nav"),html.indexOf("</nav>")),links=[...navHtml.matchAll(/<a href="(\/admin\/[^"]*)"( aria-current="page")?>([^<]+)<\/a>/g)];
-    assert.deepEqual(links.map(m=>m[3]),["ภาพรวม","ออเดอร์","การผลิต","จัดส่ง","สินค้า","กิจกรรม","สื่อ","ตั้งค่า"],path);
+    assert.deepEqual(links.map(m=>m[3]),["ภาพรวม","ออเดอร์","การผลิต","จัดส่ง","สินค้า","เว็บไซต์","กิจกรรม","สื่อ","ตั้งค่า"],path);
     assert.deepEqual(links.filter(m=>m[2]).map(m=>m[3]),[label],path+" marks itself current");
     assert.ok(!/<script(?![^>]*src=)/.test(html)&&!/\sstyle=/.test(html),path+" no inline script/style");assert.match(res.headers.get("content-security-policy"),/default-src 'none'/);
     assert.match(html,/<html lang="th"/);assert.match(html,/class="skip"/);assert.match(html,/<main id="main"/);assert.match(html,/name="viewport"/);

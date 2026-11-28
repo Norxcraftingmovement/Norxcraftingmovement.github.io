@@ -5,6 +5,8 @@ import * as api from "./orders-admin-api.mjs";
 import * as svc from "./orders-service.mjs";
 import { UserError } from "./orders-core.mjs";
 import * as pay from "./payments.mjs";
+import { getHome, reviewHome, publishHome } from "./website-home.mjs";
+import { saveHomeRequest, websiteJson } from "./website-home-request.mjs";
 import { getProductContent } from "./product-content.mjs";
 import { saveContentRequest } from "./product-content-request.mjs";
 import * as drafts from "./product-drafts.mjs";
@@ -26,7 +28,7 @@ export async function overview(env) {
 const csvResponse = (csv, name) => new Response(csv, { headers: { ...headers, "Content-Type": "text/csv; charset=utf-8", "Content-Disposition": `attachment; filename="${name.replace(/[^A-Za-z0-9._-]/g, "_")}"` } });
 const decoded = new Map();
 const bytes = (name) => { if (!decoded.has(name)) decoded.set(name, Uint8Array.from(atob(assets[name].base64), (c) => c.charCodeAt(0))); return decoded.get(name); };
-const page = (name) => new Response(assets[name].text, { headers: { ...headers, "Content-Type": assets[name].type, "Content-Security-Policy": pageCsp + (["products.html", "product-content.html"].includes(name) ? "; frame-src 'self'" : "") } });
+const page = (name) => new Response(assets[name].text, { headers: { ...headers, "Content-Type": assets[name].type, "Content-Security-Policy": pageCsp + (["products.html", "product-content.html", "website.html"].includes(name) ? "; frame-src 'self'" : "") } });
 const asset = (name) => {
   const a = assets[name];
   // Scripts and styles are re-checked on every load: a cached old script after a deploy would run against the new API.
@@ -37,6 +39,11 @@ const asset = (name) => {
 
 // [method, pattern, kind, handler]. kind: "page" | "asset" (no DB) | "api" (guarded) | "write" (guarded + same-origin required)
 const routes = [
+  ["GET", /^\/admin\/website\/?$/, "page", () => page("website.html")],
+  ["GET", /^\/api\/admin\/website\/home$/, "api", async(r,env)=>api.json({ok:true,...await getHome(env)})],
+  ["PUT", /^\/api\/admin\/website\/home$/, "write", async(r,env,a)=>api.json({ok:true,...await saveHomeRequest(r,env,a)})],
+  ["POST", /^\/api\/admin\/website\/home\/review$/, "write", async(r,env,a)=>api.json({ok:true,...await reviewHome(env,a,await websiteJson(r))})],
+  ["POST", /^\/api\/admin\/website\/home\/publish$/, "write", async(r,env,a)=>api.json({ok:true,...await publishHome(env,a,await websiteJson(r))})],
   ["GET", /^\/api\/admin\/overview$/, "api", async (r, env) => api.json(await overview(env))],
   ["GET", /^\/api\/admin\/settings\/sender$/, "api", (r, env) => api.senderResponse(env)],
   ["PUT", /^\/api\/admin\/settings\/sender$/, "write", (r, env, a) => api.putSender(r, env, a)],

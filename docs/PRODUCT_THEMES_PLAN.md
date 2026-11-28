@@ -1,7 +1,7 @@
 # แผนธีมสินค้าและการแก้หน้าเว็บเดิมผ่าน Admin
 
 28 พ.ย. 2026 · FAST / analysis + plan only · Codex solo self-review
-สถานะ: ลำดับ 1–2 พัฒนาและทดสอบในเครื่องแล้ว (ยังไม่ deploy); ลำดับ 3–4 ยังไม่ทำ. พรีวิวใหม่รองรับทั้งสองธีม รูป/กลุ่มภาพ/Lookbook/ตารางไซส์เดิม และบันทึกธีมให้สินค้าฉบับร่างได้. ดู TEST_REPORT: Two product themes preview และ Existing-product presentation drafts. รายละเอียด editor: PRODUCT_CONTENT_DRAFTS.md
+สถานะ: ลำดับ 1–2 พัฒนาและทดสอบในเครื่องแล้ว (ยังไม่ deploy); ลำดับ 3 ทำส่วนหน้าแรกและฉบับเผยแพร่/ย้อนคืนในเครื่องแล้ว; การเผยแพร่หน้าสินค้าและ staging จริง รวมทั้งลำดับ 4 ยังไม่ทำ. พรีวิวใหม่รองรับทั้งสองธีม รูป/กลุ่มภาพ/Lookbook/ตารางไซส์เดิม และบันทึกธีมให้สินค้าฉบับร่างได้. ดู TEST_REPORT: Two product themes preview และ Existing-product presentation drafts. รายละเอียด editor: PRODUCT_CONTENT_DRAFTS.md; หน้าแรก: WEBSITE_HOME_MANAGEMENT.md
 
 ## เป้าหมาย
 
