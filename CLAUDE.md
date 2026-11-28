@@ -4,6 +4,8 @@ The owner speaks Thai and is not a coder: answer in plain Thai. Code and docs ma
 ## Start of a session (nothing more than this)
 1. Read `STATE.md` — a start point only, it can be stale. 2. `git log -1`, `git status`; git and the code win over the file.
 3. Trello: status card description + latest comment only (`list_comments` with `limit 1`); never read the whole old card.
+4. **Your FIRST reply is a status report of at most 5 plain-Thai lines, then stop and wait for the owner's go-ahead. Do not start any work before it.** Lines: (1) branch + HEAD; (2) in sync with GitHub? run `git fetch origin` (read-only) and compare; (3) done and verified / not verified; (4) next exact action; (5) approvals still needed.
+5. **Wrong or stale folder = the FIRST line, as a warning, before anything else**: `AGENTS.md`, `CLAUDE.md` or `STATE.md` missing, or the branch is behind/diverged from its GitHub branch, or an open PR exists for newer work. Say "this folder is out of date: do not work here" and stop. Never infer the project state from old docs (`docs/HANDOVER.md`) when this happens.
 
 ## Boundaries (owner-approved, unchanged)
 - Work on `feature/orders-v2`; single writer. Never touch `feature/cloudflare-migration`, never force-push, never merge into production.
