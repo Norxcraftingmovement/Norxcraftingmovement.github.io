@@ -172,6 +172,16 @@ export async function getStorefront(env) {
   const { testKeyHash, ...rest } = JSON.parse(v.value);
   return { ...rest, testKeySet: !!testKeyHash };
 }
+// Weekly automatic rounds (V1 ROLLING_WEEKLY): flips ONLY this flag, so the rounds panel can offer it without re-sending bank details.
+export async function putRolling(request, env, actor) {
+  const b = await body(request); if (!b || typeof b.rolling !== "boolean") return bad("BAD_REQUEST");
+  const prev = (await env.ORDERS_DB.prepare("SELECT value FROM settings WHERE key='storefront'").first())?.value;
+  if (!prev) return bad("STOREFRONT_NOT_CONFIGURED", 409);
+  const old = JSON.parse(prev);
+  await env.ORDERS_DB.prepare("UPDATE settings SET value=?1 WHERE key='storefront'").bind(JSON.stringify({ ...old, rolling: b.rolling })).run();
+  await audit(env, actor, "rolling.update", "settings", "storefront", { rolling: old.rolling ?? null }, { rolling: b.rolling });
+  return json({ ok: true, rolling: b.rolling });
+}
 export async function putStorefront(request, env, actor) {
   const b = await body(request); if (!b) return bad("BAD_REQUEST");
   const bank = { name: clean(b.bank?.name, 60), account: clean(b.bank?.account, 30), holder: clean(b.bank?.holder, 80) };

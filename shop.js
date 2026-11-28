@@ -34,7 +34,7 @@ function buildMatrix(p){
    step.append(minus,out,plus);row.append(el('span','',size),step);grid.append(row);}
   card.append(title,grid);box.append(card);}
 }
-function buildDelivery(){const box=$('delivery');if(!box)return;for(const n of [...box.querySelectorAll('label')])n.remove();const defs={city:['นัดรับในเมืองเชียงราย','ไม่มีค่าส่ง'],event:['รับที่งาน '+(CONFIG.eventName||'กิจกรรม NORX'),'ไม่มีค่าส่ง'],ship:['จัดส่ง',money(ROUND.shipping)+' ต่อออเดอร์ · ซื้อหลายรุ่นส่งรวมพัสดุเดียว']};for(const d of ROUND.deliveries){const [name,sub]=defs[d];const label=el('label','delivery-choice'),input=el('input');input.type='radio';input.name='delivery';input.value=d;input.required=true;const span=el('span');span.append(el('strong','',name),el('small','',sub+(ROUND.readyText&&d!=='ship'?' · '+ROUND.readyText:'')));label.append(input,span);box.append(label);}}
+function buildDelivery(){const box=$('delivery');if(!box)return;for(const n of [...box.querySelectorAll('label')])n.remove();const defs={city:['นัดรับในเมืองเชียงราย','ไม่มีค่าส่ง'],event:['รับที่งาน '+(ROUND.eventName||CONFIG.eventName||'กิจกรรม NORX'),'ไม่มีค่าส่ง'],ship:['จัดส่ง',money(ROUND.shipping)+' ต่อออเดอร์ · ซื้อหลายรุ่นส่งรวมพัสดุเดียว']};for(const d of ROUND.deliveries){const [name,sub]=defs[d];const label=el('label','delivery-choice'),input=el('input');input.type='radio';input.name='delivery';input.value=d;input.required=true;const span=el('span');span.append(el('strong','',name),el('small','',sub+(ROUND.readyText&&d!=='ship'?' · '+ROUND.readyText:'')));label.append(input,span);box.append(label);}}
 function render(){
  if(!CONFIG||!ROUND)return;
  const bill=calculate(deliveryMethod());

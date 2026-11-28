@@ -102,6 +102,7 @@ const routes = [
   ["GET", /^\/api\/admin\/metrics\/latency$/, "api", async (r, env) => api.json({ ok: true, latency: await latencyStats(env) })],
   ["GET", /^\/api\/admin\/settings\/storefront$/, "api", async (r, env) => api.json({ ok: true, storefront: await api.getStorefront(env) })],
   ["PUT", /^\/api\/admin\/settings\/storefront$/, "write", (r, env, a) => api.putStorefront(r, env, a)],
+  ["PUT", /^\/api\/admin\/settings\/rolling$/, "write", (r, env, a) => api.putRolling(r, env, a)],
   ["GET", /^\/admin\/orders\/?$/, "page", () => page("orders.html")],
   ["GET", /^\/admin\/shipping\/?$/, "page", () => page("shipping.html")],
   ["GET", /^\/admin\/settings\/?$/, "page", () => page("settings.html")],

@@ -122,7 +122,7 @@ test("public config: V1 shape the storefront (shop.js) reads; no secrets (test k
   for(const k of ["ok","testOnly","rolling","serverNow","bank","chatUrl","pageUrl","eventName","products","round","nextRound"])assert.ok(k in c,k);
   assert.equal(c.round.id,"ROUND-001");assert.equal(c.nextRound.id,"ROUND-002");assert.deepEqual(c.products.map(p=>p.id),["drop03","drop02"]);
   assert.deepEqual(c.products[0].prices,{short:490,long:590});assert.deepEqual(c.products[0].sizes,["XS","S","M","L","XL","2XL"]);
-  assert.deepEqual(Object.keys(c.round).sort(),["closesAt","deliveries","id","name","opensAt","paymentDue","readyText","shipping"]);
+  assert.deepEqual(Object.keys(c.round).sort(),["closesAt","deliveries","eventName","id","name","opensAt","paymentDue","readyText","shipping"]); // eventName: added key (per-round event name; "" = use cfg.eventName), the V1 keys are unchanged
   assert.ok(!JSON.stringify(c).includes("testKeyHash"));
   const live=await setupV1({live:false});assert.equal((await svc.publicConfig(live.env,NOW)).testOnly,true);
   const empty=await setupV1();empty.sqlite.exec("DELETE FROM settings");assert.equal((await svc.publicConfig(empty.env,NOW)).ok,false);

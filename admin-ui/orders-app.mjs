@@ -1,5 +1,6 @@
 import { $, api, notice, el } from "./common.mjs";
 import { startAutoRefresh, trackInteraction } from "./autorefresh.mjs";
+import { DELIVERY_OPTIONS, defaultRound, roundToForm, roundBody, toLocalInput } from "./round-form.mjs";
 const TH_PHASE = { draft: "ฉบับร่าง", scheduled: "ตั้งเวลาเปิด", accepting: "กำลังเปิดรับ", closed: "ปิดรับแล้ว", sent: "ส่งร้านแล้ว" };
 const BTN = { "ชำระแล้ว": "ยืนยันรับเงิน", "จ่ายหน้างาน": "จ่ายหน้างาน", "รอโอน": "กลับเป็นรอโอน", "ยกเลิก": "ยกเลิก", "ส่งมอบแล้ว": "ส่งมอบแล้ว", "ส่งร้านแล้ว": "ย้อนเป็นส่งร้านแล้ว" };
 // A39: an on-site order is paid AT the hand-over — one button records the money (on_site) and the delivery together.
@@ -70,6 +71,7 @@ function draw(notifs, lat, ready = lastR) {
     if (r.phase === "closed" && s.pendingOrders) add("ยกเลิกออเดอร์ที่ไม่โอน (" + s.pendingOrders + ")", () => roundOp(r, "cancel-unpaid", "ยกเลิกออเดอร์รอโอน " + s.pendingOrders + " รายการ?", { expected: s.pendingOrders }));
     if (r.phase === "closed" && s.pieces) add("ตัดยอดส่งร้าน (" + s.pieces + " ตัว)", () => roundOp(r, "send-to-shop", "ตัดยอดส่งร้าน " + s.pieces + " ตัว? หลังจากนี้เปลี่ยนสถานะรอโอน/ชำระ/ยกเลิกไม่ได้", { expectedPieces: s.pieces }), false);
     if (s.pieces) { add("คัดลอกข้อความส่งร้าน", async () => { try { await navigator.clipboard.writeText(r.shopText); notice($("notice"), "คัดลอกแล้ว"); } catch { notice($("notice"), "คัดลอกไม่ได้ เลือกข้อความด้านล่างเอง", true); } }); }
+    if (r.state !== "sent") add("แก้ไขรอบนี้", () => openRoundDialog(r));
     box.append(acts); if (s.pieces) box.append(el("pre", "shop", r.shopText));
   }
   const q = $("q").value.trim().toLowerCase(), f = $("status").value, ul = $("orders"); ul.replaceChildren();
@@ -117,7 +119,63 @@ async function roundOp(r, op, text, body = {}) {
 }
 
 // ---- Auto refresh (shared module): cheap pulse every 15 s while visible; never replaces the UI mid-interaction ----
-const interacting = trackInteraction(() => $("dlg").open || document.activeElement === $("q"));
+// ---- Create / edit a round (POST /api/admin/rounds: no id = new draft round, id = edit; a draft is opened with the "เปิดรับ" button) ----
+let editingRound = null;
+function openRoundDialog(r = null) {
+  editingRound = r;
+  const f = r ? roundToForm(r) : defaultRound(Date.now(), rounds);
+  $("roundH").textContent = r ? "แก้ไข " + r.name + " (" + r.id + ")" : "สร้างรอบใหม่";
+  $("roundHint").textContent = r ? (r.state === "open" ? "รอบนี้เปิดรับอยู่ แก้วันเวลาหรือค่าส่งมีผลกับออเดอร์ใหม่เท่านั้น ออเดอร์ที่สั่งไปแล้วไม่เปลี่ยน" : "") : "ค่าเริ่มต้นคัดลอกจากรอบก่อนหน้า (ถ้ามี) ตรวจวันเวลาและค่าส่งก่อนบันทึก";
+  $("rName").value = f.name; $("rOpen").value = f.opensAt; $("rClose").value = f.closesAt; $("rDue").value = f.paymentDue; $("rShip").value = f.shipping; $("rSup").value = f.supplierShipping; $("rReady").value = f.readyText;
+  $("rDeliveries").replaceChildren(...DELIVERY_OPTIONS.map(([k, label]) => { const l = el("label"), c = el("input"); c.type = "checkbox"; c.value = k; c.checked = f.deliveries.includes(k); l.append(c, document.createTextNode(label)); return l; }));
+  $("rEvent").value = f.eventName; syncEventField();
+  $("rOpenNow").checked = false; $("rOpenNowL").hidden = !!r; notice($("rErr"), ""); $("roundDlg").showModal();
+}
+// The event-name field belongs to the "รับที่งานกิจกรรม" tick: shown (and required) only while it is ticked.
+function syncEventField() { const on = !!$("rDeliveries").querySelector('input[value="event"]:checked'); $("rEventWrap").hidden = !on; return on; }
+$("rDeliveries").addEventListener("change", () => { if (syncEventField()) $("rEvent").focus(); });
+$("newRound").onclick = () => openRoundDialog();
+$("rCancel").onclick = () => $("roundDlg").close();
+$("roundForm").onsubmit = async (ev) => {
+  ev.preventDefault();
+  const { body, error } = roundBody({ name: $("rName").value, opensAt: $("rOpen").value, closesAt: $("rClose").value, paymentDue: $("rDue").value, shipping: $("rShip").value, supplierShipping: $("rSup").value, readyText: $("rReady").value,
+    eventName: $("rEvent").value, deliveries: [...$("rDeliveries").querySelectorAll("input:checked")].map((c) => c.value) }, editingRound?.id ?? null);
+  if (error) { notice($("rErr"), error, true); return; }
+  $("rSave").disabled = true;
+  try {
+    const res = await api("/api/admin/rounds", { method: "POST", body });
+    if (!editingRound && $("rOpenNow").checked) {
+      try { await api("/api/admin/rounds/" + res.id + "/open", { method: "POST", body: {} }); }
+      catch (e) { current = res.id; $("roundDlg").close(); await load(); notice($("notice"), "สร้างรอบแล้ว (ฉบับร่าง) แต่เปิดรับไม่สำเร็จ: " + msg(e), true); return; }
+    }
+    current = res.id; $("roundDlg").close(); await load();
+    notice($("notice"), (editingRound ? "บันทึกการแก้ไขรอบแล้ว" : $("rOpenNow").checked ? (body.opensAt > toLocalInput(Date.now()) ? "สร้างรอบแล้ว ระบบจะเปิดรับเองเมื่อถึงเวลาที่ตั้งไว้" : "สร้างและเปิดรับรอบแล้ว") : "สร้างรอบแล้ว (ฉบับร่าง) — กด \"เปิดรับ\" เมื่อพร้อม"));
+  } catch (e) { notice($("rErr"), msg(e), true); }
+  finally { $("rSave").disabled = false; }
+};
+
+// ---- Weekly automatic rounds (V1 ROLLING_WEEKLY): one shop-wide switch, kept in the storefront settings ----
+const ROLLING_HINT = "เมื่อรอบล่าสุดปิดแล้วและไม่มีรอบที่เปิดอยู่หรือรอเปิด ระบบจะสร้างรอบถัดไปให้เองและเปิดรับทันที: ปิดรับวันอาทิตย์ 23:59 (เวลาไทย) ค่าส่งและระยะเวลาโอนเท่ารอบก่อน เลขรอบนับต่อ ตัวเลือก \"รับที่งานกิจกรรม\" จะไม่ถูกคัดลอก ถ้ารอบถัดไปมีกิจกรรมให้สร้างรอบเองและใส่ชื่อกิจกรรม";
+async function loadRolling() {
+  try {
+    const s = (await api("/api/admin/settings/storefront")).storefront;
+    if (!s) { $("rolling").disabled = true; $("rollingHint").textContent = "ยังไม่ได้ตั้งค่าร้านที่หน้า \"ตั้งค่า\" จึงยังเปิดใช้ไม่ได้"; return; }
+    $("rolling").checked = !!s.rolling; $("rolling").disabled = false;
+    $("rollingHint").textContent = (s.rolling ? "เปิดอยู่ — " : "ปิดอยู่ — ") + ROLLING_HINT;
+  } catch (e) { $("rolling").disabled = true; $("rollingHint").textContent = "โหลดสถานะไม่สำเร็จ: " + msg(e); }
+}
+$("rolling").onchange = async () => {
+  const want = $("rolling").checked;
+  const ok = await ask({ title: want ? "เปิดการสร้างรอบอัตโนมัติ?" : "ปิดการสร้างรอบอัตโนมัติ?", text: want ? ROLLING_HINT : "หลังจากนี้ระบบจะไม่สร้างรอบใหม่ให้เอง รอบที่มีอยู่ไม่เปลี่ยน" });
+  if (!ok) { $("rolling").checked = !want; return; }
+  $("rolling").disabled = true;
+  try { await api("/api/admin/settings/rolling", { method: "PUT", body: { rolling: want } }); notice($("notice"), want ? "เปิดการสร้างรอบอัตโนมัติแล้ว" : "ปิดการสร้างรอบอัตโนมัติแล้ว"); }
+  catch (e) { $("rolling").checked = !want; notice($("notice"), msg(e), true); }
+  await loadRolling();
+};
+loadRolling();
+
+const interacting = trackInteraction(() => $("dlg").open || $("roundDlg").open || document.activeElement === $("q"));
 let refresher = null;
 $("refresh").onclick = () => load(); $("showFresh").onclick = () => load();
 $("round").onchange = async () => { current = $("round").value; await load(); };
