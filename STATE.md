@@ -31,8 +31,11 @@ Products แสดงแคตตาล็อก/ค้นหา/กรอง �
 ## Product themes plan — 28 Nov, planning only
 ตรวจเว็บจริง GET200 + render desktop/mobile ของ Home Terrain และ Woven Stride; source ตรงกับ live ณ วันตรวจ. สองธีม: dark/orange vs white/paper/grid; gallery และ size columns ต่างกัน. ดู docs/PRODUCT_THEMES_PLAN.md = แผนหลัก. PR17 preview ใช้เพียง first Home Terrain style block ไม่ใช่ full theme parity. ถัดไปแยก Layout/Theme/Content และทำ 2-theme preview จาก fixtures เดิม แล้ว active-product content drafts/gallery/sizing, homepage/publish/rollback บน staging ตามอนุมัติ. ไม่แก้ runtime/deploy ในงานวิเคราะห์นี้
 
+## Two-theme preview — development milestone
+ลำดับ 1 ของ PRODUCT_THEMES_PLAN พัฒนาแล้ว: full CSS/body classes แยก dark/orange กับ paper/grid; shared markup + source fixtures hero/gallery/Lookbook/sizing. Draft เลือกธีมแยกจาก fit และเก็บ settings ใน atomic CAS/audit batch, ไม่มี migration. Existing active products ยังอ่านอย่างเดียว. Browser 24/24 และตรวจภาพ desktop/mobile; ผลชุดรวมดู TEST_REPORT. ไม่ deploy/เปลี่ยน storefront source/Events/Media. Lookbook static assets ต้องอยู่ใน staging build รอบที่จะอนุมัติ deploy
+
 ## Next exact action
-Products/Website: ทำตาม docs/PRODUCT_THEMES_PLAN.md โดยเริ่ม 2-theme renderer/preview ที่รักษาหน้ารุ่นเดิม; เตรียม dedicated private storage/binding + staging Admin deploy ให้เจ้าของอนุมัติตาม CRITICAL ก่อนเปิดอัปโหลดจริง; แล้วตรวจ deployed preview/access/rollback. Gallery/Collection/size chart/Publish ยังเป็นรอบถัดไป. ต่อ A2 รับบางส่วน/รับเงินพร้อมส่งมอบบน staging ด้วยข้อมูลสมมติ และ A4/A6 ก่อน production/cutover. คำอนุมัติเมลรอบนี้ไม่ครอบคลุมส่งเมลลูกค้าจริง
+Products/Website: ทำตาม docs/PRODUCT_THEMES_PLAN.md ลำดับ 2: content drafts สำหรับหน้าเดิม พร้อมกลุ่มรูป จุดเด่น และตารางไซส์แยกแต่ละรุ่น โดยไม่ปลดล็อก commercial fields; เตรียม dedicated private storage/binding + staging Admin deploy ให้เจ้าของอนุมัติตาม CRITICAL ก่อนเปิดอัปโหลดจริง; แล้วตรวจ deployed preview/access/rollback. Gallery/Collection/size chart/Publish ยังเป็นรอบถัดไป. ต่อ A2 รับบางส่วน/รับเงินพร้อมส่งมอบบน staging ด้วยข้อมูลสมมติ และ A4/A6 ก่อน production/cutover. คำอนุมัติเมลรอบนี้ไม่ครอบคลุมส่งเมลลูกค้าจริง
 งานปกติ/ทดสอบ/รวมกิ่งพัฒนาทำต่อเอง ใช้ Single Writer; ถามเรื่องสำคัญต่อระบบ/ข้อมูล/วิธีใช้งาน. Claude ติดลิมิต ให้ Codex solo self-review และรายงานตามจริง
 
 ## ทิศทางระยะถัดไป

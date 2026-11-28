@@ -3,6 +3,7 @@
 import { readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { join, extname } from "node:path";
+import { productThemeSources } from "./product-theme-sources.mjs";
 const root = fileURLToPath(new URL("../admin-ui/", import.meta.url));
 const types = { ".html": "text/html; charset=utf-8", ".css": "text/css; charset=utf-8", ".mjs": "text/javascript; charset=utf-8", ".woff2": "font/woff2", ".png": "image/png", ".txt": "text/plain; charset=utf-8" };
 // One menu for every admin page (server-rendered into the HTML, no JS needed). Content/Analytics are intentionally absent until built.
@@ -17,8 +18,11 @@ export function generate() {
   const files = [];
   for (const dir of ["", "fonts"]) for (const f of readdirSync(join(root, dir)).sort()) if (extname(f) in types) files.push([dir ? dir + "/" + f : f, join(root, dir, f)]);
   const assets = {};
-  const liveCss = readFileSync(new URL("../home-terrain/index.html", import.meta.url), "utf8").match(/<style>([\s\S]*?)<\/style>/)[1];
-  assets["product-template.css"] = { type: "text/css; charset=utf-8", text: liveCss + "\n" + readFileSync(join(root, "product-preview.css"), "utf8") };
+  const { themes, fixtures } = productThemeSources();
+  const extras = readFileSync(join(root, "product-preview.css"), "utf8");
+  for (const [id, theme] of Object.entries(themes)) assets["product-theme-" + id + ".css"] = { type: "text/css; charset=utf-8", text: theme.css + "\n" + extras };
+  assets["product-template.css"] = assets["product-theme-home-terrain-v1.css"]; // cached clients from the previous release
+  assets["product-theme-fixtures.mjs"] = { type: "text/javascript; charset=utf-8", text: "// GENERATED from current product pages; read-only preview fixtures.\nexport const productFixtures = " + JSON.stringify(fixtures) + ";\n" };
   for (const [name, path] of files.sort(([a], [b]) => a.localeCompare(b))) {
     const buf = readFileSync(path), flat = name.replace(/^fonts\//, ""), type = types[extname(name)];
     assets[flat] = type.startsWith("text/") ? { type, text: extname(name) === ".html" ? buf.toString("utf8").replace("<!--NAV-->", nav(flat)).replace("</head>", '<link rel="stylesheet" href="/admin/assets/theme.css"></head>') : buf.toString("utf8") } : { type, base64: buf.toString("base64") };

@@ -1,5 +1,7 @@
 // Draft-only catalog preparation. No publish, active-price edit, deletion, or schema change.
 import { UserError } from "./orders-core.mjs";
+import { validProductTheme, defaultProductTheme } from "../admin-ui/product-theme-options.mjs";
+const storedTheme = (value, slug) => { try { const id = JSON.parse(value)?.themeId; return validProductTheme(id) ? id : defaultProductTheme(slug); } catch { return defaultProductTheme(slug); } };
 const rows = async stmt => (await stmt.all()).results;
 const fail = message => { throw new UserError(message); };
 const text = (value, max, required = false) => {
@@ -12,10 +14,11 @@ export async function draftBody(request) {
   try { return JSON.parse(raw); } catch { fail("รูปแบบคำขอไม่ถูกต้อง"); }
 }
 function normalize(raw) {
-  const allowed = new Set(["slug", "name", "shortName", "fit", "fitName", "description", "collectionId", "prices", "sizes", "expectedRevision", "coverRemove"]);
+  const allowed = new Set(["slug", "name", "shortName", "fit", "fitName", "description", "collectionId", "prices", "sizes", "expectedRevision", "coverRemove", "themeId"]);
   if (!raw || typeof raw !== "object" || Array.isArray(raw) || Object.keys(raw).some(k => !allowed.has(k))) fail("บันทึกได้เฉพาะข้อมูลฉบับร่าง ยังเปิดขายจากหน้านี้ไม่ได้");
   if (raw.coverRemove !== undefined && typeof raw.coverRemove !== "boolean") fail("ตรวจรูปปกให้ถูกต้อง");
-  const p = { slug: text(raw.slug, 60, true), name: text(raw.name, 140, true), shortName: text(raw.shortName ?? "", 60), fit: text(raw.fit, 40, true), fitName: text(raw.fitName, 80, true), description: text(raw.description ?? "", 3000), collectionId: raw.collectionId ?? null };
+  if (raw.themeId !== undefined && !validProductTheme(raw.themeId)) fail("เลือกธีมจากรายการที่รองรับ");
+  const p = { themeId: raw.themeId, slug: text(raw.slug, 60, true), name: text(raw.name, 140, true), shortName: text(raw.shortName ?? "", 60), fit: text(raw.fit, 40, true), fitName: text(raw.fitName, 80, true), description: text(raw.description ?? "", 3000), collectionId: raw.collectionId ?? null };
   if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(p.slug) || p.slug.length < 3 || !/^[a-z][a-z0-9-]*$/.test(p.fit)) fail("รหัสสินค้าและรหัสทรงใช้ a-z, 0-9 และขีดกลางเท่านั้น");
   if (p.collectionId !== null && (!Number.isSafeInteger(p.collectionId) || p.collectionId <= 0)) fail("เลือก Collection จากรายการ");
   if (!raw.prices || typeof raw.prices !== "object" || Array.isArray(raw.prices) || !Object.keys(raw.prices).length || Object.keys(raw.prices).some(k => !["short", "long"].includes(k))) fail("ใส่ราคาแขนสั้นหรือแขนยาวอย่างน้อยหนึ่งแบบ");
@@ -31,12 +34,12 @@ function normalize(raw) {
 export async function listProducts(env) {
   const db = env.ORDERS_DB;
   const [products, variants, sizes, collections] = await Promise.all([
-    rows(db.prepare("SELECT p.*,c.name collection_name,(SELECT COUNT(*) FROM order_items i WHERE i.product_id=p.id) order_uses,COALESCE((SELECT MAX(a.id) FROM audit_log a WHERE a.entity='products' AND a.entity_id=p.slug),0) revision FROM products p LEFT JOIN collections c ON c.id=p.collection_id ORDER BY CASE p.status WHEN 'draft' THEN 0 WHEN 'active' THEN 1 ELSE 2 END,p.sort,p.id")),
+    rows(db.prepare("SELECT p.*,c.name collection_name,t.value presentation_theme,(SELECT COUNT(*) FROM order_items i WHERE i.product_id=p.id) order_uses,COALESCE((SELECT MAX(a.id) FROM audit_log a WHERE a.entity='products' AND a.entity_id=p.slug),0) revision FROM products p LEFT JOIN collections c ON c.id=p.collection_id LEFT JOIN settings t ON t.key='product-theme:'||p.slug ORDER BY CASE p.status WHEN 'draft' THEN 0 WHEN 'active' THEN 1 ELSE 2 END,p.sort,p.id")),
     rows(db.prepare("SELECT product_id,sleeve,price_baht FROM product_variants WHERE active=1 ORDER BY id")),
     rows(db.prepare("SELECT product_id,size FROM product_sizes WHERE active=1 ORDER BY sort,id")),
     rows(db.prepare("SELECT id,name,status FROM collections ORDER BY name,id")),
   ]);
-  return { products: products.map(p => ({ id: p.id, slug: p.slug, name: p.name, shortName: p.short_name || "", fit: p.fit, fitName: p.fit_name, description: p.description || "", collectionId: p.collection_id, collectionName: p.collection_name || "", coverUrl: /^products\/[0-9a-f-]{36}\.(?:jpg|png|webp)$/.test(p.image_key || "") ? "/api/admin/product-images/" + p.image_key.slice(9) : "", status: p.status, revision: p.revision, editable: p.status === "draft" && p.order_uses === 0, prices: Object.fromEntries(variants.filter(v => v.product_id === p.id).map(v => [v.sleeve, v.price_baht])), sizes: sizes.filter(s => s.product_id === p.id).map(s => s.size) })), collections, mediaReady: !!env.PRODUCT_MEDIA };
+  return { products: products.map(p => ({ id: p.id, slug: p.slug, themeId: storedTheme(p.presentation_theme, p.slug), name: p.name, shortName: p.short_name || "", fit: p.fit, fitName: p.fit_name, description: p.description || "", collectionId: p.collection_id, collectionName: p.collection_name || "", coverUrl: /^products\/[0-9a-f-]{36}\.(?:jpg|png|webp)$/.test(p.image_key || "") ? "/api/admin/product-images/" + p.image_key.slice(9) : "", status: p.status, revision: p.revision, editable: p.status === "draft" && p.order_uses === 0, prices: Object.fromEntries(variants.filter(v => v.product_id === p.id).map(v => [v.sleeve, v.price_baht])), sizes: sizes.filter(s => s.product_id === p.id).map(s => s.size) })), collections, mediaReady: !!env.PRODUCT_MEDIA };
 }
 export async function saveDraft(env, actor, raw, id = null, coverKey = undefined) {
   const p = normalize(raw), db = env.ORDERS_DB;
@@ -44,6 +47,7 @@ export async function saveDraft(env, actor, raw, id = null, coverKey = undefined
   if (id !== null && (!old || !old.editable)) fail("สินค้าที่เปิดขาย มีออเดอร์ หรือเก็บไว้แล้ว ดูข้อมูลได้อย่างเดียว");
   if (old && (p.slug !== old.slug || !Number.isSafeInteger(raw.expectedRevision) || raw.expectedRevision !== old.revision)) fail("ข้อมูลเปลี่ยนแล้ว กรุณาโหลดสินค้าใหม่ก่อนบันทึก");
   if (p.collectionId !== null && !catalog.collections.some(c => c.id === p.collectionId && c.status !== "archived")) fail("Collection นี้ไม่พร้อมใช้งาน");
+  p.themeId ??= old?.themeId || defaultProductTheme(p.slug);
   p.imageKey = coverKey ?? (raw.coverRemove ? null : old ? (await db.prepare("SELECT image_key FROM products WHERE id=?").bind(id).first()).image_key : null);
   const token = crypto.randomUUID(), next = JSON.stringify({ ...p, status: "draft", operationToken: token });
   const guard = "EXISTS(SELECT 1 FROM audit_log a WHERE a.entity='products' AND a.entity_id=?1 AND json_extract(a.after,'$.operationToken')=?2)";
@@ -60,6 +64,7 @@ export async function saveDraft(env, actor, raw, id = null, coverKey = undefined
   }
   for (const [sleeve, price] of Object.entries(p.prices)) statements.push(db.prepare("INSERT INTO product_variants(product_id,sleeve,price_baht,active) SELECT id,?3,?4,1 FROM products WHERE slug=?1 AND status='draft' AND " + guard + " ON CONFLICT(product_id,sleeve) DO UPDATE SET price_baht=excluded.price_baht,active=1").bind(p.slug, token, sleeve, price));
   for (const [sort, size] of p.sizes.entries()) statements.push(db.prepare("INSERT INTO product_sizes(product_id,size,sort,active) SELECT id,?3,?4,1 FROM products WHERE slug=?1 AND status='draft' AND " + guard + " ON CONFLICT(product_id,size) DO UPDATE SET sort=excluded.sort,active=1").bind(p.slug, token, size, sort));
+  statements.push(db.prepare("INSERT INTO settings(key,value) SELECT 'product-theme:'||slug,?3 FROM products WHERE slug=?1 AND status='draft' AND " + guard + " ON CONFLICT(key) DO UPDATE SET value=excluded.value").bind(p.slug, token, JSON.stringify({ themeId: p.themeId })));
   let result;
   try { result = await db.batch(statements); } catch (error) {
     if (/UNIQUE constraint failed: products.slug/.test(String(error.message))) fail("รหัสสินค้านี้มีอยู่แล้ว กรุณาใช้รหัสอื่น");
