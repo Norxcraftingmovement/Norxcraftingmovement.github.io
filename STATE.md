@@ -1,43 +1,35 @@
 # STATE — NORX Website / Orders V2
-> จุดเริ่มต้นเท่านั้น: ตรวจ git HEAD/status และโค้ดจริงก่อนเสมอ; แทนที่ไฟล์นี้เมื่อจบ session
+> Start point only: verify git HEAD/status and current code first.
 
-As of: 28 พ.ย. 2026 · deployed source bc2b4d1 (HEAD อาจใหม่กว่าเพราะเอกสาร) · production ไม่แตะ
-กฎ: [CLAUDE.md](CLAUDE.md) · หลักฐาน: [TEST_REPORT](docs/TEST_REPORT.md#staging-rollout--27-nov-2026-codex) · ด่าน: [GO_LIVE_CHECKLIST](docs/GO_LIVE_CHECKLIST.md)
+As of 28 Nov 2026 · latest development: existing-product presentation drafts · no new deployment
+Rules: CLAUDE.md · Technical evidence: docs/TEST_REPORT.md · Status: https://trello.com/c/a89Pbdgg
+Single Writer; Codex solo self-review, never label it independent QA. Routine development/tests/development merges authorized. No production/cutover/Cloudflare writes without scoped owner approval; no installs. Original Claude checkouts untouched.
 
-## Staging ที่ใช้อยู่
-Public e1cabdf2 → Admin 27b04360 (ตามอนุมัติ); storefront ไม่เปลี่ยน. Bindings/runtime เท่าเดิม; ไม่เปลี่ยน routes/DNS/cron schedule/schema
-D1 marker staging ถูกตัว; สำรองนอก git. ก่อน/หลัง 25 orders / 29 items เท่ากัน; คิวรอส่ง 0; ตั้งผู้รับแจ้งเตือนและทดสอบส่งสำเร็จแล้ว. Public cron รายงานได้; Admin แสดงว่าขาดผู้รับถูกต้อง
-ตรวจหน้าหลังบ้าน 6 หน้า + mobile Orders ไม่พบ console error; Access gate 16/16 ปิดผู้ไม่ล็อกอิน (Codex solo post-deploy checks ไม่ใช่ independent QA)
-Rollback ก่อนรอบนี้: Public 26439a64, Admin 9aa87251; เก็บ D1 ไว้. Admin 589b707d เป็น fallback ที่บันทึกเดิมรับรอง; ห้าม eed44c52
+## Current development
+- Accepted Admin UX: warm beige/frosted surfaces, compact black/secondary pills, Sarabun and readable 44px actions. Overview/Orders/Production/Shipping/Settings/Products implemented, not rolled out. No decorative rings.
+- Products drafts: commercial draft creation/edit, one private cover on save, explicit preview gate; active/archived/referenced commercial data remain locked.
+- Two product themes: Home Terrain dark/orange; Woven Stride white/paper/grid. Complete source style blocks/body classes, shared preview markup and source-derived gallery/Lookbook/sizing fixtures. Versioned theme independent of fit. PR19 is the preceding merged baseline.
+- NEW: Products → แก้เนื้อหาหน้าเว็บ at /admin/products/:id/content/. Edit display heading/lead/story/theme, highlights, hero/grouped galleries/Lookbook, ordering/moving images, alt/captions, measured table columns/rows/units/notes. Active/referenced products may save a separate content draft; archived read-only. Never writes product prices/available sizes/rounds/status/orders.
+- Content draft uses existing settings + separate audit CAS revision in atomic batch, no migration. Strict payload/image provenance and bounded multipart saves. Preview invalidates on edit; private image reads require a current cover/content reference. See docs/PRODUCT_CONTENT_DRAFTS.md.
+- Media is LOCAL SIMULATION only: PRODUCT_MEDIA not bound on Cloudflare. New photos upload on save, not selection; old/uncertain bytes retained for recovery. No Publish or live page changes. Original product URLs/source remain intact; preview checkout/menu destinations/dates are not live.
+- Tests: 274 total / 273 pass / 1 existing skip / 0 fail. Browser 32/32 (content + draft + media + themes), 320/390/820/1440 checked; real render screenshots inspected. Developer-reported, solo self-review. See TEST_REPORT.
 
-## ด่านที่เหลือ
-- A1 ซอร์ส Apps Script = deployed V1: เขียวตามรายงานเดิม; ตรวจซ้ำก่อน cutover
-- A2: read-only smoke/visual staging ผ่าน; end-to-end รับบางส่วน/รับเงินพร้อมส่งมอบบน staging ยังค้าง (local 8 checkpoints ผ่านแล้ว)
-- A3: Public cron → Email binding → NORX inbox → personal inbox ผ่านหนึ่งฉบับด้วยข้อมูลสมมติ (27 พ.ย. 23:28 น.). ต้นฉบับยังอยู่ NORX; ไม่สร้างออเดอร์. ดู TEST_REPORT หัวข้อ Owner alert delivery. ยังไม่ใช่ full checkout/production test
-- A4: QR แอปธนาคาร/ทดสอบ QR staging และฉลากกระดาษยังค้าง
-- A5: นำเข้า 17 ออเดอร์/2 รอบ reconcile 0 diff ตามรายงานเดิม; เจ้าของตรวจตัวเลข
-- A6: ซ้อม rollback กับสำเนาชีต V1 จริงยังค้าง
-ขึ้นระบบเร็วที่สุดเมื่อด่านพร้อม; วันที่เดิมปรับได้ ไม่ข้าม Security Gate/QA/rollback
-
-## UX/UI update — development only
-Shared sidebar/mobile menu + compact Orders, refined to owner black/white references with warm off-white/frosted Overview per 28 Nov clarification; opaque operational data. Orders, Production, Settings and Shipping now share warm/frosted layers and compact actions. Shipping separates labels/downloads/tracking/actual shipment; versioned selection prevents late label results re-enabling stale actions. Production counts/receipt actions precede table; Settings grouped. Production rejection notice persists through quiet reload; scoped print rule restored main/table visibility. Existing confirmations/guards retained. Typography remains readable with 44px action targets. See DESIGN.md; orange remains experimental. Overview work list, Settings section anchors, notification deep-link reveal; not deployed. Local 8/8 workflow + 24 viewport checks pass; full 242: 241 pass / 1 skip / 0 fail. See TEST_REPORT: Monochrome reference refinement. Events/Media destinations retained; separate consoles unchanged.
-
-## Products draft preparation — development only
-Products แสดงแคตตาล็อก/ค้นหา/กรอง สร้างและแก้ร่าง ดูตัวอย่างข้อมูลได้; active/archived/มีออเดอร์อ่านอย่างเดียว. CAS revision + atomic audit/child writes; ไม่เปลี่ยนแคตตาล็อกสาธารณะหรือออเดอร์เก่า. ไม่มี migration/deploy. ดู TEST_REPORT: Products draft preparation. ต่อยอดรูปปกและพรีวิวแล้วตามหัวข้อถัดไป; ยังไม่มีสร้าง Collection ใหม่/เผยแพร่หรือหน้าเว็บสินค้าอัตโนมัติ
-
-## Products cover + template preview — development only
-เลือก/เปลี่ยน/นำรูปปกออก และพรีวิวมือถือ/คอมพิวเตอร์ก่อนบันทึก; แก้ข้อมูลแล้วต้องพรีวิวใหม่. ใช้ CSS จาก Home Terrain ที่ตรงกับเว็บออนไลน์ แต่ markup preview ใหม่ ยังไม่ใช่หน้าเผยแพร่/checkout. อัปโหลดตอนบันทึกร่างเท่านั้น; private cover uses existing image_key/CAS/audit, no migration. Browser 16/16; full 259:258 pass/1skip/0fail; solo self-review. PRODUCT_MEDIA เป็น binding ที่เสนอ ยังไม่เชื่อม Cloudflare; local storage จำลอง. ดู docs/PRODUCTS_MEDIA.md และ TEST_REPORT. รูปเก่าเก็บเพื่อ rollback แต่ URL ถูกเพิกถอนเมื่อไม่มี current reference
-
-## Product themes plan — 28 Nov, planning only
-ตรวจเว็บจริง GET200 + render desktop/mobile ของ Home Terrain และ Woven Stride; source ตรงกับ live ณ วันตรวจ. สองธีม: dark/orange vs white/paper/grid; gallery และ size columns ต่างกัน. ดู docs/PRODUCT_THEMES_PLAN.md = แผนหลัก. PR17 preview ใช้เพียง first Home Terrain style block ไม่ใช่ full theme parity. ถัดไปแยก Layout/Theme/Content และทำ 2-theme preview จาก fixtures เดิม แล้ว active-product content drafts/gallery/sizing, homepage/publish/rollback บน staging ตามอนุมัติ. ไม่แก้ runtime/deploy ในงานวิเคราะห์นี้
-
-## Two-theme preview — development milestone
-ลำดับ 1 ของ PRODUCT_THEMES_PLAN พัฒนาแล้ว: full CSS/body classes แยก dark/orange กับ paper/grid; shared markup + source fixtures hero/gallery/Lookbook/sizing. Draft เลือกธีมแยกจาก fit และเก็บ settings ใน atomic CAS/audit batch, ไม่มี migration. Existing active products ยังอ่านอย่างเดียว. Browser 24/24 และตรวจภาพ desktop/mobile; ผลชุดรวมดู TEST_REPORT. ไม่ deploy/เปลี่ยน storefront source/Events/Media. Lookbook static assets ต้องอยู่ใน staging build รอบที่จะอนุมัติ deploy
+## Last approved staging rollout (prior evidence; not rechecked live this turn)
+Source bc2b4d1: Public e1cabdf2 / Admin 27b04360. UX/Products/content drafts above not included.
+D1 identity verified and backed up before that rollout; order/item counts unchanged at 25/29; Access 16/16 gated. Mock owner email alert reached NORX and forwarded-copy personal inbox; original retained, no new order/sales. No customer email flow approval.
+Rollback before rollout: Public 26439a64 / Admin 9aa87251, keep D1. Do not use Admin eed44c52.
 
 ## Next exact action
-Products/Website: ทำตาม docs/PRODUCT_THEMES_PLAN.md ลำดับ 2: content drafts สำหรับหน้าเดิม พร้อมกลุ่มรูป จุดเด่น และตารางไซส์แยกแต่ละรุ่น โดยไม่ปลดล็อก commercial fields; เตรียม dedicated private storage/binding + staging Admin deploy ให้เจ้าของอนุมัติตาม CRITICAL ก่อนเปิดอัปโหลดจริง; แล้วตรวจ deployed preview/access/rollback. Gallery/Collection/size chart/Publish ยังเป็นรอบถัดไป. ต่อ A2 รับบางส่วน/รับเงินพร้อมส่งมอบบน staging ด้วยข้อมูลสมมติ และ A4/A6 ก่อน production/cutover. คำอนุมัติเมลรอบนี้ไม่ครอบคลุมส่งเมลลูกค้าจริง
-งานปกติ/ทดสอบ/รวมกิ่งพัฒนาทำต่อเอง ใช้ Single Writer; ถามเรื่องสำคัญต่อระบบ/ข้อมูล/วิธีใช้งาน. Claude ติดลิมิต ให้ Codex solo self-review และรายงานตามจริง
+Follow docs/PRODUCT_THEMES_PLAN.md stage 3: homepage editing + draft/published snapshots + explicit publish and rollback in local/synthetic staging preparation. Reuse product ids/URLs and theme renderer; complete preview/published parity and SEO delivery before claiming live management.
+Prepare dedicated private storage/binding + rebuilt Admin/static staging rollout/retention/rollback for scoped owner approval before any Cloudflare write. No general deployment approval inferred from ordinary development go-ahead.
 
-## ทิศทางระยะถัดไป
-NORX Management Platform: เจ้าของจัดการผ่าน Admin + Template; ต่อ Commerce/Orders = Products (Drop 04 → Preview → Publish) ใช้ schema/API เดิม รักษา snapshot ออเดอร์เก่า. ตามด้วย Website, Events, Content/Media, Routes/GPX, Analytics/SEO, Growth; ไม่รื้อ Phase เดิม
-Trello: https://trello.com/c/a89Pbdgg = สถานะ; GitHub = หลักฐาน; ไม่อ่านประวัติทั้งหมด
+## Remaining go-live gates
+- A1 source/deployed V1 and A5 masked import/reconcile were green in prior reports; owner figures/check again before cutover.
+- A2 partial production receipt + payment/handover end-to-end still needs deployed staging rehearsal; local tests do not replace it.
+- A3 owner alert delivery passed synthetic inbox test; not full customer mail/checkout.
+- A4 banking-app QR and physical printed labels; A6 rollback applied to a COPY of real V1 Sheet remain open.
+Keep security/approval/rollback gates; dates may move. Details: GO_LIVE_CHECKLIST and TEST_REPORT.
+
+## Roadmap and parked ideas
+NORX Management Platform: owner manages existing website and new products through Admin/templates. Then Website, Events, Content/Media, Routes/GPX, Analytics/SEO, Growth. Events existing runtime unchanged; full self-service event creation remains planned.
+Owner parked referral/discount/commission idea: necessary website management first, no pricing or payout work authorized. Keep in Trello backlog; no diversion.

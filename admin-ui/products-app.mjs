@@ -58,7 +58,7 @@ function renderList() {
     button.append(el("strong", "", p.name), el("span", "badge", statusText[p.status]), el("small", "muted", p.slug + " · " + (p.collectionName || "ไม่ระบุ Collection")), el("span", "product-open", p.editable ? "แก้ไขฉบับร่าง" : "ดูข้อมูล"));
     button.setAttribute("aria-pressed", String(current?.id === p.id));
     button.onclick = async () => { if (!busy && await leave()) { selectProduct(p); $("editorHeading").scrollIntoView({ block: "start" }); } };
-    li.append(button); list.append(li);
+    li.append(button); if(p.status !== "archived") { const contentLink=el("a", "product-content-link", "แก้เนื้อหาหน้าเว็บ"); contentLink.href="/admin/products/"+p.id+"/content/"; li.append(contentLink); } list.append(li);
   }
   if (!shown.length) list.append(el("li", "muted", products.length ? "ไม่พบสินค้าที่ตรงกับตัวกรอง" : "ยังไม่มีสินค้า เริ่มจากสร้างฉบับร่างใหม่"));
 }
