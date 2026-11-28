@@ -2,7 +2,7 @@
 import { UserError } from "./orders-core.mjs";
 import { listProducts } from "./product-drafts.mjs";
 import { validProductTheme } from "../admin-ui/product-theme-options.mjs";
-import { assets } from "./generated/orders-admin-assets.mjs";
+import { productSource } from "./generated/product-publication-assets.mjs";
 const bad = message => { throw new UserError(message); };
 const only = (value, keys) => { if (!value || typeof value !== "object" || Array.isArray(value) || Object.keys(value).some(k=>!keys.includes(k))) bad("ข้อมูลเนื้อหาไม่ถูกต้อง หน้านี้ไม่แก้ราคา ไซส์ขาย หรือสถานะสินค้า"); };
 const text = (value, max, required=false) => { if(typeof value!=="string" || value.length>max || /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/.test(value))bad("ตรวจข้อความและความยาวให้ถูกต้อง");const out=value.trim();if(required&&!out)bad("กรอกข้อมูลที่จำเป็นให้ครบ");return out; };
@@ -12,7 +12,7 @@ export async function getProductContent(env,id) {
   const product=(await listProducts(env)).products.find(p=>p.id===id);if(!product)bad("ไม่พบสินค้า");
   const db=env.ORDERS_DB, row=await db.prepare("SELECT value FROM settings WHERE key=?").bind("product-content:"+id).first();
   const revision=(await db.prepare("SELECT COALESCE(MAX(id),0) revision FROM audit_log WHERE entity='product-content' AND entity_id=?").bind(String(id)).first()).revision;
-  const fixture=JSON.parse(assets["product-content-defaults.json"].text)[product.slug];
+  const fixture=productSource.fixtures[product.slug];
   const defaults={themeId:product.themeId,heading:fixture?.heading||product.name,lead:fixture?.lead||product.fitName,description:product.description,highlights:[],hero:fixture?.hero||{src:product.coverUrl,alt:product.name,caption:""},gallery:fixture?.gallery||[],lookbook:fixture?.lookbook||[],sizing:fixture ? {...fixture.sizing,unit:"in"} : {unit:"in",headers:["ไซส์","อก","ยาว"],rows:product.sizes.map(s=>[s,"—","—"]),notes:["ยังไม่ระบุขนาดจริง"]}};
   let content=defaults;if(row){const stored=JSON.parse(row.value);if(stored.version!==1||!stored.content)throw Error("Unsupported content draft");content=stored.content;}
   return {product,content,defaults,revision,hasDraft:!!row,editable:product.status!=="archived",mediaReady:!!env.PRODUCT_MEDIA};

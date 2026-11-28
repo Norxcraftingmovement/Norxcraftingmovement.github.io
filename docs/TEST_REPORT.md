@@ -277,3 +277,7 @@ Developer-reported, Codex solo self-review; local synthetic only. No Cloudflare 
 - Publication endpoints fail closed outside explicitly enabled staging and always require owner identity. Only the local simulator enables the flag and maps the published test home to root. No actual Cloudflare configuration/routes/storage changed. Private historical images remain owner-only; public test media requires current snapshot reference. Rollback across different renderer versions requires compatibility review. All results are developer-reported, not independent/deployed QA.
 - Integration: preserved upstream PR21 rounds/event-name/migration 0003/shop.js and PR22 AGENTS/CLAUDE/owner guide. Resolved STATE and regenerated Admin assets from both scopes; rechecked all 40 browser workflows and round-dialog open/close with 12 inputs/no JS exceptions. Application suite passed during the pending merge; preflight Git behind gate cleared only after committing the integration. No remote migration/deploy.
 - Next: product-content published snapshots/parity/rollback, then separately approved storage + Admin/Public/static staging rollout and existing go-live gates. See WEBSITE_HOME_MANAGEMENT.md.
+
+## Product publication / rollback — local synthetic only (28 Nov 2026)
+
+Canonical validation and limitations: [PRODUCT_PUBLICATION.md](PRODUCT_PUBLICATION.md). Developer-reported, solo self-review; no deployed/independent QA or Cloudflare writes.

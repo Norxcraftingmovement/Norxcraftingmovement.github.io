@@ -57,8 +57,9 @@ D1/R2 rehearsal is still required. No public image route or public draft endpoin
 
 ## Next and rollout boundary
 
-Next is homepage editing, published snapshots and rollback on approved staging. Full publish parity,
-customer checkout and SEO delivery remain separate work. This release neither deploys nor changes
+Homepage editing and product publication/rollback now have local synthetic implementations; see
+[PRODUCT_PUBLICATION.md](PRODUCT_PUBLICATION.md) for the current scope and validation. Actual deployed
+publication, full checkout completion and SEO delivery remain separate work. This release neither deploys nor changes
 the online static product pages, commercial API, live Events/Media, DNS, bindings or cron.
 Before real image use: approve dedicated private storage/binding and Admin/static staging rollout,
 back up D1, verify identity and Access gates, then rehearse multi-image save/cleanup, conflicting edits,
