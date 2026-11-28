@@ -226,3 +226,4 @@ button.danger-text:hover:not(:disabled){background:#fff0ee;border-color:var(--da
 }
 @media(max-width:380px){.mobile-nav>summary span{display:none}}
 @media print{body main{width:100%;max-width:none;margin:0;padding:0}.admin-shell{display:none!important}}
+fieldset{min-width:0}

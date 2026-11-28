@@ -1,9 +1,11 @@
 # NORX Website (Orders V2) — rules for AI sessions
 The owner speaks Thai and is not a coder: answer in plain Thai. Code and docs may be English.
 
-## Start of a session (nothing more than this)
-1. Read `STATE.md` — a start point only, it can be stale. 2. `git log -1`, `git status`; git and the code win over the file.
-3. Trello: status card description + latest comment only (`list_comments` with `limit 1`); never read the whole old card.
+## Session start — one checklist for every AI
+1. Read this file and `STATE.md` only; verify `git status`, `git log -1`, `git fetch origin` and compare the intended branch/remote. Check applicable open PRs and the Trello status header/latest comment only. Git, approved decisions and code win over stale notes.
+2. Report in at most 5 plain-Thai lines: branch/HEAD, sync, verified/unverified, next action, approvals. If the owner only says "ต่อ", report and wait for direction. If an explicit task is already authorized and no conflict/approval gate applies, proceed without asking again.
+3. Missing rules, behind/diverged checkout, conflicting work/PR or unavailable remote: warn first and stop writing until resolved. A known unrelated PR is not a reason to restart the whole project.
+4. One writer per task/scope. Claim scope in the status header before editing; use one task branch/PR. No parallel edits to overlapping files; Trello is coordination, not a guaranteed atomic lock. Release only after a durable checkpoint or clearly report unsynced work.
 
 ## Boundaries (owner-approved, unchanged)
 - Work on `feature/orders-v2`; single writer. Never touch `feature/cloudflare-migration`, never force-push, never merge into production.
@@ -25,8 +27,9 @@ The owner speaks Thai and is not a coder: answer in plain Thai. Code and docs ma
 - The owner assigned Codex to work solo while Claude is rate-limited. For this workflow fix, do a separate self-review and label it "solo self-review", not "independent QA"; do not block on Claude. Other go-live gates remain in place.
 - Explain outcomes, impact and next actions in plain Thai for a non-coder. Update Trello for material milestones and changed decisions, linking GitHub evidence.
 
-## Reporting without duplicates
-GitHub = technical evidence. Trello = status only (state, next action, approvals needed, links). Write a result once and link to it; do not copy it into Trello + HANDOVER + GO_LIVE + TEST_REPORT. `docs/HANDOVER.md` is append-only history: grep it, do not read it whole. At the end of a session replace `STATE.md`.
+## Checkpoint and reporting — once, not everywhere
+GitHub = technical truth and test evidence; Trello = owner-facing status (writer, current task, last result, next action, approval, links). Read only the status header and latest comment. Keep detailed evidence in its existing canonical document/PR; do not duplicate it into HANDOVER, GO_LIVE, TEST_REPORT and Trello. HANDOVER is history: grep relevant sections.
+At each meaningful safe milestone, before switching tools/machines or nearing the usage cap: commit/push the authorized task branch after preflight; replace the short `STATE.md` summary with status, evidence links, next action and remaining gates. Use a WIP checkpoint when appropriate, never force-push or expose secrets. If push fails, report that local work is NOT recoverable from GitHub; do not claim a handoff. Update the Trello header and one ≤10-line milestone comment, then release the writer after a verified checkpoint. No need to paste conversation history.
 
 ## Windows tooling facts
 - Run wrangler as `node scripts/wrangler.mjs …` (`npx.cmd` mangles SQL/quotes; PowerShell blocks `npx.ps1`). `--mask` hides uuids and presigned URLs when output will be shown.
@@ -34,8 +37,8 @@ GitHub = technical evidence. Trello = status only (state, next action, approvals
 - System `core.autocrlf=true`: use `-c core.autocrlf=false` for byte-exact tests and commits. Do not use `python3 -` heredocs (they hang); use the Edit/Write tools.
 - After any Admin deploy open every Admin page and look at it (console and visuals): an inline `//` comment inside a one-line `admin-ui` statement once shipped a SyntaxError.
 
-## Efficiency
-Batch independent tool calls; send `update_plan` together with another call; read big files by range or grep; keep tool output to counts and verdicts. One session per milestone — start a new one when context passes ~200K tokens.
-
-## Token budget (owner direction, 2026-11-27)
-Read relevant ranges/diffs, reuse verified facts and tool handles, batch independent checks and return counts/verdicts. Keep raw logs private. Scripts first, browser for UI/inbox proof. Do not repeat passing checks without a new reason. Keep one GitHub evidence record and one linked Trello milestone. Security and approval gates remain unchanged.
+## Context and resource discipline
+- One objective per session. Read relevant files/ranges/diffs, not raw histories; reuse verified facts and batch independent checks. Return counts/verdicts rather than raw logs. Scripts first; browser for visual/functional UI or inbox evidence.
+- Use the simplest sufficient skill, model and tool. One AI by default; use Codex plugin/delegation or independent reviewers only when they materially reduce risk/time, including mandatory critical gates. No parallel writers. Do not repeat a passing check without changed input/new evidence.
+- Watch context pressure and usage limits; checkpoint before compacting or switching, and use a new session for a new objective. No model-independent token cutoff. When limits hit, use the other authorized tool only after handoff; if both are unavailable, stop safely. No automatic billing, quota bypass or installation.
+- Choose FAST/STANDARD/CRITICAL by existing triggers, not by the amount of documentation. All security, quality, rollback and approval boundaries above remain unchanged.

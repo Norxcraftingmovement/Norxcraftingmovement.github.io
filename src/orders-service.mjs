@@ -22,7 +22,7 @@ export const putSetting = (env, key, value) => env.ORDERS_DB.prepare("INSERT INT
 // ---------- catalog / rounds -> core shapes ----------
 const roundOut = (r) => ({
   id: r.code, dbId: r.id, name: r.name, opensAt: r.opens_at, closesAt: r.closes_at, paymentDue: r.payment_due_at, state: r.status,
-  shipping: r.shipping_baht, supplierShipping: r.supplier_shipping_baht, deliveries: JSON.parse(r.deliveries).filter((d) => core.DELIVERY[d]), readyText: r.ready_text, sentAt: r.sent_at,
+  shipping: r.shipping_baht, supplierShipping: r.supplier_shipping_baht, deliveries: JSON.parse(r.deliveries).filter((d) => core.DELIVERY[d]), readyText: r.ready_text, sentAt: r.sent_at, eventName: r.event_name ?? "",
 });
 export async function loadConfig(env) {
   const db = env.ORDERS_DB;
@@ -59,7 +59,7 @@ export async function publicConfig(env, now) {
   const store = await getSetting(env, "storefront");
   if (!store?.bank) return { ok: false, error: "ระบบสั่งซื้อยังไม่พร้อม กรุณาทักเพจ NORX" };
   const c = await loadConfigRolling(env, now, store);
-  const pub = (r) => (r ? { id: r.id, name: r.name, opensAt: r.opensAt, closesAt: r.closesAt, paymentDue: r.paymentDue, shipping: r.shipping, deliveries: r.deliveries, readyText: r.readyText } : null);
+  const pub = (r) => (r ? { id: r.id, name: r.name, opensAt: r.opensAt, closesAt: r.closesAt, paymentDue: r.paymentDue, shipping: r.shipping, deliveries: r.deliveries, readyText: r.readyText, eventName: r.eventName || "" } : null);
   return { ok: true, testOnly: store.liveEnabled !== true, rolling: store.rolling === true, serverNow: now, bank: store.bank, chatUrl: store.chatUrl, pageUrl: store.pageUrl, eventName: store.eventName,
     products: c.products, round: pub(core.currentRound(c, now)), nextRound: pub(core.nextRound(c, now)) };
 }
@@ -268,18 +268,21 @@ export async function saveRound(env, actor, b) {
   const ship = Number(b.shipping), sup = Number(b.supplierShipping);
   if (!Number.isSafeInteger(ship) || ship < 0 || ship > 1000 || !Number.isSafeInteger(sup) || sup < 0 || sup > 5000) throw new UserError("ค่าส่งไม่ถูกต้อง");
   const ready = String(b.readyText || "").trim().slice(0, 120);
+  // The event name belongs to the "pickup at an event" option: required when it is offered, dropped when it is not.
+  const eventName = dl.includes("event") ? String(b.eventName ?? "").trim().replace(/\s+/g, " ") : "";
+  if (dl.includes("event") && (eventName.length < 1 || eventName.length > 120)) throw new UserError("กรุณาใส่ชื่อกิจกรรมสำหรับตัวเลือก \"รับที่งาน\" (ไม่เกิน 120 ตัวอักษร)");
   if (b.id) {
     const cur = config.rounds.find((r) => r.id === b.id);
     if (!cur) throw new UserError("ไม่พบรอบ");
     if (cur.state === "sent") throw new UserError("รอบที่ส่งร้านแล้วแก้ไม่ได้");
     if (cur.state === "open") checkOverlap({ opensAt: o, closesAt: c }, config.rounds.filter((r) => r.id !== b.id));
-    await env.ORDERS_DB.prepare("UPDATE rounds SET name=?2,opens_at=?3,closes_at=?4,payment_due_at=?5,shipping_baht=?6,supplier_shipping_baht=?7,deliveries=?8,ready_text=?9 WHERE code=?1 AND status!='sent'").bind(b.id, name, o, c, d, ship, sup, J(dl), ready).run();
-    await audit(env, actor, "round.update", b.id, cur, { name, o, c, d, ship, sup, dl });
+    await env.ORDERS_DB.prepare("UPDATE rounds SET name=?2,opens_at=?3,closes_at=?4,payment_due_at=?5,shipping_baht=?6,supplier_shipping_baht=?7,deliveries=?8,ready_text=?9,event_name=?10 WHERE code=?1 AND status!='sent'").bind(b.id, name, o, c, d, ship, sup, J(dl), ready, eventName).run();
+    await audit(env, actor, "round.update", b.id, cur, { name, o, c, d, ship, sup, dl, eventName });
     return { id: b.id };
   }
-  const r = await env.ORDERS_DB.prepare(`INSERT INTO rounds(code,name,opens_at,closes_at,payment_due_at,shipping_baht,supplier_shipping_baht,deliveries,ready_text,status)
-    VALUES ('ROUND-'||printf('%03d',(SELECT COALESCE(MAX(CAST(SUBSTR(code,7) AS INTEGER)),0)+1 FROM rounds)),?1,?2,?3,?4,?5,?6,?7,?8,'draft') RETURNING code`).bind(name, o, c, d, ship, sup, J(dl), ready).first();
-  await audit(env, actor, "round.create", r.code, null, { name });
+  const r = await env.ORDERS_DB.prepare(`INSERT INTO rounds(code,name,opens_at,closes_at,payment_due_at,shipping_baht,supplier_shipping_baht,deliveries,ready_text,status,event_name)
+    VALUES ('ROUND-'||printf('%03d',(SELECT COALESCE(MAX(CAST(SUBSTR(code,7) AS INTEGER)),0)+1 FROM rounds)),?1,?2,?3,?4,?5,?6,?7,?8,'draft',?9) RETURNING code`).bind(name, o, c, d, ship, sup, J(dl), ready, eventName).first();
+  await audit(env, actor, "round.create", r.code, null, { name, eventName });
   return { id: r.code };
 }
 const audit = (env, actor, action, id, before, after) => env.ORDERS_DB.prepare("INSERT INTO audit_log(actor_hash,action,entity,entity_id,before,after) VALUES (?1,?2,'rounds',?3,?4,?5)").bind(actor, action, id, before == null ? null : J(before), after == null ? null : J(after)).run();

@@ -6,8 +6,10 @@
 <div id="notice" class="notice" role="status" hidden></div>
 <div id="fresh" class="notice" hidden>มีการเปลี่ยนแปลงใหม่ <button type="button" class="secondary small" id="showFresh">แสดงเลย</button></div>
 <section class="panel round-selector" aria-labelledby="rh"><h2 id="rh">รอบสั่งซื้อ</h2>
-<label class="f" for="round">เลือกรอบ</label><select id="round"></select>
-<details id="roundDetails" class="section-details"><summary>ยอดและการจัดการรอบ</summary><div id="roundBox"></div></details></section>
+<label class="f" for="round">เลือกรอบ</label><select id="round"></select> <button type="button" class="secondary small" id="newRound">+ สร้างรอบใหม่</button>
+<details id="roundDetails" class="section-details"><summary>ยอดและการจัดการรอบ</summary><div id="roundBox"></div>
+<fieldset id="rollingBox" class="mt"><legend>รอบอัตโนมัติ</legend><label><input type="checkbox" id="rolling" disabled> สร้างและเปิดรอบรายสัปดาห์ต่อให้อัตโนมัติ</label>
+<p class="muted" id="rollingHint">กำลังโหลด…</p></fieldset></details></section>
 <section class="panel mt2" aria-labelledby="oh"><h2 id="oh">รายการออเดอร์</h2>
 <div class="row"><input id="q" type="search" placeholder="ค้นหาเลขออเดอร์ ชื่อ หรือเบอร์" aria-label="ค้นหา"><select id="status" class="auto" aria-label="กรองสถานะ"><option value="">ทุกสถานะ</option><option>รอโอน</option><option>ชำระแล้ว</option><option>จ่ายหน้างาน</option><option>ส่งร้านแล้ว</option><option>ส่งมอบแล้ว</option><option>ยกเลิก</option></select></div>
 <p id="reviewQueue" hidden><span id="reviewQueueText"></span> · <a href="/admin/orders/">ดูออเดอร์ทั้งหมด</a></p>
@@ -17,4 +19,17 @@
 </main>
 <dialog id="dlg" aria-labelledby="dlgT"><form method="dialog" id="dlgForm" novalidate><h2 id="dlgT"></h2><p id="dlgP"></p><div id="dlgIn" hidden><label class="f" for="dlgInput" id="dlgL"></label><input id="dlgInput" inputmode="numeric" autocomplete="off"></div><div id="dlgIn2" hidden><label class="f" for="dlgInput2" id="dlgL2"></label><input id="dlgInput2" autocomplete="off" maxlength="40"></div><div id="dlgErr" class="notice err" hidden></div>
 <div class="row"><button type="submit" id="dlgOk">ยืนยัน</button><button type="button" class="secondary" id="dlgNo">ยกเลิก</button></div></form></dialog>
+<dialog id="roundDlg" aria-labelledby="roundH"><form id="roundForm" novalidate><h2 id="roundH"></h2><p class="muted" id="roundHint"></p>
+<label class="f" for="rName">ชื่อรอบ</label><input id="rName" maxlength="60" autocomplete="off">
+<label class="f" for="rOpen">เปิดรับ (เวลาไทย)</label><input id="rOpen" type="datetime-local">
+<label class="f" for="rClose">ปิดรับ (เวลาไทย)</label><input id="rClose" type="datetime-local">
+<label class="f" for="rDue">โอนเงินภายใน (เวลาไทย)</label><input id="rDue" type="datetime-local">
+<fieldset><legend>วิธีรับสินค้า</legend><span id="rDeliveries"></span></fieldset>
+<div id="rEventWrap" hidden><label class="f" for="rEvent">ชื่อกิจกรรม (ลูกค้าจะเห็นเป็น "รับที่งาน …")</label><input id="rEvent" maxlength="120" autocomplete="off" placeholder="เช่น ชื่องานวิ่งหรืองานตลาด"></div>
+<label class="f" for="rShip">ค่าส่งลูกค้า (บาท ต่อออเดอร์)</label><input id="rShip" inputmode="numeric" autocomplete="off">
+<label class="f" for="rSup">ค่าส่งร้าน (บาท)</label><input id="rSup" inputmode="numeric" autocomplete="off">
+<label class="f" for="rReady">ข้อความวันที่สินค้าพร้อม (ไม่บังคับ)</label><input id="rReady" maxlength="120" autocomplete="off">
+<fieldset id="rOpenNowL"><label><input type="checkbox" id="rOpenNow"> เปิดรับอัตโนมัติ: ระบบเปิดให้ลูกค้าสั่งเองเมื่อถึงเวลา "เปิดรับ" ที่ตั้งไว้ และปิดเองเมื่อถึงเวลา "ปิดรับ" (ถ้าไม่ติ๊ก รอบเป็นฉบับร่าง ต้องกด "เปิดรับ" เอง)</label></fieldset>
+<div id="rErr" class="notice err" hidden></div>
+<div class="row"><button type="submit" id="rSave">บันทึก</button><button type="button" class="secondary" id="rCancel">ยกเลิก</button></div></form></dialog>
 <script type="module" src="/admin/assets/orders-app.mjs?v=batch-operations"></script></body></html>
