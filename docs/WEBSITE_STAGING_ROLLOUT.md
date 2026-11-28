@@ -1,0 +1,109 @@
+# Website management: online staging rehearsal proposal
+
+28 Nov 2026. Preparation only; **no Cloudflare write is authorized by this document**.
+Scope derives from PR25. PR24 Help remains a separate draft, excluded from this candidate.
+
+## What the owner will try
+
+Sign in to the existing staging Admin, upload synthetic/example product photos, edit homepage/product content,
+preview and save drafts, explicitly publish a saved candidate, inspect it through the private test link and roll back.
+First rehearsal uses `/api/site/home` and `/api/site/products/drop03` or `drop02`; images/CSS/runtime use `/api/site/*`.
+Staging root and original product URLs continue serving the static baseline in this first rollout.
+Automatically replacing those URLs requires a separate routing implementation/review; this proposal does not claim that is deployed.
+The production website, V1, Events/Media runtime, real orders/payments and customer email are outside scope.
+
+## Readiness observed
+
+- GitHub development base: PR25 merge `3d79bdc`; clean/synchronized at preparation start.
+- Wrangler 4.168.0 already cached; no install. All three private candidate configs passed `deploy --dry-run`, no upload.
+  Admin 903.71 KiB (gzip 215.01); Public 244.26 KiB (gzip 52.57); assets-only entry 0.37 KiB.
+- Read-only Cloudflare checks: configured account is accessible; database name AND ID match `norx-orders-staging`.
+  Migration `0003_round_event_name.sql` is pending. Proposed product bucket does not exist.
+- Current active deployments read back at 100%: Admin `27b04360`, Public `e1cabdf2`, storefront `3bcf6749`.
+  Full IDs and read results stay private in `.staging/website/rollback-baseline.json` and adjacent ignored files.
+  Re-read immediately before any deployment; these are observed baselines, not an immutable live-state guarantee.
+- New config tests 4/4. Application suite 306 total / 305 pass / 1 existing skip / 0 fail.
+  Preflight's synthetic UUID finding was explicitly marked as a fake fixture; final sensitive scan/hygiene passed.
+  PR25's 48/48 browser results remain prior local evidence; no deployed UI/R2 rehearsal has been performed.
+
+## Candidate generation, offline only
+
+`node scripts/prepare-website-staging.mjs --from <private-staging-input-directory>`
+
+Reads the prior `deploy-admin.json` and `deploy-public.json` privately; emits three configs in ignored `.staging/website/`.
+Rejects mismatched account/DB/Access policy, non-staging labels/names, wrong origins and weakened owner gate.
+Access owner hash is retained independently of the notification destination; it is never re-derived from that address.
+Uses committed notification/rate-limit/cron settings; **current live bindings, secrets, schedules and vars must be compared before deploying**.
+Any unexplained difference stops rollout; do not overwrite a dashboard change or change mail/cron/security as a side effect.
+Existing generic staging renderer/preflight still reject R2. The new opt-in validator permits only the dedicated bucket below.
+No routes, domains, workers.dev, preview URLs or billing settings are enabled by these configs.
+
+```powershell
+node scripts/build-orders-admin-assets.mjs
+node scripts/build-staging-storefront.mjs
+node scripts/wrangler.mjs deploy --dry-run -c .staging/website/wrangler.orders.jsonc
+node scripts/wrangler.mjs deploy --dry-run -c .staging/website/wrangler.orders-public.jsonc
+node scripts/wrangler.mjs deploy --dry-run -c .staging/website/wrangler.staging-storefront.jsonc
+```
+
+Dry-run output contains private bindings. Keep stdout/stderr in ignored files; report verdicts only.
+`WRANGLER_LOG_PATH` may point inside `.staging/website/` on sandboxed Windows.
+
+## Exact write scope to approve before executing
+
+1. Create one private R2 bucket `norx-product-content-staging`; no r2.dev/custom domain/public access, CORS,
+   lifecycle deletion, Events/Media bucket, paid-plan change or billing action.
+2. Bind `PRODUCT_MEDIA` to that bucket for the two Orders staging Workers; enable `WEBSITE_MANAGEMENT_ENABLED=1`.
+   Public also gets the staging `ORDERS_ALLOWED_ORIGIN`. Existing owner Access/DB/rate-limit/mail settings stay intact.
+3. After verifying account, staging DB marker/schema/pending list and a **fresh local backup export**, apply only pending
+   migration 0003. It adds `rounds.event_name` with empty default (fallback to existing event name). Do not seed, import,
+   reset the DB, change payment settings or migrate any production database. If any other migration is pending, stop.
+4. Deploy current approved source to the three existing staging Workers; no production or V1 deployment.
+5. Add only the route `staging.norxcraftingmovement.com/api/site/*` → `norx-orders-public-staging`, if absent.
+   Retain the existing routes and whole-host owner-only Access. No DNS/Access policy edit or original-page remapping.
+6. Owner-approved synthetic rehearsal only: draft/image/history writes and explicit test publications/rollback.
+   No customer orders, real payment/QR or email send is authorized by this scope.
+
+Commands below are a review list, **not a script to run unattended**. The owner's approval must cover these specific writes.
+Use the verified candidate account and configs; preserve the full active deployment IDs privately for rollback.
+
+```powershell
+node scripts/wrangler.mjs d1 export norx-orders-staging --remote -c .staging/website/wrangler.orders.jsonc --output .staging/website/before-website.sql
+# Verify readable backup, marker/schema/count baseline and migration list before proceeding.
+node scripts/wrangler.mjs r2 bucket create norx-product-content-staging -c .staging/website/wrangler.orders.jsonc
+node scripts/wrangler.mjs d1 migrations apply norx-orders-staging --remote -c .staging/website/wrangler.orders.jsonc
+node scripts/wrangler.mjs deploy -c .staging/website/wrangler.orders.jsonc
+node scripts/wrangler.mjs deploy -c .staging/website/wrangler.orders-public.jsonc
+node scripts/wrangler.mjs deploy -c .staging/website/wrangler.staging-storefront.jsonc
+# Owner/dashboard: only the exact /api/site/* route above; capture its previous state first.
+```
+
+The bucket command pins account selection through the verified private candidate config.
+Do not omit that config when more than one account is accessible.
+
+## Acceptance and stop conditions
+
+Before sharing any link, run the existing anonymous Access gate, then independently probe new paths:
+`/admin/website/`, `/admin/products/1/content/`, `/api/admin/website/home`, `/api/admin/products/1/content`,
+both review/publish POST endpoints, `/api/site/home`, `/api/site/products/drop03`, CSS/runtime and a private media URL.
+Every anonymous request must stop at Access without application content. Application 200/404 or worker-level
+`ACCESS_REQUIRED` content is not evidence of an edge gate. Route and Access mismatch stop the rehearsal.
+
+With an owner session: open **every** Admin page; test 360/390/768/1440 widths visually and functionally.
+Upload JPG/PNG/WebP, failed-save retry, draft privacy, fresh-preview confirmation, renderer/version rejection,
+publication and rollback retaining the latest draft. Check private historical media versus current published references.
+Compare DB order/item counts and commercial snapshots before/after; no sales/round/payment mutations are expected.
+Check both themes and current catalog picker/cart without submitting checkout. Record mail queue and cron baseline;
+do not create an order to test email under this approval. Owner acceptance is separate from developer self-review.
+
+## Retention and rollback
+
+Retain current drafts, publication heads, all snapshots, referenced objects and uncertain uploads. No R2 lifecycle or
+old-object garbage collection in this rehearsal. Keep the baseline export encrypted/access-controlled locally.
+For content mistakes, use the reviewed snapshot rollback. For code/routing/security failure, stop test writes, restore
+the three freshly captured 100% deployments and the prior /api/site route state; recheck the edge gate.
+Keep D1 and R2 intact. The additive column may remain when reverting code; do not drop it or restore an old DB over
+new writes. A database restore is a separate recovery decision requiring reconciliation and approval.
+Never use Admin `eed44c52`. Prior historical rollback IDs are not substitutes for the fresh captured active baseline.
+
+Go-live and production gates in `GO_LIVE_CHECKLIST.md` remain unchanged. No cutover is included.
