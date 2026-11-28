@@ -6,6 +6,7 @@ import {join} from "node:path";
 import {tmpdir} from "node:os";
 import {fileURLToPath} from "node:url";
 import {assets} from "../src/generated/orders-admin-assets.mjs";
+import {productThemeSources} from "../scripts/product-theme-sources.mjs";
 // Added after an R5 edit put a // comment in the middle of a one-line statement: the Admin shipping page shipped to staging with a
 // SyntaxError and no test noticed, because the browser modules were only ever loaded by a browser. Every Admin script is syntax-checked here.
 const dir=fileURLToPath(new URL("../admin-ui/",import.meta.url));
@@ -29,6 +30,12 @@ test("the GENERATED assets that the Worker actually serves parse too",()=>{
 test("the generated module is in step with admin-ui (nobody edited a page and forgot to regenerate)",()=>{
   for(const [n,a] of Object.entries(assets)){
     if(a.text===undefined||!n.endsWith(".mjs"))continue;
+    if(n === "product-theme-fixtures.mjs") {
+      const prefix = "// GENERATED from current product pages; read-only preview fixtures.\nexport const productFixtures = ";
+      assert.ok(a.text.startsWith(prefix) && a.text.endsWith(";\n"));
+      assert.deepEqual(JSON.parse(a.text.slice(prefix.length,-2)),productThemeSources().fixtures,"served fixtures differ from current product pages");
+      continue;
+    }
     const src=readFileSync(join(dir,n),"utf8").replace(/\r\n/g,"\n");assert.equal(a.text.replace(/\r\n/g,"\n"),src,n+" differs from admin-ui/"+n);
   }
 });

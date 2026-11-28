@@ -8,6 +8,7 @@
 import { cpSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { join, extname, basename } from "node:path";
+import { writeProductLookbookAssets } from "./product-theme-sources.mjs";
 const root = fileURLToPath(new URL("../", import.meta.url)), defaultOut = join(root, "dist-staging");
 export const STAGING_ORIGIN = "https://staging.norxcraftingmovement.com";
 const include = ["index.html", "shop.js", "assets", "cart", "home-terrain", "woven-stride", "community", "pay"]; // no events/, no admin/
@@ -31,6 +32,7 @@ export function build(out = defaultOut) {
   rmSync(out, { recursive: true, force: true }); mkdirSync(out, { recursive: true });
   const realQr = join(root, "assets", REAL_QR_FILE);
   for (const p of include) cpSync(join(root, p), join(out, p), { recursive: true, filter: (src) => src !== realQr });
+  writeProductLookbookAssets(out);
   let rewrites = 0, qrRemoved = 0;
   for (const f of walk(out).filter((f) => extname(f) === ".html")) { const r = transformHtml(readFileSync(f, "utf8")); writeFileSync(f, r.html); rewrites += r.apiRewrites; qrRemoved += r.qrRemoved; }
   writeFileSync(join(out, "robots.txt"), "User-agent: *\nDisallow: /\n");

@@ -52,7 +52,7 @@ test("post-commit read failure must not delete an accepted image",async()=>{
 });
 test("preview escapes all product text, denies arbitrary cover URLs and contains no checkout runtime",()=>{
   const html=productTemplate(draft({name:'<script>alert(1)</script>',description:'<img src=x onerror=alert(1)>',sizes:['<svg/onload=alert(1)>']}),'https://evil.test/track.png');
-  assert.ok(!html.includes('<script>'));assert.ok(!html.includes('<img '));assert.ok(html.includes('&lt;script&gt;'));assert.ok(html.includes("script-src 'none'"));assert.ok(!html.includes('shop.js'));assert.ok(!html.includes('script.google'));
+  assert.ok(!html.includes('<script>'));assert.equal((html.match(/<img /g)||[]).length,1);assert.ok(!html.includes('https://evil.test'));assert.ok(!html.includes('<img src=x')); assert.ok(html.includes('&lt;script&gt;'));assert.ok(html.includes("script-src 'none'"));assert.ok(!html.includes('shop.js'));assert.ok(!html.includes('script.google'));
 });
 test("preview CSS shares current storefront stylesheet and only Products may frame previews",async()=>{
   const source=readFileSync(new URL('../home-terrain/index.html',import.meta.url),'utf8').match(/<style>([\s\S]*?)<\/style>/)[1];assert.ok(assets['product-template.css'].text.startsWith(source));

@@ -1,5 +1,7 @@
 import { $, api, notice, el } from "./common.mjs";
 import { productTemplate } from "./product-template.mjs";
+import { PRODUCT_THEMES, defaultProductTheme } from "./product-theme-options.mjs";
+import { productFixtures } from "./product-theme-fixtures.mjs";
 const statusText = { draft: "ฉบับร่าง", active: "เปิดขาย", archived: "เก็บไว้" };
 let mediaReady = false, coverFile = null, coverUrl = "", coverRemoved = false, imageBusy = false, imageVersion = 0, reviewed = "";
 let products = [], collections = [], current = null, dirty = false, busy = false, ready = false;
@@ -12,8 +14,8 @@ const leave = async () => {
     dialog.oncancel = event => { event.preventDefault(); done(false); }; dialog.onclose = () => resolve(false); dialog.showModal();
   });
 };
-const fields = ["productName", "productShort", "productSlug", "productCollection", "productFit", "productFitName", "priceShort", "priceLong", "productSizes", "productDescription"];
-const input = () => ({ slug: $("productSlug").value, name: $("productName").value, shortName: $("productShort").value, fit: $("productFit").value, fitName: $("productFitName").value, description: $("productDescription").value, collectionId: $("productCollection").value ? Number($("productCollection").value) : null, prices: Object.fromEntries([["short", $("priceShort").value], ["long", $("priceLong").value]].filter(([, value]) => value !== "").map(([key, value]) => [key, Number(value)])), sizes: $("productSizes").value.split(",").map(s => s.trim()).filter(Boolean) });
+const fields = ["productName", "productShort", "productSlug", "productCollection", "productFit", "productFitName", "priceShort", "priceLong", "productSizes", "productDescription", "productTheme"];
+const input = () => ({ slug: $("productSlug").value, name: $("productName").value, shortName: $("productShort").value, fit: $("productFit").value, fitName: $("productFitName").value, description: $("productDescription").value, themeId: $("productTheme").value, collectionId: $("productCollection").value ? Number($("productCollection").value) : null, prices: Object.fromEntries([["short", $("priceShort").value], ["long", $("priceLong").value]].filter(([, value]) => value !== "").map(([key, value]) => [key, Number(value)])), sizes: $("productSizes").value.split(",").map(s => s.trim()).filter(Boolean) });
 function preview() {
   const p = input();
   $("previewStatus").textContent = current ? statusText[current.status] + (current.status === "draft" ? " · ยังไม่เปิดขาย" : " · ดูข้อมูล") : "ฉบับร่าง · ยังไม่เปิดขาย";
@@ -38,10 +40,12 @@ function selectProduct(product) {
   current = product; dirty = false; notice($("productError"), "");
   const fit = product?.fit || "boxy";
   $("productFit").replaceChildren(...[["boxy", "Boxy"], ["regular", "ทรงปกติ"], ...(!["boxy", "regular"].includes(fit) ? [[fit, product.fitName]] : [])].map(([value, label]) => { const o = el("option", "", label); o.value = value; return o; }));
-  const values = [product?.name || "", product?.shortName || "", product?.slug || "", product?.collectionId || "", fit, product?.fitName || "ทรง Boxy", product?.prices.short ?? "", product?.prices.long ?? "", product?.sizes.join(", ") || "", product?.description || ""];
+  const values = [product?.name || "", product?.shortName || "", product?.slug || "", product?.collectionId || "", fit, product?.fitName || "ทรง Boxy", product?.prices.short ?? "", product?.prices.long ?? "", product?.sizes.join(", ") || "", product?.description || "", product?.themeId || defaultProductTheme(product?.slug)];
   fields.forEach((id, i) => { $(id).value = values[i]; }); $("productSlug").readOnly = !!product;
   $("editorHeading").textContent = product ? product.name : "ฉบับร่างใหม่";
   $("editState").textContent = product && !product.editable ? "ดูข้อมูลได้อย่างเดียว เพื่อรักษาสินค้าที่เปิดขายและข้อมูลออเดอร์เดิม" : "บันทึกเป็นฉบับร่างเท่านั้น ยังไม่แสดงให้ลูกค้าสั่งซื้อ";
+  $("previewContext").textContent = productFixtures[product?.slug] ? "พรีวิวรุ่นเดิม: รูปและตารางไซส์อ้างอิงหน้าเว็บปัจจุบัน · ข้อมูลขายอิงแคตตาล็อกที่เปิดดู · ไม่รับออเดอร์" : "ฉบับร่างส่วนตัว · ยังไม่เผยแพร่ · ปุ่มสั่งซื้อใช้ไม่ได้ · ยังไม่มีตารางวัดไซส์และวันเปิดขาย";
+  $("closeStorePreview").textContent = product && !product.editable ? "กลับไปดูข้อมูล" : "กลับไปบันทึก";
   controls(); renderList(); preview();
 }
 function renderList() {
@@ -117,8 +121,9 @@ $("showProductPreview").onclick = () => {
   if (!Object.keys(input().prices).length) { notice($("productError"), "ใส่ราคาอย่างน้อยหนึ่งแบบก่อนดูพรีวิว", true); return; }
   reviewed = ""; controls(); const snapshot = fingerprint();
   $("storeFrame").onload = () => { if (snapshot === fingerprint()) { reviewed = snapshot; controls(); } };
-  $("storeFrame").srcdoc = productTemplate(input(), coverUrl); viewport("phone"); $("storePreview").showModal();
+  $("storeFrame").srcdoc = productTemplate(input(), coverUrl, current ? productFixtures[current.slug] : null); viewport("phone"); $("storePreview").showModal();
 };
 window.addEventListener("beforeunload", event => { if (dirty) { event.preventDefault(); event.returnValue = ""; } });
+$("productTheme").replaceChildren(...PRODUCT_THEMES.map(theme => { const option = el("option", "", theme.name); option.value = theme.id; return option; }));
 controls();
 try { await load(); } catch (error) { notice($("notice"), message(error) + " · รีเฟรชหน้านี้เพื่อลองใหม่", true); }
