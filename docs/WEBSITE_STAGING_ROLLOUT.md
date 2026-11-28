@@ -3,6 +3,20 @@
 28 Nov 2026. Preparation only; **no Cloudflare write is authorized by this document**.
 Scope derives from PR25. PR24 Help remains a separate draft, excluded from this candidate.
 
+## Execution checkpoint — backup approval review
+
+Owner approved the listed staging-only write/rehearsal scope in chat. Before the first write,
+automatic approval review rejected the combined precheck/database-export command because a local export
+could contain customer personal data. That command did not run. Do not bypass that rejection.
+An unaffected read-only comparison subsequently verified live variables/bindings/schedules and current
+deployment leases match the candidates; only migration 0003 is pending and the /api/site route is absent.
+Aggregate-only queries report 25 orders / 29 items; 5 orders have `is_test=1`, 20 do not.
+This does not prove that the other orders are real or masked; a backup must be treated as potentially sensitive.
+No new bucket, migration, deployment or route was created. The mandatory fresh backup remains incomplete.
+Request explicit confirmation for retaining the potentially unredacted staging backup locally in ignored
+`.staging/website/before-website.sql`; do not place its contents in GitHub, Trello or chat.
+The owner's existing rollout authorization otherwise remains valid; recheck leases and backup before continuing.
+
 ## What the owner will try
 
 Sign in to the existing staging Admin, upload synthetic/example product photos, edit homepage/product content,
