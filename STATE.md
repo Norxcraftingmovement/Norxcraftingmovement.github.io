@@ -28,8 +28,11 @@ Products แสดงแคตตาล็อก/ค้นหา/กรอง �
 ## Products cover + template preview — development only
 เลือก/เปลี่ยน/นำรูปปกออก และพรีวิวมือถือ/คอมพิวเตอร์ก่อนบันทึก; แก้ข้อมูลแล้วต้องพรีวิวใหม่. ใช้ CSS จาก Home Terrain ที่ตรงกับเว็บออนไลน์ แต่ markup preview ใหม่ ยังไม่ใช่หน้าเผยแพร่/checkout. อัปโหลดตอนบันทึกร่างเท่านั้น; private cover uses existing image_key/CAS/audit, no migration. Browser 16/16; full 259:258 pass/1skip/0fail; solo self-review. PRODUCT_MEDIA เป็น binding ที่เสนอ ยังไม่เชื่อม Cloudflare; local storage จำลอง. ดู docs/PRODUCTS_MEDIA.md และ TEST_REPORT. รูปเก่าเก็บเพื่อ rollback แต่ URL ถูกเพิกถอนเมื่อไม่มี current reference
 
+## Product themes plan — 28 Nov, planning only
+ตรวจเว็บจริง GET200 + render desktop/mobile ของ Home Terrain และ Woven Stride; source ตรงกับ live ณ วันตรวจ. สองธีม: dark/orange vs white/paper/grid; gallery และ size columns ต่างกัน. ดู docs/PRODUCT_THEMES_PLAN.md = แผนหลัก. PR17 preview ใช้เพียง first Home Terrain style block ไม่ใช่ full theme parity. ถัดไปแยก Layout/Theme/Content และทำ 2-theme preview จาก fixtures เดิม แล้ว active-product content drafts/gallery/sizing, homepage/publish/rollback บน staging ตามอนุมัติ. ไม่แก้ runtime/deploy ในงานวิเคราะห์นี้
+
 ## Next exact action
-Products: เตรียม dedicated private storage/binding + staging Admin deploy ให้เจ้าของอนุมัติตาม CRITICAL ก่อนเปิดอัปโหลดจริง; แล้วตรวจ deployed preview/access/rollback. Gallery/Collection/size chart/Publish ยังเป็นรอบถัดไป. ต่อ A2 รับบางส่วน/รับเงินพร้อมส่งมอบบน staging ด้วยข้อมูลสมมติ และ A4/A6 ก่อน production/cutover. คำอนุมัติเมลรอบนี้ไม่ครอบคลุมส่งเมลลูกค้าจริง
+Products/Website: ทำตาม docs/PRODUCT_THEMES_PLAN.md โดยเริ่ม 2-theme renderer/preview ที่รักษาหน้ารุ่นเดิม; เตรียม dedicated private storage/binding + staging Admin deploy ให้เจ้าของอนุมัติตาม CRITICAL ก่อนเปิดอัปโหลดจริง; แล้วตรวจ deployed preview/access/rollback. Gallery/Collection/size chart/Publish ยังเป็นรอบถัดไป. ต่อ A2 รับบางส่วน/รับเงินพร้อมส่งมอบบน staging ด้วยข้อมูลสมมติ และ A4/A6 ก่อน production/cutover. คำอนุมัติเมลรอบนี้ไม่ครอบคลุมส่งเมลลูกค้าจริง
 งานปกติ/ทดสอบ/รวมกิ่งพัฒนาทำต่อเอง ใช้ Single Writer; ถามเรื่องสำคัญต่อระบบ/ข้อมูล/วิธีใช้งาน. Claude ติดลิมิต ให้ Codex solo self-review และรายงานตามจริง
 
 ## ทิศทางระยะถัดไป

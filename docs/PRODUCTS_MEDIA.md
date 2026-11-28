@@ -10,12 +10,13 @@ the draft save. JPEG/PNG/WebP, at most 4 MiB; browser decodes before preview, se
 type/signature and bounds the streamed multipart body. No SVG, arbitrary image URLs or filenames as keys.
 Text-only draft saves remain available when storage is absent; upload control explains why it is unavailable.
 
-Preview v1 uses Home Terrain's hero/detail/size/order sections and **the exact stylesheet
+Preview v1 uses Home Terrain's hero/detail/size/order sections and **the first inline stylesheet
 extracted at build time from `home-terrain/index.html`**. The stylesheet was compared with
 the live `/home-terrain/` response on 28 Nov 2026 and matched. Preview markup is a new data-driven
 template, not the existing static page or a deployed automatic product page. It deliberately omits
 old product claims, fabricated measurements, round dates, gallery images, checkout and legacy API calls.
-No Publish exists. Future publish work must reuse the template/layout and add measured sizing,
+The live pages have another style block and page-specific body classes: this v1 is not a complete theme extraction. See PRODUCT_THEMES_PLAN.md for the two-theme replacement plan.
+No Publish exists. Future publish work must reuse the validated template/layout and add measured sizing,
 gallery, round association and public image delivery before claiming complete storefront parity.
 
 ## Storage and failure handling
