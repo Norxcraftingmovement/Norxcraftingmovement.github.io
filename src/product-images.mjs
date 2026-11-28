@@ -13,7 +13,7 @@ export function imageType(bytes, type) {
   if (!valid) bad("ไฟล์ไม่ตรงกับชนิดรูป กรุณาเลือกรูปใหม่");
   return types[type];
 }
-async function boundedBody(request) {
+export async function boundedBody(request) {
   if (!request.body || Number(request.headers.get("content-length")) > MAX + 32768) bad("ไฟล์รูปใหญ่เกิน 4 MB");
   const reader = request.body.getReader(), chunks = []; let size = 0;
   for (;;) { const {done,value} = await reader.read(); if (done) break; size += value.length; if (size > MAX + 32768) { await reader.cancel(); bad("ไฟล์รูปใหญ่เกิน 4 MB"); } chunks.push(value); }
@@ -40,7 +40,7 @@ export async function saveProductRequest(request, env, actor, id = null) {
 }
 export async function imageReferenced(env,key) {
   if(await env.ORDERS_DB.prepare("SELECT id FROM products WHERE image_key=?").bind(key).first())return true;
-  return !!(await env.ORDERS_DB.prepare("SELECT s.key FROM settings s,json_tree(CASE WHEN json_valid(s.value) THEN s.value ELSE '{}' END) j WHERE s.key LIKE 'product-content:%' AND j.key='src' AND j.value=? LIMIT 1").bind("/api/admin/product-images/"+key.slice(9)).first());
+  return !!(await env.ORDERS_DB.prepare("SELECT s.key FROM settings s,json_tree(CASE WHEN json_valid(s.value) THEN s.value ELSE '{}' END) j WHERE (s.key LIKE 'product-content:%' OR s.key='website-home:draft' OR s.key='website-published:home' OR s.key LIKE 'website-snapshot:%') AND j.key='src' AND j.value=? LIMIT 1").bind("/api/admin/product-images/"+key.slice(9)).first());
 }
 export async function productImage(env, file) {
   const headers = {"Cache-Control":"private, no-store","X-Content-Type-Options":"nosniff","X-Robots-Tag":"noindex, nofollow","Content-Security-Policy":"default-src 'none'; sandbox"};

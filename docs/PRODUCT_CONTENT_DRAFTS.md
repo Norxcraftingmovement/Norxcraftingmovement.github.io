@@ -51,8 +51,7 @@ references before cleanup so accepted images are retained. Uncertain/old objects
 recovery; retention/cleanup policy remains part of storage enablement approval.
 
 Owner-only image GET checks both existing product covers and current content-draft image references,
-using a JSON-valid guard and JSON tree traversal. Once removed from all current references, the URL
-returns 404 even though recovery bytes remain. These JSON functions are documented in
+using a JSON-valid guard and JSON tree traversal. Once removed from all current references, the URL returns 404 unless a retained website snapshot still needs it for owner-only rollback review; historical bytes never become publicly readable merely by existing. These JSON functions are documented in
 [Cloudflare D1 Query JSON](https://developers.cloudflare.com/d1/sql-api/query-json/); actual deployed
 D1/R2 rehearsal is still required. No public image route or public draft endpoint is added.
 

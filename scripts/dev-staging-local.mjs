@@ -31,7 +31,7 @@ export async function start(port = 0, { emailFails = false, staticDir = join(roo
   const limiter = rateLimit ? { limit: async ({ key }) => { const now = Date.now(), a = (hits.get(key) ?? []).filter((t) => now - t < rateLimit.periodMs); if (a.length >= rateLimit.limit) { hits.set(key, a); return { success: false }; } a.push(now); hits.set(key, a); return { success: true }; } } : undefined;
   const media = new Map();
   const productMedia = { put: async (key, value, options) => media.set(key, {bytes:new Uint8Array(value), ...options}), get: async key => { const o=media.get(key); return o ? {...o,body:o.bytes} : null; }, delete: async key => media.delete(key) };
-  const mkEnv = () => ({ PRODUCT_MEDIA: productMedia, ENVIRONMENT: "staging", ORDERS_DB_LABEL: "staging", ORDERS_DB: db, ORDERS_ALLOWED_ORIGIN: origin, ORDERS_PUBLIC_ORIGINS: origin, STAGING_REQUIRE_ACCESS: "1", MEDIA_ADMIN_ENABLED: "1", MEDIA_ACCESS_AUD: "dev", MEDIA_ADMIN_EMAIL_HASH: hash,
+  const mkEnv = () => ({ WEBSITE_MANAGEMENT_ENABLED: "1", PRODUCT_MEDIA: productMedia, ENVIRONMENT: "staging", ORDERS_DB_LABEL: "staging", ORDERS_DB: db, ORDERS_ALLOWED_ORIGIN: origin, ORDERS_PUBLIC_ORIGINS: origin, STAGING_REQUIRE_ACCESS: "1", MEDIA_ADMIN_ENABLED: "1", MEDIA_ACCESS_AUD: "dev", MEDIA_ADMIN_EMAIL_HASH: hash,
     ...(limiter ? { ORDERS_LIMITER: limiter } : {}), NOTIFY_FROM: "alerts@example.test", ORDERS_ADMIN_URL: origin + "/admin/orders/", EMAIL: { send: async (m) => { if (emailFails) { const e = new Error("owner@example.test refused"); e.code = "E_REFUSED"; throw e; } sent.push(m); return { messageId: "<dev-" + sent.length + "@example.test>" }; } } });
   const server = http.createServer(async (req, res) => {
     const chunks = []; for await (const c of req) chunks.push(c);
@@ -43,6 +43,8 @@ export async function start(port = 0, { emailFails = false, staticDir = join(roo
     if (u.pathname === "/__dev/sent") return send(Response.json(sent));
     if (u.pathname === "/__dev/cron") { const jobs = []; await pub.scheduled({}, env, { waitUntil: (p) => jobs.push(p) }); await Promise.all(jobs); return send(Response.json({ ok: true, sent: sent.length })); }
     const body = ["GET", "HEAD"].includes(req.method) ? undefined : Buffer.concat(chunks), rq = () => new Request(origin + req.url, { method: req.method, headers: req.headers, body });
+    if (u.pathname.startsWith("/api/site/")) return send(await pub.fetch(rq(),env,ctx));
+    if (u.pathname === "/") { const rendered=await pub.fetch(new Request(origin+"/api/site/home",{headers:req.headers}),env,ctx); if(rendered.status!==404)return send(rendered); }
     if (u.pathname.startsWith("/api/orders")) return send(await pub.fetch(rq(), env, ctx));
     if (u.pathname.startsWith("/admin") || u.pathname.startsWith("/api/admin")) return send(await admin.fetch(rq(), env, ctx));
     if (anon) return send(new Response("Access required", { status: 403 }));

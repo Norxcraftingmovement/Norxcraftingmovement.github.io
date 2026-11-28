@@ -1,7 +1,7 @@
 # STATE — NORX Website / Orders V2
 > Start point only: verify git HEAD/status and current code first.
 
-As of 28 Nov 2026 · latest development: existing-product presentation drafts · no new deployment
+As of 28 Nov 2026 · latest development: homepage editor + local publication/rollback rehearsal · no new deployment
 Rules: CLAUDE.md · Technical evidence: docs/TEST_REPORT.md · Status: https://trello.com/c/a89Pbdgg
 Single Writer; Codex solo self-review, never label it independent QA. Routine development/tests/development merges authorized. No production/cutover/Cloudflare writes without scoped owner approval; no installs. Original Claude checkouts untouched.
 
@@ -19,8 +19,13 @@ Source bc2b4d1: Public e1cabdf2 / Admin 27b04360. UX/Products/content drafts abo
 D1 identity verified and backed up before that rollout; order/item counts unchanged at 25/29; Access 16/16 gated. Mock owner email alert reached NORX and forwarded-copy personal inbox; original retained, no new order/sales. No customer email flow approval.
 Rollback before rollout: Public 26439a64 / Admin 9aa87251, keep D1. Do not use Admin eed44c52.
 
+## Homepage editor/publication rehearsal — local development
+Website menu: edit hero/focal position, text/buttons, card titles/order/visibility and page metadata. Draft preview gate, separate saved draft/published snapshots, explicit saved-candidate review/confirmation, baseline/history/rollback preserving current draft. Same pure renderer + compiled homepage source; original index.html/shop.js/Events unchanged. Public Worker uses a separate source artifact, not Admin assets. Server-rendered HTML/current catalog prices and community viewer retained
+Publication/review and /api/site/* require enabled staging + owner identity; WEBSITE_MANAGEMENT_ENABLED exists only in the local simulator. No real routes/flag/binding/deploy applied. Published hero access uses current snapshot only; private history images retained for owner rollback review. Product-content publishing NOT implemented. Details: docs/WEBSITE_HOME_MANAGEMENT.md
+Full suite 284:283 pass/1 existing skip/0 fail; browser 40/40. After typography refinement: affected tests 10/10 + homepage UI 8/8 and baseline render at four widths passed; no overflow, NORX word kept on one line. Solo self-review; no independent QA
+
 ## Next exact action
-Follow docs/PRODUCT_THEMES_PLAN.md stage 3: homepage editing + draft/published snapshots + explicit publish and rollback in local/synthetic staging preparation. Reuse product ids/URLs and theme renderer; complete preview/published parity and SEO delivery before claiming live management.
+Follow docs/PRODUCT_THEMES_PLAN.md stage 3 remainder: extend the reviewed-snapshot publication/rollback pattern to product-content drafts, keeping each theme and commercial fields protected. Homepage local rehearsal is complete; production routing/whole-site parity and deployed QA remain pending. Reuse original product ids/URLs.
 Prepare dedicated private storage/binding + rebuilt Admin/static staging rollout/retention/rollback for scoped owner approval before any Cloudflare write. No general deployment approval inferred from ordinary development go-ahead.
 
 ## Remaining go-live gates
