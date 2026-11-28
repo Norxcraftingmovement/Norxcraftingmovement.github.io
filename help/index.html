@@ -1,0 +1,318 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>วิธีสั่งซื้อและเงื่อนไข — NORX : Crafting Movement</title>
+<meta name="description" content="วิธีสั่งเสื้อ NORX รอบพรีออเดอร์ การรับสินค้า ค่าส่ง ไซส์ การเปลี่ยนคืน และการใช้ข้อมูลส่วนตัว">
+<meta property="og:title" content="NORX : Crafting Movement — Rooted in Chiang Rai">
+<meta property="og:description" content="Road · Trail · Community · เสื้อ Home Terrain (Drop 03) และ Woven Stride (Drop 02)">
+<meta property="og:image" content="https://norxcraftingmovement.com/assets/og/og-home.jpg"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta name="twitter:card" content="summary_large_image">
+<meta property="og:type" content="website">
+<style>
+:root{--ink:#1a1a18;--paper:#f2efe7;--stone:#e8e4d9;--muted:#a7a59d;--accent:#b85e38;--action:#b04922;--action-hover:#9e3f1c}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
+body{margin:0;font-family:Arial,"Noto Sans Thai","Sukhumvit Set","Thonburi",Tahoma,sans-serif;background:var(--paper);color:var(--ink)}
+a{color:inherit;text-decoration:none}
+a:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:4px}
+img{display:block;width:100%;object-fit:cover}
+.mono{font-family:"Courier New",monospace;font-size:11px;letter-spacing:.13em;text-transform:uppercase;font-weight:700}
+.skip{position:absolute;left:-9999px;top:8px;background:var(--paper);color:var(--ink);padding:10px 14px;z-index:20}.skip:focus{left:8px}
+/* header */
+.header{height:88px;padding:0 5.6vw;background:var(--ink);color:var(--paper);display:flex;align-items:center;justify-content:space-between;gap:30px}
+.logo{display:inline-flex;align-items:center;min-height:44px}.logo img{width:61px;height:auto;object-fit:contain}
+.nav{display:flex;gap:33px;align-items:center}
+.nav a{font-size:12px;font-weight:700;letter-spacing:.06em;display:inline-flex;align-items:center;min-height:44px}
+.nav a:hover,.cart:hover{color:#fff}
+.cart{font-weight:700;font-size:12px;letter-spacing:.06em;border:1px solid #b4b1a5;padding:12px 18px;min-height:44px;display:inline-flex;align-items:center;white-space:nowrap}
+.subnav{display:none}
+/* hero */
+.hero{display:grid;grid-template-columns:.92fr 1.08fr;min-height:630px;background:var(--ink);color:var(--paper);position:relative}
+.hero-copy{padding:62px 6vw 42px;display:flex;flex-direction:column;justify-content:center;position:relative}
+.eyebrow{color:#b7b4a7;letter-spacing:.16em;font:700 12px "Courier New",monospace}
+.hero h1{font-size:clamp(54px,5.45vw,100px);line-height:.88;letter-spacing:-.075em;margin:26px 0 24px;font-weight:900}
+.hero p{font-size:15px;line-height:1.7;margin:0 0 30px;color:#c8c6bd;max-width:360px}
+.cta{background:var(--action);color:var(--paper);padding:15px 20px;font-size:14px;font-weight:700;display:inline-flex;align-items:center;justify-content:space-between;gap:30px;max-width:250px;min-height:48px}
+.cta:hover{background:var(--action-hover);color:var(--paper)}
+.hero-media{position:relative;overflow:hidden;min-height:630px}
+.hero-media>img{position:absolute;inset:0;width:100%;height:100%;object-position:50% 53%}
+.hero-meta{position:absolute;bottom:25px;right:28px;padding:8px 10px;background:#151513cc;color:#f4f1e8;font-size:10px;letter-spacing:.12em}
+.hero-index{position:absolute;bottom:28px;left:6vw;color:#a4a198}
+/* sale state strip (dynamic, from shop.js) */
+.round{border-bottom:1px solid #cec8ba;padding:16px 5.6vw;background:var(--stone);font-size:12px;line-height:1.5}
+.round-main{display:flex;align-items:center;justify-content:space-between;gap:12px 24px;flex-wrap:wrap}
+.round-left{display:flex;align-items:center;gap:10px 20px;flex-wrap:wrap}
+.round strong{letter-spacing:.04em}
+.badge{font-weight:700;letter-spacing:.04em}
+.round-link{color:#423f38;font-weight:700;white-space:nowrap;text-decoration:underline;text-underline-offset:3px;display:inline-flex;align-items:center;min-height:44px}
+.countdown{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.countdown[hidden]{display:none}
+.cd-label{font-size:11px;font-weight:700;letter-spacing:.06em;color:#5f5c53}
+.cd-row{display:inline-flex;gap:6px}
+.cd-unit{display:inline-flex;align-items:baseline;gap:3px;border:1px solid var(--ink);padding:4px 7px;background:var(--paper)}
+.cd-note{display:block;flex-basis:100%;font-size:11px;color:#5f5c53;margin-top:2px}
+.cd-unit b{font-size:15px;font-variant-numeric:tabular-nums}.cd-unit small{font-size:10px;color:#5f5c53}
+.timeline{display:flex;gap:6px 22px;flex-wrap:wrap;margin:10px 0 0;padding:10px 0 0;border-top:1px solid #cfcabd;font-size:11px;color:#4d4a42}
+.timeline b{font-weight:700;color:var(--ink);margin-right:6px}
+.status{margin:10px 0 0;font-size:12px}.status[hidden]{display:none}
+.test-note{margin:10px 0 0;border:1px dashed #8a877d;padding:8px 10px;font-size:11px}.test-note[hidden]{display:none}
+/* sections */
+.section{padding:62px 5.6vw 66px}
+.section-head{display:flex;align-items:flex-end;justify-content:space-between;gap:24px;margin-bottom:26px}
+.section-head h2,.roots h2{font-size:clamp(43px,5.5vw,78px);line-height:.91;letter-spacing:-.07em;margin:10px 0 0;font-weight:900}
+.section-head p{max-width:290px;line-height:1.6;font-size:13px;margin:0}
+.cards{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.card{min-width:0;display:block}
+.card-image{aspect-ratio:1.23;position:relative;overflow:hidden;background:#ccc}
+.card-image img{width:100%;height:100%;object-position:50% 43%;transition:transform .4s}
+.card-image .tag{position:absolute;top:16px;left:16px;background:var(--paper);padding:8px 10px}
+.card-body{padding:22px 0 16px;border-bottom:1px solid var(--ink);display:grid;grid-template-columns:1fr;gap:8px}
+.card h3{margin:0;font-size:clamp(23px,3.3vw,46px);line-height:1;letter-spacing:-.05em}
+.card p{margin:7px 0 0;font-size:13px;line-height:1.45}
+.card .price{font-weight:700}.card .price:empty{display:none}
+.product-cta{display:inline-flex;align-items:center;margin-top:10px;padding:9px 11px;min-height:44px;font-size:12px;line-height:1.35;background:var(--action);color:var(--paper);font-weight:700}.card:hover .product-cta{background:var(--action-hover)}
+.card:hover img,.tile:hover img{transform:scale(1.025)}
+.notice{margin:28px 0 0;font-size:12px;line-height:1.7;color:#4d4a42;border-left:2px solid var(--ink);padding:2px 0 2px 14px;max-width:640px}
+.notice a{text-decoration:underline;text-underline-offset:3px}
+.movement{background:var(--paper);color:var(--ink);padding:58px 5.6vw 65px;border-top:1px solid #cfc9bc}
+.movement .section-head p{color:#58554c}
+.tile{position:relative;aspect-ratio:1.10;overflow:hidden;margin:0}
+.tile img{height:100%;object-position:50% 45%;transition:transform .4s}
+.tile:after{content:'';position:absolute;inset:0;background:linear-gradient(0deg,#0009,transparent 60%)}
+.tile .caption{z-index:1;position:absolute;left:24px;bottom:24px;color:#fff}
+.tile h3{font-size:clamp(37px,5vw,66px);margin:4px 0 0;line-height:1;letter-spacing:-.06em}
+.roots{display:grid;grid-template-columns:1fr 1fr;background:var(--stone);min-height:450px}
+.roots-photo{position:relative;overflow:hidden;min-height:460px}
+.roots-photo img{position:absolute;height:100%;width:100%;object-position:50% 50%}
+.roots-text{padding:59px 6vw;display:flex;flex-direction:column;justify-content:center}
+.roots-text p{max-width:430px;font-size:15px;line-height:1.9;margin:25px 0 0}
+.roots-text h2{font-size:clamp(45px,5.5vw,78px)}
+.footer{background:var(--ink);color:var(--paper);padding:40px 5.6vw;display:flex;justify-content:space-between;align-items:flex-end;gap:16px}
+.footer img{width:76px;height:auto;object-fit:contain}
+.footer .mono{line-height:1.6;color:#b7b4a7}
+.footer p{margin:0;font-size:12px;text-align:right;line-height:1.6}
+.footer a{display:inline-flex;align-items:center;min-height:44px;text-decoration:underline;text-underline-offset:3px}
+@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}.card img,.tile img{transition:none}.card:hover img,.tile:hover img{transform:none}}
+@media(max-width:860px){.nav{gap:20px}}
+@media(max-width:660px){
+ .header{height:70px;padding:0 18px;gap:12px}.logo img{width:49px}
+ .nav{display:none}
+ .cart{padding:9px 12px;font-size:11px}
+ .subnav{display:flex;background:var(--ink);border-top:1px solid #34342f;padding:0 18px;gap:0;justify-content:space-between}
+ .subnav a{color:#d9d6cc;font-size:11px;font-weight:700;letter-spacing:.06em;min-height:44px;display:inline-flex;align-items:center}
+ .hero{display:flex;flex-direction:column-reverse;min-height:0}
+ .hero-media{min-height:0;height:420px;max-height:56svh}
+ .hero-media>img{object-position:50% 48%}
+ .hero-copy{padding:30px 19px 34px;justify-content:flex-start}
+ .hero h1{font-size:clamp(54px,16vw,88px);margin:14px 0 16px;line-height:.89}
+ .hero p{font-size:13px;margin:0 0 20px;line-height:1.6}
+ .hero-index{display:none}.hero-meta{bottom:12px;right:12px}
+ .cta{padding:12px 15px;min-height:48px;max-width:220px}
+ .round{padding:12px 18px;font-size:11px}
+ .section,.movement{padding:38px 18px 44px}
+ .section-head{display:block;margin-bottom:20px}.section-head h2{font-size:47px}.section-head p{margin:13px 0 0;max-width:100%}
+ .cards{gap:12px}.card-image{aspect-ratio:.78}
+ .card-image .tag{top:8px;left:8px;padding:6px;letter-spacing:.06em;font-size:9px}
+ .card-body{padding:12px 0 14px}.card h3{font-size:23px;line-height:.98}.card p{font-size:11px;line-height:1.5}.product-cta{padding:7px 8px;font-size:10px}
+ .tile{aspect-ratio:.83}.tile .caption{left:12px;bottom:12px}.tile .caption .mono{font-size:8px}.tile h3{font-size:36px}
+ .roots{display:flex;flex-direction:column}.roots-photo{min-height:0;height:380px}.roots-text{padding:42px 18px 46px}.roots h2{font-size:55px}.roots-text p{font-size:14px;margin-top:20px}
+ .footer{padding:30px 18px;gap:10px}.footer img{width:60px}.footer .mono{font-size:9px}.footer p{font-size:10px}
+}
+@media(max-width:370px){.hero h1{font-size:52px}.section-head h2{font-size:42px}.roots h2{font-size:48px}.card h3{font-size:20px}.tile h3{font-size:30px}}
+
+/* Responsive readability and uncropped apparel photography */
+.arrow-icon{display:inline-block;width:.85em;height:.85em;flex:none;vertical-align:-.04em}.cart .arrow-icon,.round-link .arrow-icon{margin-left:4px}
+@font-face{font-family:"NORX Thai";src:url('../assets/fonts/NotoSansThai-Regular.woff2') format('woff2');font-weight:400;font-style:normal;font-display:swap;unicode-range:U+0E00-0E7F}
+@font-face{font-family:"NORX Thai";src:url('../assets/fonts/NotoSansThai-Bold.woff2') format('woff2');font-weight:700;font-style:normal;font-display:swap;unicode-range:U+0E00-0E7F}
+body{font-family:"NORX Thai",Arial,Helvetica,"Noto Sans Thai","Sukhumvit Set","Thonburi",Tahoma,sans-serif;font-size:16px;line-height:1.6}
+.hero{grid-template-columns:minmax(0,.92fr) minmax(0,1.08fr)}
+.hero-copy,.roots-text{min-width:0}
+.hero h1{font-size:clamp(40px,5.45vw,100px);line-height:.92;letter-spacing:-.06em}
+.hero p{font-size:16px;line-height:1.6}
+.cta{font-size:16px}
+.round{font-size:14px;line-height:1.6}
+.round-left{min-width:0}
+.round-link{min-height:44px}
+.timeline{font-size:13px}
+.status{font-size:14px}
+.test-note{font-size:13px}
+.section-head h2,.roots h2{line-height:.96;letter-spacing:-.055em}
+.section-head p{max-width:320px;line-height:1.7;font-size:14px}
+.cards,.roots{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+#collections .card-image{aspect-ratio:4/5;background:var(--stone)}
+#collections .card-image img{object-fit:contain;object-position:center;transform:none;transition:none}
+#collections .card:hover .card-image img{transform:none}
+.card p{font-size:15px;line-height:1.65}
+.card .price{font-size:16px}
+.product-cta{min-height:48px;font-size:14px;line-height:1.45}
+.notice{font-size:14px}
+.footer p{font-size:13px;overflow-wrap:anywhere;min-width:0}
+@media(max-width:660px){
+ .subnav a{font-size:12px}
+ .hero-media{height:clamp(250px,44svh,420px);max-height:none}
+ .hero-copy{padding:24px 18px 28px}
+ .hero h1{font-size:clamp(40px,14vw,76px);line-height:.94}
+ .hero p{font-size:14px;margin-bottom:18px}
+ .cta{width:100%;max-width:320px}
+ .round{font-size:13px}
+ .section-head h2{font-size:clamp(36px,10.8vw,47px)}
+ .section-head p{max-width:100%}
+ #collections .cards{gap:16px}
+ .card-image .tag{top:12px;left:12px;padding:7px 9px;font-size:11px;letter-spacing:.08em}
+ .card-body{padding:15px 0 20px}
+ .card h3{font-size:clamp(24px,7.5vw,32px);line-height:1.08}
+ .card p{font-size:14px;line-height:1.65}
+ .product-cta{padding:10px 12px;font-size:14px}
+ .footer{gap:12px;align-items:flex-start}
+ .footer .mono{font-size:10px}
+ .footer p{font-size:12px}
+}
+@media(max-width:480px){
+ #collections .cards{grid-template-columns:minmax(0,1fr);gap:28px}
+ #collections .product-cta{display:flex;justify-content:space-between;width:100%;margin-top:12px}
+ .roots h2{font-size:clamp(38px,12vw,52px)}
+ .tile h3{font-size:clamp(26px,8.4vw,36px)}
+ .footer{flex-wrap:wrap}
+ .footer p{text-align:left}
+}
+@media(max-width:350px){.subnav a{font-size:11px}.cd-unit{padding:4px 5px}.cd-row{gap:4px}.hero h1{letter-spacing:-.055em}.tile .caption{left:8px;bottom:10px}}
+/* community: past runs */
+.community{background:var(--ink);color:var(--paper);padding:62px 5.6vw 70px}
+.community .section-head p{color:#c8c6bd}
+.community .mono{color:#b7b4a7}
+.run-info .mono{font-family:inherit;font-size:13px;letter-spacing:.02em;text-transform:none}
+.run{display:grid;grid-template-columns:minmax(0,.72fr) minmax(0,2fr);gap:28px;padding:30px 0;border-top:1px solid #3a3935}
+.run h3{font-size:clamp(30px,3.4vw,48px);line-height:1.02;letter-spacing:-.05em;margin:10px 0 12px;font-weight:900}
+.run-info p{margin:0;font-size:15px;line-height:1.7;color:#d6d3c9;max-width:320px}
+.run-info .run-credit{margin-top:14px;font-size:13px;color:var(--muted)}
+.run-gallery{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:6px;align-content:start}
+.run-gallery figure,.race-photos figure{margin:0;overflow:hidden;background:#2a2926}
+.run-gallery figure{grid-column:span 2;aspect-ratio:1}
+.run-gallery figure:nth-child(-n+2){grid-column:span 3;aspect-ratio:1}
+.run-gallery.n4 figure:nth-child(n+3){grid-column:span 3;aspect-ratio:3/2}
+.run-gallery img,.race-photos img{height:100%}
+.run-gallery.n1{grid-template-columns:minmax(0,1fr);max-width:340px}
+.run-gallery.n1 figure{grid-column:auto;aspect-ratio:auto}.run-gallery.n1 img{height:auto;object-fit:contain}
+.zoom{display:block;height:100%;cursor:zoom-in}
+.zoom:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.lightbox{border:0;padding:0;margin:auto;max-width:100vw;max-height:100vh;width:100vw;height:100vh;background:transparent;color:var(--paper)}
+.lightbox::backdrop{background:#000e}
+.lightbox[open]{display:flex;align-items:center;justify-content:center;flex-direction:column}
+.lightbox img{width:auto;height:auto;max-width:94vw;max-height:84vh;object-fit:contain}
+.lb-cap{margin:12px 16px 0;font-size:14px;line-height:1.5;text-align:center;color:#d6d3c9;max-width:680px}
+.lb-btn{position:fixed;background:#1a1a18cc;color:var(--paper);border:1px solid #55544d;width:48px;height:48px;font-size:28px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.lb-btn:hover{background:#000}.lb-btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.lb-close{top:14px;right:14px}.lb-prev{left:14px;top:50%;transform:translateY(-50%)}.lb-next{right:14px;top:50%;transform:translateY(-50%)}
+.race-list{list-style:none;margin:0;padding:0;display:grid;align-content:start;gap:18px}
+.race-list li{border-top:1px solid #3a3935;padding-top:14px}.race-list li:last-child{border-top:0;padding-top:0}
+.race-list h4{margin:0 0 4px;font-size:clamp(20px,2vw,26px);letter-spacing:-.03em;font-weight:900}
+.race-list p{margin:0;font-size:14px;line-height:1.6;color:#c8c6bd}
+.run-gallery:focus-visible{outline:2px solid var(--accent);outline-offset:4px}
+.raced-head{margin-top:14px;padding-top:30px;border-top:1px solid #3a3935}
+.raced-head h3{font-size:clamp(24px,2.6vw,34px);line-height:1.2;margin:8px 0 18px;letter-spacing:-.03em}
+.raced{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:24px}
+.race-photos{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.race-photos figure{aspect-ratio:4/5}
+.race h4{margin:14px 0 4px;font-size:clamp(20px,2vw,26px);letter-spacing:-.03em;font-weight:900}
+.race p{margin:0;font-size:14px;line-height:1.6;color:#c8c6bd}
+.next-run{display:flex;align-items:center;justify-content:space-between;gap:24px 40px;flex-wrap:wrap;border:1px solid #4a4943;border-left:3px solid var(--accent);padding:24px 28px;margin:0 0 8px}
+.next-run h3{font-size:clamp(26px,3vw,40px);line-height:1.05;letter-spacing:-.04em;margin:8px 0 8px;font-weight:900}
+.next-run p{margin:0;max-width:520px;font-size:15px;line-height:1.7;color:#d6d3c9}
+.next-run .cta,.run-shop .cta{flex:none}
+.next-run-text{flex:1 1 360px;min-width:0}.next-run-text .cta{margin-top:14px}
+.next-run-photos{flex:1 1 300px;max-width:460px}
+.run-facts{list-style:none;margin:0 0 12px;padding:0;display:flex;flex-wrap:wrap;gap:6px}
+.run-facts li{border:1px solid #55544d;padding:3px 8px;font-size:12px;font-weight:700;letter-spacing:.03em;color:var(--paper)}
+.run-link{display:flex;width:fit-content;max-width:100%;align-items:center;gap:6px;min-height:44px;margin-top:6px;font-size:14px;font-weight:700;color:var(--paper);text-decoration:underline;text-underline-offset:4px}
+.run-link:hover{color:#fff}
+.race .run-link{margin-top:2px}
+.run-shop{margin-top:44px;padding-top:30px;border-top:1px solid #3a3935;display:flex;align-items:center;justify-content:space-between;gap:18px 40px;flex-wrap:wrap}
+.run-shop p{margin:0;font-size:clamp(18px,2vw,24px);line-height:1.5;font-weight:700;max-width:560px}
+@media(max-width:660px){
+ .next-run{padding:20px 18px}
+ .next-run .cta,.run-shop .cta{width:100%;max-width:none}
+ .community{padding:38px 18px 44px}
+ .run{grid-template-columns:minmax(0,1fr);gap:16px;padding:24px 0}
+ .run-gallery{grid-template-columns:none;grid-auto-flow:column;grid-auto-columns:78%;overflow-x:auto;scroll-snap-type:x mandatory;margin:0 -18px;padding:0 18px 4px;scroll-padding:0 18px}
+ .run-gallery figure,.run-gallery figure:nth-child(-n+2),.run-gallery.n4 figure:nth-child(n+3){grid-column:auto;aspect-ratio:4/5;scroll-snap-align:start}
+ .run-gallery.n1{margin:0;padding:0;overflow:visible;grid-auto-columns:100%}
+ .run-gallery.n1 figure{aspect-ratio:auto}
+ .raced{grid-template-columns:minmax(0,1fr);gap:28px}
+}
+
+/* UX quick wins: shared menu, second hero action, clickable tiles, footer links, readable sizes */
+.hero-actions{display:flex;flex-wrap:wrap;gap:12px}
+.cta-alt{background:transparent;border:1px solid #f2efe7;color:#f2efe7}.cta-alt:hover{background:#f2efe7;color:#1a1a18}
+a.tile{display:block;color:#fff;text-decoration:none}
+.tile-more{display:inline-block;margin-top:10px;font-size:14px;font-weight:700;border-bottom:1px solid currentColor}
+a.tile:focus-visible{outline:3px solid #b04922;outline-offset:3px}
+.foot-links{display:flex;flex-wrap:wrap;gap:4px 22px;align-self:center}
+.foot-links a{font-size:13px;font-weight:700;letter-spacing:.06em;text-decoration:none!important;display:inline-flex;align-items:center;gap:5px;min-height:44px}
+.foot-links a:hover{color:#fff}
+.mono{font-size:12px}
+@media(max-width:660px){
+ .hero-actions{flex-direction:column;gap:10px}.hero-actions .cta{max-width:none;width:100%}
+ .mono,.tile .caption .mono,.footer .mono{font-size:12px}
+ .round,.cd-label,.cd-note,.timeline{font-size:13px}
+ .card-image .tag{font-size:12px}
+ .run-facts li{font-size:13px}
+ .footer{flex-direction:column;align-items:flex-start}
+ .footer p{font-size:13px;text-align:left}
+}
+
+/* round 2: home shows the latest runs, full archive lives on /community/ */
+.see-all{display:flex;align-items:center;justify-content:space-between;gap:16px 40px;flex-wrap:wrap;margin-top:8px;padding-top:30px;border-top:1px solid #3a3935}
+.see-all p{margin:0;font-size:16px;line-height:1.6;color:#d6d3c9}
+.community-page .section-head h1{font-size:clamp(43px,5.5vw,78px);line-height:.96;letter-spacing:-.055em;margin:10px 0 0;font-weight:900}
+@media(max-width:660px){.see-all .cta{width:100%;max-width:none}}
+
+.help-page{padding:62px 5.6vw 70px}
+.help-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 48px;margin-top:10px}
+.help-item{border-top:1px solid var(--ink);padding:22px 0 26px}
+.help-item h2{font-size:20px;letter-spacing:-.02em;margin:8px 0 12px;font-weight:900}
+.help-item p,.help-item li{font-size:14px;line-height:1.75;color:#3d3b35;margin:0 0 8px}
+.help-item ol,.help-item ul{margin:0;padding-left:20px}
+.help-item a{text-decoration:underline;text-underline-offset:3px}
+.help-note{margin-top:8px;font-size:12px;color:#6b685f}
+@media(max-width:760px){.help-grid{grid-template-columns:1fr}.help-page{padding:40px 18px 50px}}
+</style>
+</head>
+<body>
+<a class="skip" href="#help">ข้ามไปเนื้อหา</a>
+<header class="header">
+ <a class="logo" href=".././" data-internal aria-label="NORX หน้าแรก"><img src="../assets/logo.png" alt="NORX Crafting Movement" width="66" height="60"></a>
+ <nav class="nav" aria-label="เมนูหลัก"><a href="../#collections">SHOP</a><a href="../events/" data-internal>EVENTS</a><a href="../community/">COMMUNITY</a><a href="../#roots">ABOUT</a></nav>
+ <a class="cart" href="../cart/" data-internal aria-label="ตะกร้า">CART <svg class="arrow-icon" viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 13 13 3M5 3h8v8"/></svg></a>
+</header>
+<nav class="subnav" aria-label="เมนูหลัก (มือถือ)"><a href="../#collections">SHOP</a><a href="../events/" data-internal>EVENTS</a><a href="../community/">COMMUNITY</a><a href="../#roots">ABOUT</a></nav>
+<main id="help" class="help-page">
+ <div class="section-head"><div><span class="mono">HELP / ORDER</span><h1>HOW TO<br>ORDER.</h1></div><p>วิธีสั่งเสื้อ NORX การรับสินค้า ไซส์ และเงื่อนไข<br>รวมไว้ในหน้าเดียว</p></div>
+ <div class="help-grid">
+  <section class="help-item" aria-labelledby="h-order"><span class="mono">01</span><h2 id="h-order">วิธีสั่งซื้อ</h2>
+   <ol><li>เลือกเสื้อและไซส์ ใส่ตะกร้า สั่งรวมหลายรุ่นได้ในตะกร้าเดียว</li><li>กรอกชื่อ เบอร์โทร และเลือกวิธีรับสินค้า</li><li>ยืนยันสั่งซื้อ แล้วโอนเงินตามยอดที่แสดง</li><li>ส่ง <b>ชื่อที่ใช้สั่งซื้อพร้อมสลิป</b> ทางแชทเพจ <a href="https://www.facebook.com/profile.php?id=61587303667289" target="_blank" rel="noopener noreferrer">NORX : Crafting Movement</a> เท่านั้น</li></ol>
+   <p class="help-note">ออเดอร์ยืนยันเมื่อทีมตรวจพบยอดเงินเข้าบัญชี</p></section>
+  <section class="help-item" aria-labelledby="h-round"><span class="mono">02</span><h2 id="h-round">รอบพรีออเดอร์</h2>
+   <p>เสื้อ NORX เป็นการสั่งผลิตล่วงหน้า ผลิตตามจำนวนที่สั่ง</p>
+   <p>ต้องโอนและส่งสลิปภายในเวลาที่แสดงตอนสั่งซื้อ หลังเวลานี้ออเดอร์ถูกยกเลิก</p>
+   <p class="help-note">วันเปิด–ปิดของรอบปัจจุบันดูได้ที่แถบสถานะบนหน้าแรกและหน้าตะกร้า</p></section>
+  <section class="help-item" aria-labelledby="h-ship"><span class="mono">03</span><h2 id="h-ship">การรับสินค้าและค่าส่ง</h2>
+   <ul><li>รับเองไม่มีค่าส่ง นัดรายละเอียดการรับสินค้าทางแชทเพจ NORX : Crafting Movement</li><li>จัดส่งคิดค่าส่งครั้งเดียวต่อออเดอร์ แม้ซื้อหลายรุ่น กรอกที่อยู่พร้อมรหัสไปรษณีย์ตอนสั่งซื้อ</li></ul>
+   <p class="help-note">ยอดค่าส่งแสดงในหน้าตะกร้าก่อนยืนยันสั่งซื้อ</p></section>
+  <section class="help-item" aria-labelledby="h-size"><span class="mono">04</span><h2 id="h-size">ไซส์ การเปลี่ยน และการคืน</h2>
+   <p>ตารางไซส์ (หน่วยนิ้ว) อยู่ในหน้าของแต่ละรุ่น: <a href="../home-terrain/" data-internal>Home Terrain</a> · <a href="../woven-stride/" data-internal>Woven Stride</a> ค่าคลาดเคลื่อนของแต่ละรุ่นระบุไว้ใต้ตาราง</p>
+   <p>เสื้อผลิตตามจำนวนสั่ง จึงไม่รับเปลี่ยนหรือคืนสินค้า กรุณาตรวจไซส์ก่อนยืนยัน</p></section>
+  <section class="help-item" aria-labelledby="h-privacy"><span class="mono">05</span><h2 id="h-privacy">ข้อมูลส่วนตัว</h2>
+   <p>NORX ใช้ชื่อ เบอร์โทร และที่อยู่เพื่อดำเนินการออเดอร์และจัดส่งเท่านั้น เห็นข้อมูลเฉพาะทีม NORX และผู้ให้บริการขนส่ง ขอแก้ไขหรือลบได้ที่แชทเพจ NORX : Crafting Movement</p></section>
+  <section class="help-item" aria-labelledby="h-contact"><span class="mono">06</span><h2 id="h-contact">ติดตามออเดอร์และติดต่อ</h2>
+   <p>สอบถามสถานะออเดอร์ได้ทางแชทเพจ <a href="https://www.facebook.com/profile.php?id=61587303667289" target="_blank" rel="noopener noreferrer">NORX : Crafting Movement</a> โดยแจ้งชื่อที่ใช้สั่งซื้อ</p>
+   <p>Instagram <a href="https://www.instagram.com/norx.craftingmovement/" target="_blank" rel="noopener noreferrer">@norx.craftingmovement</a></p></section>
+ </div>
+</main>
+<footer class="footer">
+ <div><img src="../assets/logo.png" width="66" height="60" alt="NORX" loading="lazy"><div class="mono" style="margin-top:12px">ROOTED IN CHIANG RAI, THAILAND</div></div>
+ <nav class="foot-links" aria-label="ลิงก์ท้ายเว็บ"><a href="../#collections">SHOP</a><a href="../events/" data-internal>EVENTS</a><a href="../community/">COMMUNITY</a><a href="https://www.instagram.com/norx.craftingmovement/" target="_blank" rel="noopener noreferrer">INSTAGRAM <svg class="arrow-icon" viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 13 13 3M5 3h8v8"/></svg></a><a href="https://www.facebook.com/profile.php?id=61587303667289" target="_blank" rel="noopener noreferrer">FACEBOOK <svg class="arrow-icon" viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 13 13 3M5 3h8v8"/></svg></a></nav>
+ <p>สั่งเสื้อ: ยืนยันโอนผ่านชื่อและสลิปทางแชทเพจเท่านั้น<br>ROAD · TRAIL · COMMUNITY</p>
+</footer>
+</body>
+</html>

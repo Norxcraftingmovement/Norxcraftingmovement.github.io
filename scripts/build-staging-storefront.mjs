@@ -11,7 +11,7 @@ import { join, extname, basename } from "node:path";
 import { writeProductLookbookAssets } from "./product-theme-sources.mjs";
 const root = fileURLToPath(new URL("../", import.meta.url)), defaultOut = join(root, "dist-staging");
 export const STAGING_ORIGIN = "https://staging.norxcraftingmovement.com";
-const include = ["index.html", "shop.js", "assets", "cart", "home-terrain", "woven-stride", "community", "pay"]; // no events/, no admin/
+const include = ["index.html", "shop.js", "assets", "cart", "home-terrain", "woven-stride", "community", "help", "pay"]; // no events/, no admin/
 const banner = '<div role="status" style="position:sticky;top:0;z-index:99999;background:#b04922;color:#fff;font:700 14px/1.4 system-ui,sans-serif;padding:8px 12px;text-align:center">STAGING · ระบบทดสอบ ข้อมูลสมมติเท่านั้น — ห้ามโอนเงินจริง</div>';
 const walk = (d) => readdirSync(d).flatMap((f) => (statSync(join(d, f)).isDirectory() ? walk(join(d, f)) : [join(d, f)]));
 const REAL_QR_FILE = "qr.jpg"; // static QR of the real receiving account; production only

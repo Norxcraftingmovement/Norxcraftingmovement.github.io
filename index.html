@@ -75,6 +75,16 @@ img{display:block;width:100%;object-fit:cover}
 .product-cta{display:inline-flex;align-items:center;margin-top:10px;padding:9px 11px;min-height:44px;font-size:12px;line-height:1.35;background:var(--action);color:var(--paper);font-weight:700}.card:hover .product-cta{background:var(--action-hover)}
 .card:hover img,.tile:hover img{transform:scale(1.025)}
 .notice{margin:28px 0 0;font-size:12px;line-height:1.7;color:#4d4a42;border-left:2px solid var(--ink);padding:2px 0 2px 14px;max-width:640px}
+.trust{background:var(--stone);padding:34px 5.6vw 36px}
+.trust h2.mono{margin:0 0 18px;color:#58554c}
+.trust-list{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:0 28px}
+.trust-list li{border-top:1px solid var(--ink);padding:14px 0 4px;display:flex;flex-direction:column;gap:6px}
+.trust-list .mono{color:#8a877d}
+.trust-list b{font-size:15px;letter-spacing:-.01em}
+.trust-list li>span:last-child{font-size:13px;line-height:1.6;color:#4d4a42}
+.trust-link{display:inline-flex;align-items:center;gap:6px;margin-top:20px;min-height:44px;font-size:13px;font-weight:700;border-bottom:1px solid var(--ink)}
+@media(max-width:860px){.trust-list{grid-template-columns:repeat(2,minmax(0,1fr));row-gap:14px}}
+@media(max-width:480px){.trust{padding:28px 18px 30px}.trust-list{grid-template-columns:1fr;row-gap:4px}}
 .notice a{text-decoration:underline;text-underline-offset:3px}
 .movement{background:var(--paper);color:var(--ink);padding:58px 5.6vw 65px;border-top:1px solid #cfc9bc}
 .movement .section-head p{color:#58554c}
@@ -311,6 +321,17 @@ a.tile:focus-visible{outline:3px solid #b04922;outline-offset:3px}
  <p class="notice">รับเองไม่มีค่าส่ง · จัดส่งคิดค่าส่งครั้งเดียวต่อออเดอร์ แม้ซื้อหลายรุ่น<br>ส่งชื่อและสลิปยืนยันโอนทางแชทเพจ <a href="https://www.facebook.com/profile.php?id=61587303667289" target="_blank" rel="noopener noreferrer">NORX : Crafting Movement</a> เท่านั้น</p>
 </section>
 
+<section class="trust" id="how-to-order" aria-labelledby="trust-title">
+ <h2 class="mono" id="trust-title">HOW PREORDER WORKS</h2>
+ <ul class="trust-list">
+  <li><span class="mono">01</span><b>ผลิตตามจำนวนสั่ง</b><span>เปิดรับเป็นรอบ ผลิตเท่าที่สั่งจริง</span></li>
+  <li><span class="mono">02</span><b>ตะกร้าเดียว โอนครั้งเดียว</b><span>สั่งรวมหลายรุ่นได้ในออเดอร์เดียว</span></li>
+  <li><span class="mono">03</span><b>รับเองไม่มีค่าส่ง</b><span>จัดส่งคิดค่าส่งครั้งเดียวต่อออเดอร์</span></li>
+  <li><span class="mono">04</span><b>ยืนยันผ่านแชทเพจ</b><span>ส่งชื่อและสลิปทางแชทเพจ NORX เท่านั้น</span></li>
+ </ul>
+ <a class="trust-link" href="help/" data-internal>วิธีสั่งซื้อ ไซส์ และเงื่อนไขทั้งหมด <svg class="arrow-icon" viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 13 13 3M5 3h8v8"/></svg></a>
+</section>
+
 <section class="movement" id="movement">
  <div class="section-head"><div><span class="mono">02 / MOVEMENT</span><h2>THE WAY<br>WE MOVE.</h2></div><p>FROM THE ROAD TO THE TRAIL.<br>Find your pace, find your people.</p></div>
  <div class="cards">
@@ -348,7 +369,7 @@ d.addEventListener('touchend',e=>{if(x0===null)return;const dx=e.changedTouches[
 </main>
 <footer class="footer">
  <div><img src="assets/logo.png" width="66" height="60" alt="NORX" loading="lazy"><div class="mono" style="margin-top:12px">ROOTED IN CHIANG RAI, THAILAND</div></div>
- <nav class="foot-links" aria-label="ลิงก์ท้ายเว็บ"><a href="#collections">SHOP</a><a href="events/" data-internal>EVENTS</a><a href="community/">COMMUNITY</a><a href="https://www.instagram.com/norx.craftingmovement/" target="_blank" rel="noopener noreferrer">INSTAGRAM <svg class="arrow-icon" viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 13 13 3M5 3h8v8"/></svg></a><a href="https://www.facebook.com/profile.php?id=61587303667289" target="_blank" rel="noopener noreferrer">FACEBOOK <svg class="arrow-icon" viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 13 13 3M5 3h8v8"/></svg></a></nav>
+ <nav class="foot-links" aria-label="ลิงก์ท้ายเว็บ"><a href="#collections">SHOP</a><a href="events/" data-internal>EVENTS</a><a href="community/">COMMUNITY</a><a href="help/" data-internal>HELP</a><a href="https://www.instagram.com/norx.craftingmovement/" target="_blank" rel="noopener noreferrer">INSTAGRAM <svg class="arrow-icon" viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 13 13 3M5 3h8v8"/></svg></a><a href="https://www.facebook.com/profile.php?id=61587303667289" target="_blank" rel="noopener noreferrer">FACEBOOK <svg class="arrow-icon" viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 13 13 3M5 3h8v8"/></svg></a></nav>
  <p>สั่งเสื้อ: ยืนยันโอนผ่านชื่อและสลิปทางแชทเพจเท่านั้น<br>ROAD · TRAIL · COMMUNITY</p>
 </footer>
 <script>window.NORX_API="https://script.google.com/macros/s/AKfycbz49Ej8QbkVwYSyVrsx_jMUPjRWc18wd1t83gyuo21Rsb8kn4_JOJ9KUxFo3xkS5Efyfw/exec";window.NORX_PAGE={"root":"./"};</script>
